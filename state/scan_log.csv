@@ -1,0 +1,6 @@
+run_utc,bar,symbol,setup,direction,score,alerted
+2026-10-27T22:57:04.092010+00:00,2026-10-27,KNSA,breakout,long,80,True
+2026-10-27T22:57:04.092010+00:00,2026-10-27,VLO,pullback,long,75,True
+2026-10-27T22:57:04.092010+00:00,2026-10-27,INTA,pullback,long,60,False
+2026-10-27T22:57:04.092010+00:00,2026-10-27,IXI.L,breakout,long,71,True
+2026-10-27T22:57:04.092010+00:00,2026-10-27,EWGL.XC,breakout,long,57,False
