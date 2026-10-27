@@ -1,0 +1,156 @@
+# Setup Scanner Bot settings
+# Lines starting with # are notes. Change a value, save the file, and run the bot again.
+
+[account]
+size = 5000                 # account size; paper trading starts from this
+currency = "GBP"            # GBP, USD or EUR
+risk_per_trade_pct = 1.0    # % of the account lost if a stop is hit. Keep it at 1 or less.
+max_position_pct = 25       # never put more than this % of the account into one position
+fractional_units = true     # true if your broker sells fractions of a share (Trading 212 does)
+
+[scan]
+interval = "1d"             # "1d" = daily bars (recommended), "1h" = hourly
+history = "2y"              # how much price history each scan loads
+alert_min_score = 70        # only message you about setups scoring at least this
+strong_score = 80           # setups at or above this are labelled STRONG
+allow_shorts = false        # true also looks for falling-market setups (needs a spread bet, CFD or margin account)
+earnings_warning_days = 7   # flag shares that report earnings within this many days
+daily_summary = true        # send a short "scan done" message every run
+
+[setups]
+breakout_lookback = 55        # breakout = a close above the highest high of this many bars
+breakout_exit_lookback = 20   # breakout trades trail their stop under the lowest low of this many bars
+breakout_stop_atr = 2.0       # first stop for breakouts, in ATRs below the entry
+pullback_rsi2_entry = 10      # pullback = RSI(2) closing under this while above the 200-day average
+pullback_stop_atr = 2.5       # stop for pullbacks, in ATRs below the entry
+pullback_max_hold_bars = 10   # pullback trades close after this many bars at most
+target_r = 2.0                # reference target shown in alerts, in multiples of the risk
+volume_surge = 1.5            # "heavy volume" = at least this many times the 20-bar average
+adx_trending = 20             # ADX at or above this counts as a trending market
+squeeze_pctile = 0.25         # squeeze = Bollinger width in the narrowest 25% of the last 6 months
+overextended_atr = 3.0        # breakouts this many ATRs above the 20-day average lose points
+
+[paper]
+enabled = true              # paper-trade strong alerts automatically (no real money)
+min_score = 70              # only paper-trade setups scoring at least this
+max_open_positions = 8      # at most this many paper trades at once
+
+[backtest]
+history = "10y"             # how far back to test
+cost_per_side_pct = 0.1     # spread + fees + slippage on each buy and each sell, in %
+min_score = 0               # 0 tests every signal so you can compare score bands
+in_sample_share = 0.7       # results are split into the first 70% and the last 30% of the period
+
+[telegram]
+# Paste your bot token and chat ID here if you run the bot on your own computer.
+# On GitHub, leave these empty and add TELEGRAM_TOKEN and TELEGRAM_CHAT_ID as repository secrets.
+token = ""
+chat_id = ""
+
+[leaders]
+top_n = 5                   # weekly momentum ranking: how many to list
+send_on_weekday = 0         # 0 = Monday ... 6 = Sunday; -1 turns it off
+
+[movers]
+# Each scan also checks Yahoo Finance's lists of the day's most traded shares, biggest risers and
+# biggest fallers (like the "most volatile" and "top movers" lists in trading apps).
+# They must pass exactly the same rules as your watchlist: being on a list earns no points.
+enabled = true
+us_lists = ["most_actives", "day_gainers", "day_losers"]   # also: "small_cap_gainers", "most_shorted_stocks"
+uk = true                   # the biggest London-listed movers too (companies worth over £1bn)
+per_list = 10               # how many from each list
+min_price_usd = 5           # skip US shares under $5 (penny stocks)
+us_benchmark = "SPY"
+uk_benchmark = "^FTSE"
+
+[news]
+enabled = true              # add the latest headlines to every alert
+headlines = 3               # how many headlines per alert
+max_age_hours = 72          # ignore stories older than this
+event_warning_days = 2      # warn in alerts when a big event is this many days away or less
+yahoo_calendar = true       # also look up big US and UK releases on Yahoo's economic calendar
+timezone = "Europe/London"  # times are shown in this time zone
+# Big scheduled events (UK time). Add your own; the bot warns you when one is near.
+events = [
+  { date = "2026-10-28", name = "UK Autumn Budget" },
+  { date = "2026-10-28", time = "18:00", name = "US Fed interest rate decision" },
+  { date = "2026-11-03", name = "US midterm elections" },
+  { date = "2026-11-05", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2026-11-06", time = "13:30", name = "US jobs report" },
+  { date = "2026-11-10", time = "13:30", name = "US inflation (CPI)" },
+  { date = "2026-12-04", time = "13:30", name = "US jobs report" },
+  { date = "2026-12-09", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2026-12-10", time = "13:30", name = "US inflation (CPI)" },
+  { date = "2026-12-17", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-01-27", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-02-04", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-03-17", time = "18:00", name = "US Fed interest rate decision" },
+  { date = "2027-03-18", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-04-28", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-04-29", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-06-09", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-06-17", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-07-28", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-07-29", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-09-15", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-09-16", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-10-27", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-11-04", time = "12:00", name = "Bank of England rate decision" },
+  { date = "2027-12-08", time = "19:00", name = "US Fed interest rate decision" },
+  { date = "2027-12-16", time = "12:00", name = "Bank of England rate decision" },
+]
+
+[watch]
+# "python bot.py watch" is a quick check during market hours (the GitHub schedule runs it every 30 minutes).
+big_move_pct = 3            # flag any market 3% or more away from yesterday's close
+big_move_atr = 2.5          # ...or moving more than 2.5x a normal day for that market
+breakouts_in_progress = true  # flag breakouts happening during the day (confirmed only at the close)
+stop_warnings = true        # tell you when a paper trade's stop is hit during the day
+held_news = true            # send new headlines on markets the paper account holds
+
+[history]
+enabled = true              # add each setup's own past record on that market to its alert
+period = "10y"              # how far back to look
+min_trades = 5              # below this many past signals, the alert says "too few to judge"
+
+[timemachine]
+# Every alert replays the trade 10,000 times, drawing real daily bars from that market's own last
+# two years, and runs the same stop and exit rules: how often it made money, hit the stop, average R.
+enabled = true
+replays = 10000
+horizon_bars = 60           # follow each replay for up to 60 trading days
+lookback_bars = 504         # draw from the last two years of daily bars
+seed = 19                   # same seed = same answer every time
+
+[risk]
+# Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
+daily_loss_limit_pct = 2    # no new trades once today's closed losses reach 2% of the account
+weekly_loss_limit_pct = 5   # ...or this week's reach 5%
+max_open_risk_pct = 5       # total at risk across all open trades
+max_new_trades_per_day = 3
+min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
+
+# ---------------- Watchlist ----------------
+# These are liquid example markets, not picks. Replace them with what you want to watch.
+# Each group has a benchmark for the "market trend" and "beating the market" checks.
+# Yahoo Finance symbols: US shares like AAPL; London shares end in .L (priced in pence);
+# crypto like BTC-USD; currency pairs like GBPUSD=X; gold futures GC=F; indexes start with ^.
+# Exchange data for crypto (needs ccxt installed): "kraken:BTC/GBP".
+
+[groups.us]
+benchmark = "SPY"
+symbols = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM"]
+
+[groups.uk]
+benchmark = "^FTSE"
+symbols = ["ISF.L", "AZN.L", "SHEL.L", "HSBA.L", "ULVR.L", "RR.L", "BARC.L", "BP.L"]
+
+[groups.crypto]
+benchmark = "BTC-USD"
+symbols = ["BTC-USD", "ETH-USD", "SOL-USD"]
+
+[groups.popular]
+# Gold, silver, Brent oil, the S&P 500, Nasdaq 100 and FTSE 100 indexes, and two currency pairs.
+# Indexes can't be bought directly: trade them through an ETF (like ISF.L or SPY) or a spread bet.
+benchmark = ""
+symbols = ["GC=F", "SI=F", "BZ=F", "^GSPC", "^NDX", "^FTSE", "GBPUSD=X", "EURUSD=X"]
