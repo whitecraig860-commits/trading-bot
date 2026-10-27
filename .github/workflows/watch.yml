@@ -1,0 +1,48 @@
+name: Market watch
+
+on:
+  schedule:
+    # Every 30 minutes, Monday to Friday, 07:07 to 21:37 UTC: from before the London open
+    # to after the US close all year round. GitHub can start scheduled runs a few minutes late.
+    - cron: "7,37 7-21 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: setup-scanner
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Quick check
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py watch
+
+      - name: Remember what was already sent
+        if: always()
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add state
+          if ! git diff --cached --quiet; then
+            git commit -m "Watch state $(date -u +%F-%H%M)"
+            git pull --rebase
+            git push
+          fi
