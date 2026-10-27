@@ -1,0 +1,48 @@
+name: Setup scanner
+
+on:
+  schedule:
+    # 00:23 UTC every day: yesterday's UK, US and crypto bars are all finished,
+    # and alerts are waiting before the London open.
+    - cron: "23 0 * * *"
+  workflow_dispatch: {}   # adds a "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write         # lets the bot save its paper-trading state back to the repo
+
+concurrency:
+  group: setup-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Scan the watchlist
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py scan
+
+      - name: Save paper-trading state
+        if: always()
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add state
+          if ! git diff --cached --quiet; then
+            git commit -m "Bot state $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
