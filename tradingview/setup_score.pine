@@ -1,0 +1,82 @@
+//@version=5
+// Setup Score: the same breakout and pullback checks as the Python bot, drawn on a TradingView chart.
+// Add it to a chart, then create an alert on "Any alert() function call" to get phone notifications.
+// Education only, not financial advice.
+indicator("Setup Score: breakout + pullback", shorttitle="Setup Score", overlay=true, max_labels_count=300)
+
+// ---- Settings (match config.toml in the Python bot) ----
+breakoutLen = input.int(55, "Breakout: close above the highest high of (bars)", minval=10)
+stopAtrBo   = input.float(2.0, "Breakout stop (x ATR)", step=0.25)
+rsiEntry    = input.float(10, "Pullback: RSI(2) below", step=1)
+stopAtrPb   = input.float(2.5, "Pullback stop (x ATR)", step=0.25)
+volSurge    = input.float(1.5, "Heavy volume (x 20-bar average)", step=0.1)
+adxMin      = input.float(20, "ADX counts as trending at or above", step=1)
+minScore    = input.int(70, "Alert when the score is at least", minval=0, maxval=100)
+benchSym    = input.symbol("SPY", "Benchmark", tooltip="Market trend and relative strength. SPY for US shares, an FTSE 100 symbol for UK shares, BTCUSD for crypto.")
+showLevels  = input.bool(true, "Show the 50 and 200-bar averages")
+
+// ---- Indicators ----
+sma50   = ta.sma(close, 50)
+sma200  = ta.sma(close, 200)
+ema20   = ta.ema(close, 20)
+rsi2    = ta.rsi(close, 2)
+atr14   = ta.atr(14)
+[diPlus, diMinus, adxVal] = ta.dmi(14, 14)
+basis   = ta.sma(close, 20)
+dev     = ta.stdev(close, 20)
+bbw     = 4 * dev / basis
+bbwRank = ta.percentrank(bbw, 126) / 100.0
+squeeze = ta.lowest(bbwRank[1], 10) <= 0.25
+donHi   = ta.highest(high, breakoutLen)[1]
+volAvg  = nz(ta.sma(nz(volume), 20)[1])
+hasVol  = volAvg > 0
+volOk   = hasVol and nz(volume) >= volSurge * volAvg
+aligned = sma50 > sma200 and sma200 > sma200[20]
+trendUp = close > sma200
+
+benchClose = request.security(benchSym, timeframe.period, close)
+benchSma   = request.security(benchSym, timeframe.period, ta.sma(close, 200))
+regimeUp   = benchClose > benchSma
+rsUp       = close / close[63] > benchClose / benchClose[63]
+
+// ---- Trend breakout: a fresh close above the 55-bar high, above the 200-bar average ----
+beyond    = close > donHi
+boTrig    = trendUp and beyond and not beyond[1]
+stretched = (close - ema20) / atr14 > 3
+boAvail   = 30 + 15 + (hasVol ? 15 : 0) + 15 + 10 + 10 + 10
+boRaw     = 30 + (aligned ? 15 : 0) + (volOk ? 15 : 0) + (squeeze ? 15 : 0) + (adxVal >= adxMin ? 10 : 0) + (rsUp ? 10 : 0) + (regimeUp ? 10 : 0) - (stretched ? 15 : 0)
+boScore   = math.round(math.max(0, math.min(100, 100.0 * boRaw / boAvail)))
+
+// ---- Pullback in a trend: RSI(2) dips under 10 while above the 200-bar average ----
+dipped  = rsi2 < rsiEntry
+pbTrig  = trendUp and dipped and not dipped[1]
+shock   = (close[1] - close) / atr14[1] > 3
+pbRaw   = 30 + (aligned ? 15 : 0) + (rsi2 < 5 ? 15 : 0) + (close > sma50 ? 10 : 0) + (adxVal >= adxMin ? 10 : 0) + (rsUp ? 10 : 0) + (regimeUp ? 10 : 0) - (shock ? 15 : 0)
+pbScore = math.round(math.max(0, math.min(100, pbRaw)))
+
+boAlert = boTrig and boScore >= minScore and barstate.isconfirmed
+pbAlert = pbTrig and pbScore >= minScore and barstate.isconfirmed
+
+plot(showLevels ? sma50 : na, "50-bar average", color=color.new(color.orange, 0))
+plot(showLevels ? sma200 : na, "200-bar average", color=color.new(color.blue, 0), linewidth=2)
+
+if boAlert
+    label.new(bar_index, low, "Breakout " + str.tostring(boScore), style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white, size=size.small)
+    alert("Breakout on " + syminfo.ticker + ", score " + str.tostring(boScore) + ". Entry about " + str.tostring(close, format.mintick) + ", stop " + str.tostring(close - stopAtrBo * atr14, format.mintick), alert.freq_once_per_bar_close)
+
+if pbAlert
+    label.new(bar_index, low, "Pullback " + str.tostring(pbScore), style=label.style_label_up, color=color.new(color.teal, 0), textcolor=color.white, size=size.small)
+    alert("Pullback on " + syminfo.ticker + ", score " + str.tostring(pbScore) + ". Entry about " + str.tostring(close, format.mintick) + ", stop " + str.tostring(close - stopAtrPb * atr14, format.mintick), alert.freq_once_per_bar_close)
+
+alertcondition(boAlert, "Strong breakout", "Breakout setup on {{ticker}} at {{close}}")
+alertcondition(pbAlert, "Strong pullback", "Pullback setup on {{ticker}} at {{close}}")
+
+// ---- Score panel for the latest bar ----
+var table panel = table.new(position.top_right, 2, 3, border_width=1)
+if barstate.islast
+    table.cell(panel, 0, 0, "Setup", bgcolor=color.new(color.gray, 20), text_color=color.white)
+    table.cell(panel, 1, 0, "Latest bar", bgcolor=color.new(color.gray, 20), text_color=color.white)
+    table.cell(panel, 0, 1, "Breakout")
+    table.cell(panel, 1, 1, boTrig ? str.tostring(boScore) + "/100" : "no signal")
+    table.cell(panel, 0, 2, "Pullback")
+    table.cell(panel, 1, 2, pbTrig ? str.tostring(pbScore) + "/100" : "no signal")
