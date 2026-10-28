@@ -122,6 +122,8 @@ DEFAULTS: dict = {
         "event_warning_days": 2,
         "yahoo_calendar": True,
         "timezone": "Europe/London",
+        "crypto_news": True,
+        "crypto_symbols": ["BTC-USD", "ETH-USD", "SOL-USD"],
         "events": [],
     },
     "watch": {
@@ -1314,6 +1316,51 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
     st["positions"] = keep
 
 
+def crypto_headlines(cfg: dict, n: int = 4) -> list[dict]:
+    """Newest crypto headlines from Yahoo Finance's Bitcoin, Ethereum and Solana news feeds."""
+    seen, out = set(), []
+    for sym in cfg["news"].get("crypto_symbols", ["BTC-USD", "ETH-USD"]):
+        for p in get_headlines(sym, n=8, max_age_hours=24):
+            k = p["title"].lower()
+            if k not in seen:
+                seen.add(k)
+                out.append(p)
+    out.sort(key=lambda p: p["when"] if p["when"] is not None else pd.Timestamp(0, tz="UTC"), reverse=True)
+    return out[:n]
+
+
+def recap_positions(st: dict, cfg: dict, csv_dir) -> list[str]:
+    """Rebuilds the alert for every paper trade waiting or open, so nothing is missed."""
+    out = []
+    acct = cfg["account"]["currency"]
+    for p in st["positions"]:
+        try:
+            sym = p["symbol"]
+            df, meta = get_data(sym, cfg["scan"]["interval"], cfg["scan"]["history"], csv_dir)
+            ind = add_indicators(df, cfg)
+            ccy = p.get("currency") or meta["currency"]
+            price = float(ind["Close"].iloc[-1])
+            lines = [f"<b>{'OPEN' if p['status'] == 'open' else 'WAITING TO OPEN'}: {esc(sym)}</b> · "
+                     f"{SETUP_TITLES.get(p['setup'], p['setup'])} · score {p['score']}/100",
+                     f"Signal on {p['signal_date']} at {fmt_price(float(p['signal_price']), ccy)}"]
+            if p["status"] == "open":
+                pnl = (price - float(p["entry_price"])) * float(p["units"]) * float(p.get("fx_to_account") or 1)
+                lines += [f"Bought {p['entry_date']} at {fmt_price(float(p['entry_price']), ccy)}, "
+                          f"{float(p['units']):g} units, stop now {fmt_price(float(p['stop']), ccy)}",
+                          f"Now {fmt_price(price, ccy)}: {fmt_money(pnl, acct)} so far (not counted until it closes)"]
+            else:
+                risk = stop_multiple(p["setup"], cfg) * float(p["atr_at_signal"])
+                lines.append(f"Buys at the next open; stop about {fmt_price(float(p['signal_price']) - risk, ccy)} "
+                             f"({stop_multiple(p['setup'], cfg):g} x ATR below the entry)")
+            heads = headline_lines(get_headlines(sym, 2, 72)) if cfg["news"].get("enabled", True) else []
+            if heads:
+                lines += ["Latest news:"] + heads
+            out.append("\n".join(lines))
+        except Exception as exc:
+            out.append(f"{esc(p.get('symbol', '?'))}: couldn't rebuild this alert ({esc(exc)})")
+    return out
+
+
 def event_relevant(ev: dict, sym: str) -> bool:
     """US events move every market; UK events mainly move UK shares and the pound."""
     if ev.get("region") != "GB":
@@ -1482,10 +1529,21 @@ def cmd_scan(cfg: dict, args) -> int:
                 if not is_mover:
                     errors.append(f"{sym} ({exc})")
 
+    if not st.get("recap_v1") and st["positions"]:
+        recap = recap_positions(st, cfg, args.csv_dir)
+        if recap:
+            send_telegram(cfg, "<b>Your paper trades so far</b> (resent so you haven't missed any)", args)
+            for text in recap:
+                send_telegram(cfg, text, args)
+    st["recap_v1"] = True
     for text in alerts:
         send_telegram(cfg, text, args)
     if msgs:
         send_telegram(cfg, "\n".join(msgs), args)
+    if news_on and cfg["news"].get("crypto_news", True) and not getattr(args, "symbols", None):
+        ch = crypto_headlines(cfg, 4)
+        if ch:
+            send_telegram(cfg, "\n".join(["<b>Crypto news</b> (last 24 hours)"] + headline_lines(ch)), args)
 
     # Weekly momentum leaders
     wd = int(cfg["leaders"].get("send_on_weekday", 0))
@@ -2139,6 +2197,8 @@ def cmd_news(cfg: dict, args) -> int:
     else:
         lines.append("<b>Market headlines</b> (last 24 hours)")
         lines += headline_lines(market_headlines(6, 24)) or ["None found just now."]
+        lines += ["", "<b>Crypto news</b> (last 24 hours)"]
+        lines += headline_lines(crypto_headlines(cfg, 5)) or ["None found just now."]
         lines += ["", "<b>Big events, next 7 days</b> (UK time)"]
         lines += [esc(event_text(e)) for e in upcoming_events(cfg, 7)] or ["None found."]
     output(cfg, "\n".join(lines).strip(), args)
@@ -2151,6 +2211,17 @@ def cmd_events(cfg: dict, args) -> int:
     lines += [esc(event_text(e)) for e in evs] or ["None found."]
     lines.append("<i>Prices can jump on these days. Alerts warn you when one is close.</i>")
     output(cfg, "\n".join(lines), args)
+    return 0
+
+
+def cmd_resend(cfg: dict, args) -> int:
+    st = load_state(cfg)
+    texts = recap_positions(st, cfg, args.csv_dir)
+    if not texts:
+        print("No paper trades waiting or open.")
+        return 0
+    for t in texts:
+        send_telegram(cfg, t, args)
     return 0
 
 
@@ -2180,7 +2251,7 @@ def cmd_timemachine(cfg: dict, args) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan for trading setups, send alerts, paper-trade, backtest.")
     parser.add_argument("command", choices=["scan", "watch", "movers", "volatile", "news", "events",
-                                            "timemachine", "backtest", "status", "leaders", "test-telegram"])
+                                            "timemachine", "resend", "backtest", "status", "leaders", "test-telegram"])
     parser.add_argument("--config", default=str(BASE_DIR / "config.toml"), help="settings file (default: config.toml)")
     parser.add_argument("--symbols", help="comma-separated symbols to use instead of the watchlist")
     parser.add_argument("--benchmark", default="", help="benchmark symbol to use with --symbols")
@@ -2200,6 +2271,7 @@ def main(argv: list[str] | None = None) -> int:
         "news": cmd_news,
         "events": cmd_events,
         "timemachine": cmd_timemachine,
+        "resend": cmd_resend,
         "backtest": cmd_backtest,
         "status": cmd_status,
         "leaders": cmd_leaders,
