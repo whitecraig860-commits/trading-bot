@@ -14,3 +14,7 @@ run_utc,bar,symbol,setup,direction,score,alerted
 2026-10-28T05:56:45.336940+00:00,2026-10-27,INTA,pullback,long,70,True
 2026-10-28T05:56:45.336940+00:00,2026-10-26,ROCK.L,pullback,long,70,True
 2026-10-28T05:56:45.336940+00:00,2026-10-26,PRO.L,breakout,long,57,False
+2026-10-28T14:33:26.461983+00:00,2026-10-27,EDU,pullback,long,65,False
+2026-10-28T14:33:26.461983+00:00,2026-10-27,IXI.L,breakout,long,65,False
+2026-10-28T14:33:26.461983+00:00,2026-10-27,KNSA,breakout,long,88,False
+2026-10-28T14:33:26.461983+00:00,2026-10-27,VLO,pullback,long,69,False
