@@ -70,6 +70,8 @@ max_age_hours = 72          # ignore stories older than this
 event_warning_days = 2      # warn in alerts when a big event is this many days away or less
 yahoo_calendar = true       # also look up big US and UK releases on Yahoo's economic calendar
 timezone = "Europe/London"  # times are shown in this time zone
+crypto_news = true          # send the day's top crypto headlines with each nightly scan
+crypto_symbols = ["BTC-USD", "ETH-USD", "SOL-USD"]
 # Big scheduled events (UK time). Add your own; the bot warns you when one is near.
 events = [
   { date = "2026-10-28", name = "UK Autumn Budget" },
@@ -129,6 +131,32 @@ weekly_loss_limit_pct = 5   # ...or this week's reach 5%
 max_open_risk_pct = 5       # total at risk across all open trades
 max_new_trades_per_day = 3
 min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
+
+[scalper]
+# The 0DTE options day-trader (scalper.py). PAPER ONLY: it is hard-wired to Alpaca's paper account.
+# Alpaca keys go in GitHub secrets ALPACA_KEY and ALPACA_SECRET (or in alpaca_key / alpaca_secret here
+# if you run it on your own computer).
+enabled = true
+symbols = ["SPY", "QQQ", "IWM"]   # one "worker" each
+account_size = 5000         # sizes trades as if the account were this big (Alpaca paper starts at $100,000)
+risk_per_trade_pct = 1.0    # loss if an option's stop is hit
+max_premium_pct = 10        # never spend more than 10% of account_size on one trade
+triggers = ["vwap", "ema50", "orb"]
+require_confluence = true   # calls only when price is above VWAP AND the 50 EMA; puts below both
+first_entry = "09:45"       # New York time (14:45 UK most of the year)
+last_entry = "15:00"
+flat_by = "15:50"           # everything sold by then: 0DTE options expire worthless at the close
+stop_loss_pct = 30
+take_profit_pct = 50
+trail_after_pct = 25
+trail_giveback_pct = 15
+max_hold_minutes = 30
+max_trades_per_day = 6
+max_open_positions = 2
+daily_loss_limit_pct = 2    # stops for the day after losing 2% of account_size
+cooldown_minutes = 10
+max_spread_pct = 10
+event_blackout_minutes = 30 # no new trades 30 min either side of Fed, jobs and inflation releases
 
 # ---------------- Watchlist ----------------
 # These are liquid example markets, not picks. Replace them with what you want to watch.
