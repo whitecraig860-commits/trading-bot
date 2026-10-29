@@ -1,0 +1,86 @@
+{
+ "date": "2026-10-29",
+ "trades": [
+  {
+   "worker": "SPY",
+   "side": "call",
+   "contract": "SPY261029C00770000",
+   "qty": 1,
+   "entry_price": 1.36,
+   "entry_time": "2026-10-29 11:48:04.642807-04:00",
+   "why": "closed above the 50 EMA",
+   "order_id": "a102360a-d0d0-49f8-b17a-7e536124afd7",
+   "best": 1.55,
+   "exit_price": 0.94,
+   "exit_time": "2026-10-29 12:12:38.490557-04:00",
+   "exit_reason": "stop loss (-31%)",
+   "pnl": -42.000000000000014,
+   "status": "closed"
+  },
+  {
+   "worker": "IWM",
+   "side": "call",
+   "contract": "IWM261029C00285000",
+   "qty": 3,
+   "entry_price": 0.44,
+   "entry_time": "2026-10-29 11:48:04.642807-04:00",
+   "why": "closed above the 50 EMA",
+   "order_id": "3bc80785-945e-477d-9284-7834c232c643",
+   "best": 0.44,
+   "exit_price": 0.3,
+   "exit_time": "2026-10-29 11:49:53.116038-04:00",
+   "exit_reason": "stop loss (-32%)",
+   "pnl": -42.00000000000001,
+   "status": "closed"
+  },
+  {
+   "worker": "IWM",
+   "side": "call",
+   "contract": "IWM261029C00285000",
+   "qty": 5,
+   "entry_price": 0.28,
+   "entry_time": "2026-10-29 12:21:06.276827-04:00",
+   "why": "closed above the 50 EMA",
+   "order_id": "8fbc79c6-6226-47ec-b860-7dc13a4a4295",
+   "best": 0.32,
+   "exit_price": 0.16,
+   "exit_time": "2026-10-29 12:33:32.253941-04:00",
+   "exit_reason": "stop loss (-43%)",
+   "pnl": -60.00000000000001,
+   "status": "closed"
+  },
+  {
+   "worker": "SPY",
+   "side": "put",
+   "contract": "SPY261029P00769000",
+   "qty": 1,
+   "entry_price": 1.32,
+   "entry_time": "2026-10-29 12:25:14.851350-04:00",
+   "why": "closed below VWAP",
+   "order_id": "db22080b-3252-47d4-acae-6273ad37ae5a",
+   "best": 1.32,
+   "exit_price": 1.27,
+   "exit_time": "2026-10-29 12:26:02.549319-04:00",
+   "exit_reason": "price closed back across VWAP",
+   "pnl": -5.000000000000004,
+   "status": "closed"
+  }
+ ],
+ "orb_used": {
+  "_limit_said": [
+   "yes"
+  ],
+  "_done": [
+   "yes"
+  ]
+ },
+ "last_exit": {
+  "IWM": "2026-10-29 12:33:32.253941-04:00",
+  "SPY": "2026-10-29 12:26:02.549319-04:00"
+ },
+ "seen_bar": {
+  "SPY": "2026-10-29 12:32:00-04:00",
+  "QQQ": "2026-10-29 12:32:00-04:00",
+  "IWM": "2026-10-29 12:20:00-04:00"
+ }
+}
