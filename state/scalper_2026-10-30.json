@@ -1,0 +1,34 @@
+{
+ "date": "2026-10-30",
+ "trades": [
+  {
+   "worker": "SPY",
+   "side": "put",
+   "contract": "SPY261030P00752000",
+   "qty": 1,
+   "entry_price": 1.58,
+   "entry_time": "2026-10-30 15:01:12.364730-04:00",
+   "why": "closed below the 50 EMA",
+   "order_id": "7f640d9d-ffd0-45de-833d-9cb49e921132",
+   "best": 1.58,
+   "exit_price": 1.1,
+   "exit_time": "2026-10-30 15:06:53.675117-04:00",
+   "exit_reason": "stop loss (-30%)",
+   "pnl": -48.0,
+   "status": "closed"
+  }
+ ],
+ "orb_used": {
+  "_done": [
+   "yes"
+  ]
+ },
+ "last_exit": {
+  "SPY": "2026-10-30 15:06:53.675117-04:00"
+ },
+ "seen_bar": {
+  "SPY": "2026-10-30 15:48:00-04:00",
+  "QQQ": "2026-10-30 15:48:00-04:00",
+  "IWM": "2026-10-30 15:48:00-04:00"
+ }
+}
