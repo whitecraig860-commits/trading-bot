@@ -12,6 +12,8 @@ setup automatically so you can see whether it works before risking money.
   python bot.py movers           today's most active, biggest risers and fallers, checked
   python bot.py volatile         the most volatile markets right now
   python bot.py news             market headlines and big events coming up (--symbols for one)
+  python bot.py analyse          read the market: trend, momentum, fear, breadth, long or short
+  python bot.py insiders         fetch company insiders' share purchases from the SEC (to copy)
   python bot.py events           big scheduled events: rate decisions, inflation, jobs
   python bot.py timemachine --symbols AAPL   replay a trade 10,000 times from its own bars
   python bot.py backtest         test the setups on years of past prices
@@ -36,6 +38,7 @@ import os
 import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +60,7 @@ INTRADAY = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "4h"}
 SETUP_TITLES = {
     "breakout": "Trend breakout",
     "pullback": "Pullback in a trend",
+    "copy": "Copy the insiders",
 }
 
 # ---------------------------------------------------------------------------
@@ -92,6 +96,8 @@ DEFAULTS: dict = {
         "adx_trending": 20.0,
         "squeeze_pctile": 0.25,
         "overextended_atr": 3.0,
+        "copy_stop_atr": 3.0,
+        "copy_max_hold_bars": 63,
     },
     "paper": {
         "enabled": True,
@@ -141,6 +147,33 @@ DEFAULTS: dict = {
         "max_open_risk_pct": 5.0,
         "max_new_trades_per_day": 3,
         "min_replay_avg_r": -1.0,
+    },
+    "analysis": {
+        "enabled": True,
+        "send_with_scan": True,
+        "markets": ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"],
+        "fear_gauge": "^VIX",
+    },
+    "copy": {
+        "enabled": True,
+        "sec_user_agent": "",
+        "fetch_days": 5,
+        "max_filings_per_run": 6000,
+        "keep_days": 120,
+        "cluster_days": 30,
+        "max_signal_age_days": 7,
+        "min_buy_usd": 10000,
+        "min_total_usd": 50000,
+        "big_buy_usd": 100000,
+        "big_total_usd": 250000,
+        "min_insiders": 2,
+        "skip_planned": True,
+        "include_big_holders": False,
+        "min_price_usd": 5.0,
+        "min_dollar_volume": 1000000,
+        "max_chase_pct": 15,
+        "block_chase_pct": 30,
+        "benchmark": "SPY",
     },
     "groups": {
         "us": {"benchmark": "SPY", "symbols": ["SPY", "QQQ", "AAPL", "MSFT", "NVDA"]},
@@ -728,6 +761,492 @@ def event_text(ev: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Copy the insiders: directors and bosses buying their own company's shares
+# ---------------------------------------------------------------------------
+# By US law, company insiders must report every trade in their own company's shares to the SEC
+# within two business days (Form 4). Purchases on the open market with their own money are the
+# trades worth copying: studies have found they are followed by better-than-market returns over the
+# next months, most clearly when several insiders buy together, when the CEO or CFO buys, and when
+# the purchase is not part of a pre-arranged (10b5-1) plan. Insider SALES say much less (people sell
+# for tax, houses and diversification), so the bot ignores them.
+
+SEC_ARCHIVES = "https://www.sec.gov/Archives/"
+_SEC_LAST = [0.0]
+TOP_TITLES = re.compile(r"\b(CEO|CFO|COO|PRESIDENT|CHIEF EXECUTIVE|CHIEF FINANCIAL|CHIEF OPERATING|CHAIR)", re.I)
+
+
+def sec_user_agent(cfg: dict) -> str:
+    ua = os.environ.get("SEC_USER_AGENT") or str(cfg.get("copy", {}).get("sec_user_agent", "") or "")
+    return ua.strip() or "setup-scanner-bot/1.0 personal-research"
+
+
+def sec_get(url: str, cfg: dict, timeout: float = 30) -> str:
+    """One SEC download, kept under the SEC's limit of 10 requests a second."""
+    import requests
+
+    err = None
+    for attempt in range(4):
+        wait = 0.125 - (time.time() - _SEC_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _SEC_LAST[0] = time.time()
+        try:
+            r = requests.get(url, headers={"User-Agent": sec_user_agent(cfg)}, timeout=timeout)
+        except Exception as exc:
+            err = exc
+            time.sleep(2 * (attempt + 1))
+            continue
+        if r.status_code == 200:
+            return r.text
+        if r.status_code == 404:
+            raise FileNotFoundError(url)
+        if r.status_code == 403:
+            raise RuntimeError("the SEC refused the request (403). Put your name and email in copy.sec_user_agent "
+                               "or the SEC_USER_AGENT secret, e.g. \"Jane Smith jane@example.com\"")
+        err = f"HTTP {r.status_code}"
+        time.sleep(3 * (attempt + 1))
+    raise RuntimeError(f"SEC download failed ({err})")
+
+
+def parse_form_index(text: str) -> list[dict]:
+    """EDGAR's daily form index: Form 4 filings only, one row per filing."""
+    out, seen, started = [], set(), False
+    for line in text.splitlines():
+        if not started:
+            started = line.startswith("-----")
+            continue
+        parts = line.split()
+        if len(parts) < 5 or parts[0] != "4":  # "4/A" amendments are skipped
+            continue
+        path = parts[-1]
+        if path in seen:  # each filing is listed under the company and under the insider
+            continue
+        seen.add(path)
+        out.append({"cik": parts[-3], "filed": parts[-2], "path": path})
+    return out
+
+
+def _xv(node, path: str) -> str:
+    el = node.find(path) if node is not None else None
+    if el is None:
+        return ""
+    v = el.find("value")
+    return ((v.text if v is not None else el.text) or "").strip()
+
+
+def _truthy(x: str) -> bool:
+    return x.strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _num(x: str) -> float:
+    try:
+        return float(x.replace(",", ""))
+    except Exception:
+        return float("nan")
+
+
+def yahoo_symbol(raw: str) -> str:
+    s = re.split(r"[\s,;]+", (raw or "").strip().upper())[0] if raw else ""
+    s = s.replace(".", "-").replace("/", "-")
+    if s in {"", "NONE", "NA", "N-A"} or not re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", s):
+        return ""
+    return s
+
+
+def parse_form4(text: str, filed: str = "", path: str = "") -> dict | None:
+    """The open-market purchases in one Form 4 filing, added up. None if there are none."""
+    m = re.search(r"<ownershipDocument>.*?</ownershipDocument>", text, re.S)
+    if not m:
+        return None
+    try:
+        root = ET.fromstring(m.group(0))
+    except ET.ParseError:
+        return None
+    sym = yahoo_symbol(_xv(root, "issuer/issuerTradingSymbol"))
+    if not sym:
+        return None
+    shares = value = 0.0
+    after = 0.0
+    dates = []
+    for t in root.findall("nonDerivativeTable/nonDerivativeTransaction"):
+        if _xv(t, "transactionCoding/transactionCode") != "P":  # P = bought on the open market
+            continue
+        if _xv(t, "transactionAmounts/transactionAcquiredDisposedCode") not in {"A", ""}:
+            continue
+        n = _num(_xv(t, "transactionAmounts/transactionShares"))
+        px = _num(_xv(t, "transactionAmounts/transactionPricePerShare"))
+        if not (np.isfinite(n) and np.isfinite(px) and n > 0 and px > 0):
+            continue
+        shares += n
+        value += n * px
+        own = _num(_xv(t, "postTransactionAmounts/sharesOwnedFollowingTransaction"))
+        if np.isfinite(own):
+            after = max(after, own)
+        d = _xv(t, "transactionDate")
+        if d:
+            dates.append(d[:10])
+    if shares <= 0:
+        return None
+    owners = root.findall("reportingOwner")
+    names, titles = [], []
+    director = officer = ten_pct = False
+    owner_id = ""
+    for o in owners:
+        nm = _xv(o, "reportingOwnerId/rptOwnerName")
+        owner_id = owner_id or _xv(o, "reportingOwnerId/rptOwnerCik") or nm
+        names.append(nm)
+        rel = o.find("reportingOwnerRelationship")
+        director |= _truthy(_xv(rel, "isDirector"))
+        officer |= _truthy(_xv(rel, "isOfficer"))
+        ten_pct |= _truthy(_xv(rel, "isTenPercentOwner"))
+        title = _xv(rel, "officerTitle")
+        if title:
+            titles.append(title)
+    before = after - shares
+    increase = (shares / before * 100.0) if before > 0 else 100.0
+    if filed and re.fullmatch(r"\d{8}", filed):
+        filed = f"{filed[:4]}-{filed[4:6]}-{filed[6:]}"
+    return {
+        "symbol": sym,
+        "issuer": _xv(root, "issuer/issuerName"),
+        "owner": " / ".join(n for n in names if n)[:80],
+        "owner_id": owner_id,
+        "title": ", ".join(titles)[:60] or ("Director" if director else ("10% owner" if ten_pct else "")),
+        "director": director,
+        "officer": officer,
+        "ten_pct": ten_pct,
+        "top": bool(TOP_TITLES.search(" ".join(titles))),
+        "plan": _truthy(_xv(root, "aff10b5One")),  # ticked when the trade was pre-arranged under a 10b5-1 plan
+        "shares": shares,
+        "value": value,
+        "avg_price": value / shares,
+        "increase_pct": min(increase, 1000.0),
+        "trade_date": min(dates) if dates else filed,
+        "filed": filed,
+        "path": path,
+    }
+
+
+def insiders_path() -> Path:
+    return STATE_DIR / "insiders.json"
+
+
+def load_insiders() -> dict:
+    p = insiders_path()
+    d: dict = {}
+    if p.exists():
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            d = {}
+    d.setdefault("days_done", [])
+    d.setdefault("partial", {})
+    d.setdefault("buys", [])
+    return d
+
+
+def save_insiders(d: dict) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = insiders_path().with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(d, fh, indent=1)
+    tmp.replace(insiders_path())
+
+
+def update_insiders(cfg: dict, days: int | None = None, log=print) -> dict:
+    """Reads every Form 4 filed on recent days that haven't been read yet, and keeps the purchases."""
+    cc = cfg["copy"]
+    st = load_insiders()
+    today = datetime.now(timezone.utc).date()
+    budget = int(cc.get("max_filings_per_run", 6000))
+    done = set(st["days_done"])
+    look = int(days or cc.get("fetch_days", 5))
+    for back in range(look, 0, -1):  # oldest first, up to yesterday (today's index isn't published yet)
+        day = today - pd.Timedelta(days=back).to_pytimedelta()
+        key = day.strftime("%Y%m%d")
+        if day.weekday() >= 5 or key in done or budget <= 0:
+            continue
+        url = f"{SEC_ARCHIVES}edgar/daily-index/{day.year}/QTR{(day.month - 1) // 3 + 1}/form.{key}.idx"
+        try:
+            entries = parse_form_index(sec_get(url, cfg))
+        except FileNotFoundError:
+            if back >= 4:  # a holiday: no filings that day
+                done.add(key)
+            continue
+        read = set(st["partial"].get(key, []))
+        todo = [e for e in entries if e["path"] not in read]
+        log(f"SEC filings for {day}: {len(todo)} Form 4s to read")
+        for n, e in enumerate(todo, 1):
+            if budget <= 0:
+                break
+            budget -= 1
+            try:
+                rec = parse_form4(sec_get(SEC_ARCHIVES + e["path"], cfg), e["filed"], e["path"])
+            except FileNotFoundError:
+                rec = None
+            except Exception as exc:
+                log(f"  stopped early: {exc}")
+                budget = 0
+                break
+            read.add(e["path"])
+            if rec:
+                st["buys"].append(rec)
+            if n % 250 == 0:
+                log(f"  {n} read, {sum(1 for b in st['buys'] if b['filed'] == f'{day}')} purchases so far")
+        if read >= {e["path"] for e in entries}:
+            done.add(key)
+            st["partial"].pop(key, None)
+        else:
+            st["partial"][key] = sorted(read)
+    cutoff = (today - pd.Timedelta(days=int(cc.get("keep_days", 120))).to_pytimedelta()).isoformat()
+    seen, buys = set(), []
+    for b in st["buys"]:
+        if b.get("filed", "") >= cutoff and b.get("path") not in seen:
+            seen.add(b.get("path"))
+            buys.append(b)
+    st["buys"] = buys
+    st["days_done"] = sorted(d for d in done if d >= cutoff.replace("-", ""))
+    st["updated"] = datetime.now(timezone.utc).isoformat()
+    save_insiders(st)
+    return st
+
+
+def insider_clusters(buys: list[dict], cfg: dict, now: datetime | None = None) -> dict[str, dict]:
+    """Shares that insiders have been buying recently, and whether the buying is strong enough to copy."""
+    cc = cfg["copy"]
+    now = now or datetime.now(timezone.utc)
+    cutoff = (now - pd.Timedelta(days=int(cc.get("cluster_days", 30)))).strftime("%Y-%m-%d")
+    by_sym: dict[str, list[dict]] = {}
+    for b in buys:
+        if b.get("filed", "") < cutoff or float(b.get("value", 0)) < float(cc.get("min_buy_usd", 10000)):
+            continue
+        if b.get("plan") and cc.get("skip_planned", True):
+            continue
+        insider = b.get("officer") or b.get("director")
+        if not insider and not (b.get("ten_pct") and cc.get("include_big_holders", False)):
+            continue
+        by_sym.setdefault(b["symbol"], []).append(b)
+    out = {}
+    for sym, bs in by_sym.items():
+        bs.sort(key=lambda b: (b["filed"], b.get("trade_date", "")))
+        who: dict[str, dict] = {}
+        total = shares = 0.0
+        first_q = None
+        for b in bs:
+            who.setdefault(b.get("owner_id") or b.get("owner"), b)
+            total += float(b["value"])
+            shares += float(b["shares"])
+            top = any(x.get("top") for x in who.values())
+            ok = total >= float(cc.get("min_total_usd", 50000)) and (
+                len(who) >= int(cc.get("min_insiders", 2)) or (top and total >= float(cc.get("big_buy_usd", 100000)))
+            )
+            if ok and first_q is None:
+                first_q = b["filed"]
+        out[sym] = {
+            "symbol": sym,
+            "issuer": bs[-1].get("issuer", ""),
+            "insiders": len(who),
+            "top": any(x.get("top") for x in who.values()),
+            "total_value": total,
+            "avg_price": total / shares if shares else float("nan"),
+            "max_increase_pct": max(float(b.get("increase_pct", 0)) for b in bs),
+            "first_trade": min(b.get("trade_date", b["filed"]) for b in bs),
+            "last_filed": bs[-1]["filed"],
+            "qualified": first_q is not None,
+            "first_qualified": first_q or "",
+            "buys": bs,
+        }
+    return out
+
+
+def insider_lines(cl: dict, n: int = 4) -> list[str]:
+    per: dict[str, dict] = {}
+    for b in cl["buys"]:
+        k = b.get("owner_id") or b.get("owner")
+        if k not in per:
+            per[k] = dict(b)
+        else:
+            per[k]["value"] = float(per[k]["value"]) + float(b["value"])
+            per[k]["trade_date"] = max(per[k]["trade_date"], b["trade_date"])
+    rows = sorted(per.values(), key=lambda b: float(b["value"]), reverse=True)
+    out = [f"• {esc(b['owner'].title())} ({esc(b['title'] or 'insider')}) bought {fmt_money(float(b['value']), 'USD')}"
+           f" at about {fmt_price(float(b['avg_price']), 'USD')} on {esc(b['trade_date'])}" for b in rows[:n]]
+    if len(rows) > n:
+        out.append(f"• and {len(rows) - n} more")
+    return out
+
+
+def copy_signal(ind: pd.DataFrame, bench: pd.DataFrame | None, cl: dict, cfg: dict, symbol: str,
+                bench_symbol: str, st: dict, now: datetime | None = None):
+    """The copy-the-insiders setup for one share: (frame, checks) like compute_signals, or None."""
+    cc = cfg["copy"]
+    now = now or datetime.now(timezone.utc)
+    if not cl.get("qualified"):
+        return None
+    fresh_from = (now - pd.Timedelta(days=int(cc.get("max_signal_age_days", 7)))).strftime("%Y-%m-%d")
+    if cl["first_qualified"] < fresh_from:
+        return None  # old news by now
+    if any(k.startswith(f"{symbol}|copy|") for k in st.get("sent", {})):
+        return None  # already sent this one
+    last = ind.iloc[-1]
+    price = float(last["Close"])
+    dollar_vol = float((ind["Close"] * ind["Volume"]).tail(20).mean())
+    if price < float(cc.get("min_price_usd", 5)) or not dollar_vol >= float(cc.get("min_dollar_volume", 1e6)):
+        return None  # too cheap or too thinly traded to copy safely
+    paid = float(cl["avg_price"])
+    chase = (price / paid - 1.0) * 100.0 if paid > 0 else 0.0
+    if chase > float(cc.get("block_chase_pct", 30)):
+        return None  # the price has already run away from what they paid
+    idx = ind.index
+    const = lambda flag: pd.Series(bool(flag), index=idx)  # noqa: E731
+    trig = pd.Series(False, index=idx)
+    trig.iloc[-1] = True
+    use_bench = bench is not None and bench_symbol and bench_symbol.upper() != symbol.upper()
+    checks = [
+        Check("cluster", f"{cl['insiders']} different insiders bought", const(cl["insiders"] >= 3), 15),
+        Check("top", "the CEO, CFO, President or Chair bought", const(cl["top"]), 15),
+        Check("size", f"they spent {fmt_money(cl['total_value'], 'USD')} of their own money",
+              const(cl["total_value"] >= float(cc.get("big_total_usd", 250000))), 10),
+        Check("stake", f"raised their own stake by up to {cl['max_increase_pct']:.0f}%", const(cl["max_increase_pct"] >= 10), 10),
+        Check("trend", "share price above its 200-day average",
+              pd.Series(ind["sma200"].notna() & (ind["Close"] > ind["sma200"]), index=idx), 10),
+        Check("regime", "{bench} in an uptrend", bench["up"] if use_bench else None, 10),
+        Check("chased", f"already {chase:.0f}% above what they paid", const(chase > float(cc.get("max_chase_pct", 15))), 15, True),
+        Check("shock", "huge one-day drop: check the news", (-ind["move_atr"] > 3.0), 15, True),
+    ]
+    return pd.DataFrame({"trig": trig, "score": _score(30, checks, idx)}), checks
+
+
+def insiders_report(clusters: dict[str, dict], updated: str = "", n: int = 10) -> str:
+    good = sorted((c for c in clusters.values() if c["qualified"]), key=lambda c: c["total_value"], reverse=True)
+    lines = ["<b>Insider buying worth a look</b> (open-market purchases, last 30 days, from SEC Form 4 filings)"]
+    if not good:
+        lines.append("No cluster buys right now.")
+    for c in good[:n]:
+        who = f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''}" + (" incl. the boss" if c["top"] else "")
+        lines.append(f"<b>{esc(c['symbol'])}</b> {esc(str(c['issuer'])[:28])} · {who} · "
+                     f"{fmt_money(c['total_value'], 'USD')} at about {fmt_price(c['avg_price'], 'USD')} · latest filing {c['last_filed']}")
+    if len(good) > n:
+        lines.append(f"...and {len(good) - n} more.")
+    if updated:
+        lines.append(f"Filings read up to {updated[:16].replace('T', ' ')} UTC.")
+    lines.append("<i>Insiders are often early: shares they buy can keep falling for a while. The nightly scan only "
+                 "copies the strongest of these, with a stop, and paper-trades them first.</i>")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Reading the market: trend, momentum, volatility, fear and breadth
+# ---------------------------------------------------------------------------
+
+
+def read_market(sym: str, cfg: dict, csv_dir) -> dict | None:
+    try:
+        df, meta = get_data(sym, "1d", "2y", csv_dir)
+    except Exception:
+        return None
+    if len(df) < 210:
+        return None
+    ind = add_indicators(df, cfg)
+    last = ind.iloc[-1]
+    c, s50, s200 = float(last["Close"]), float(last["sma50"]), float(last["sma200"])
+    rising = bool(ind["sma200"].iloc[-1] > ind["sma200"].iloc[-21])
+    if c > s200 and s50 > s200:
+        trend = "uptrend"
+    elif c < s200 and s50 < s200:
+        trend = "downtrend"
+    else:
+        trend = "no clear trend"
+    atr_pct = ind["atr"] / ind["Close"] * 100.0
+    now_vol = float(atr_pct.iloc[-1])
+    usual = float(atr_pct.tail(252).median())
+    vol_word = "jumpier than usual" if now_vol > 1.3 * usual else ("calmer than usual" if now_vol < 0.8 * usual else "normal")
+    r2 = float(last["rsi2"]) if pd.notna(last["rsi2"]) else 50.0
+    short_term = ""
+    if r2 < 10:
+        short_term = "sharp dip in the last two days" + (": the kind the pullback setup buys" if trend == "uptrend" else "")
+    elif r2 > 90:
+        short_term = "sharp jump in the last two days" + (": the kind the pullback setup shorts" if trend == "downtrend" else "")
+    return {
+        "symbol": sym, "currency": meta.get("currency", "USD"), "price": c, "trend": trend, "rising200": rising,
+        "r1m": float(c / ind["Close"].iloc[-22] - 1.0), "r3m": float(last["ret63"]) if pd.notna(last["ret63"]) else float("nan"),
+        "atr_pct": now_vol, "vol_word": vol_word, "short_term": short_term,
+        "above20": bool(c > float(last["ema20"])),
+    }
+
+
+def stance_for(trend: str, cfg: dict) -> str:
+    mode = shorts_mode(cfg)
+    if trend == "uptrend":
+        return "favour longs"
+    if trend == "downtrend":
+        return "favour shorts" if mode != "off" else "stand aside (shorts are switched off)"
+    return "no clear edge: be picky, or wait"
+
+
+def market_read_text(cfg: dict, args, breadth: list[tuple[str, bool, bool]] | None = None,
+                     clusters: dict[str, dict] | None = None, compact: bool = False) -> str:
+    ac = cfg.get("analysis", {})
+    csv_dir = getattr(args, "csv_dir", None)
+    if getattr(args, "symbols", None) and not compact:
+        markets = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    else:
+        markets = list(dict.fromkeys(list(ac.get("markets", [])) + [g.get("benchmark", "") for g in cfg.get("groups", {}).values()]))
+    rows = [r for r in (read_market(m, cfg, csv_dir) for m in markets if m) if r]
+    now = datetime.now(timezone.utc)
+    lines = [f"<b>Market read</b> · {now:%d %b %Y}"]
+    if not rows:
+        return ""
+    for r in rows:
+        mom = f"{r['r1m']:+.1%} this month, {r['r3m']:+.1%} in 3 months" if r["r3m"] == r["r3m"] else f"{r['r1m']:+.1%} this month"
+        line = (f"<b>{esc(r['symbol'])}</b> {r['trend']} · {mom} · moves ~{r['atr_pct']:.1f}% a day ({r['vol_word']})"
+                f" → {stance_for(r['trend'], cfg)}")
+        if r["short_term"] and not compact:
+            line += f". Short term: {r['short_term']}"
+        lines.append(line)
+    fg = ac.get("fear_gauge", "^VIX")
+    if fg:
+        try:
+            vdf, _ = get_data(fg, "1d", "1y", csv_dir)
+            v, v50 = float(vdf["Close"].iloc[-1]), float(vdf["Close"].tail(50).mean())
+            mood = "calm" if v < 15 else ("normal" if v < 20 else ("nervous" if v < 30 else "fearful: big swings likely"))
+            lines.append(f"Fear gauge ({esc(fg)}): {v:.1f}, {'above' if v > v50 else 'below'} its 50-day average of "
+                         f"{v50:.1f}: {mood}" + (", and rising" if v > 1.15 * v50 else ""))
+        except Exception:
+            pass
+    if breadth:
+        n = len(breadth)
+        a200 = sum(1 for _, x, _ in breadth if x)
+        a50 = sum(1 for _, _, y in breadth if y)
+        health = "strong" if a200 / n >= 0.65 else ("weak" if a200 / n <= 0.35 else "mixed")
+        lines.append(f"Breadth: {a200} of {n} watchlist markets above their 200-day ({a200 / n:.0%}), "
+                     f"{a50} above their 50-day ({a50 / n:.0%}): {health}")
+    ups = sum(1 for r in rows if r["trend"] == "uptrend")
+    downs = sum(1 for r in rows if r["trend"] == "downtrend")
+    mode = shorts_mode(cfg)
+    if ups > downs and ups >= len(rows) / 2:
+        overall = "mostly rising markets. The scan leans long"
+    elif downs > ups and downs >= len(rows) / 2:
+        overall = "mostly falling markets. Longs are harder; " + (
+            "the scan looks for shorts" if mode != "off" else "consider allow_shorts = \"auto\" in config.toml")
+    else:
+        overall = "mixed signals. Fewer, higher-scoring trades are the better bet"
+    if mode == "auto":
+        falling = [r["symbol"] for r in rows if r["trend"] == "downtrend"]
+        overall += ("; shorts are only taken where the market is falling" +
+                    (f" (now: {', '.join(falling)})" if falling else " (none right now)"))
+    lines.append(f"<b>Overall</b>: {esc(overall)}.")
+    if clusters is not None:
+        good = sorted((c for c in clusters.values() if c["qualified"]), key=lambda c: c["total_value"], reverse=True)
+        if good:
+            lines.append("Insiders buying: " + ", ".join(
+                f"{esc(c['symbol'])} ({c['insiders']}, {fmt_money(c['total_value'], 'USD')})" for c in good[:6]))
+    lines.append("<i>This describes what prices are doing now, not what they will do next.</i>")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Indicators
 # ---------------------------------------------------------------------------
 
@@ -840,6 +1359,15 @@ def _score(base: int, checks: list[Check], index) -> pd.Series:
     return (100.0 * earned / available).clip(0, 100).round()
 
 
+def shorts_mode(cfg: dict) -> str:
+    """"off", "on" (look for shorts everywhere) or "auto" (only where the wider market is falling)."""
+    v = cfg["scan"].get("allow_shorts", False)
+    if isinstance(v, str):
+        v = v.strip().lower()
+        return "auto" if v == "auto" else ("on" if v in {"true", "on", "yes", "1"} else "off")
+    return "on" if v else "off"
+
+
 def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, symbol: str, bench_symbol: str):
     """Returns {(setup, direction): (DataFrame[trig, score], [Check, ...])}."""
     s = cfg["setups"]
@@ -847,7 +1375,8 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
     has_vol = bool(ind.attrs.get("has_volume", False))
     use_bench = bench is not None and bench_symbol and bench_symbol.upper() != symbol.upper()
     out = {}
-    directions = ["long", "short"] if cfg["scan"].get("allow_shorts") else ["long"]
+    mode = shorts_mode(cfg)
+    directions = ["long", "short"] if mode != "off" else ["long"]
     for d in directions:
         up = d == "long"
         above200 = ind["sma200"].notna() & ((c > ind["sma200"]) if up else (c < ind["sma200"]))
@@ -862,12 +1391,19 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         if use_bench:
             rs = (ind["ret63"] > bench["ret63"]) if up else (ind["ret63"] < bench["ret63"])
             regime = bench["up"] if up else bench["down"]
+        # "auto" shorts: only when the wider market is in a downtrend too (or, with no benchmark,
+        # when the market's own 50-day is under a falling 200-day). Shorting a rising market rarely pays.
+        gate = None
+        if not up and mode == "auto":
+            gate = bench["down"].astype(bool) if use_bench else aligned.astype(bool)
         trend_word = "uptrend" if up else "downtrend"
         rs_label = "beating {bench} over 3 months" if up else "weaker than {bench} over 3 months"
 
         # 1) Trend breakout: a fresh close beyond the N-day high (low for shorts) in the trend's direction
         beyond = (c > ind["don_hi"]) if up else (c < ind["don_lo"])
         trig_bo = above200 & beyond & ~beyond.shift(1, fill_value=False)
+        if gate is not None:
+            trig_bo = trig_bo & gate
         vol_ok = (ind["vol_ratio"] >= float(s["volume_surge"])) if has_vol else None
         stretch = ((c - ind["ema20"]) / ind["atr"]) if up else ((ind["ema20"] - c) / ind["atr"])
         squeeze = ind["bb_pctile"].shift(1).rolling(10, min_periods=5).min() <= float(s["squeeze_pctile"])
@@ -886,12 +1422,14 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         entry = float(s["pullback_rsi2_entry"])
         dipped = (ind["rsi2"] < entry) if up else (ind["rsi2"] > 100.0 - entry)
         trig_pb = above200 & dipped & ~dipped.shift(1, fill_value=False)
+        if gate is not None:
+            trig_pb = trig_pb & gate
         deep = (ind["rsi2"] < 5) if up else (ind["rsi2"] > 95)
         holds50 = (c > ind["sma50"]) if up else (c < ind["sma50"])
         shock = (-ind["move_atr"] > 3.0) if up else (ind["move_atr"] > 3.0)
         checks_pb = [
             Check("aligned", f"50-day {'above rising' if up else 'below falling'} 200-day", aligned, 15),
-            Check("deep", "very stretched dip (RSI(2) " + ("under 5)" if up else "over 95)"), deep, 15),
+            Check("deep", "very stretched " + ("dip (RSI(2) under 5)" if up else "jump (RSI(2) over 95)"), deep, 15),
             Check("holds50", f"still {'above' if up else 'below'} the 50-day average", holds50, 10),
             Check("adx", "strong trend (ADX {adx:.0f})", adx_ok, 10),
             Check("rs", rs_label, rs, 10),
@@ -904,6 +1442,8 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
 
 def stop_multiple(setup: str, cfg: dict) -> float:
     s = cfg["setups"]
+    if setup == "copy":
+        return float(s.get("copy_stop_atr", 3.0))
     return float(s["breakout_stop_atr"] if setup == "breakout" else s["pullback_stop_atr"])
 
 
@@ -955,6 +1495,7 @@ class Position:
     fx_to_account: float = 1.0
     risk_amount: float = 0.0
     bars_held: int = 0
+    best_price: float = 0.0
     last_bar: str = ""
     exit_next_open: bool = False
     exit_reason: str = ""
@@ -1031,6 +1572,20 @@ def step_bar(pos: Position, date: str, row, cfg: dict, cost: float) -> bool:
                 pos.stop = trail
             elif (not long) and trail < pos.stop:
                 pos.stop = trail
+    elif pos.setup == "copy":
+        # Insiders are usually early, so give it room: trail the stop k x ATR behind the best close,
+        # and sell after about three months (when most of the insider-buying effect has shown up).
+        best = pos.best_price or pos.entry_price
+        best = max(best, c) if long else min(best, c)
+        pos.best_price = best
+        a = float(row["atr"]) if "atr" in row and np.isfinite(float(row["atr"])) else pos.atr_at_signal
+        trail = best - stop_multiple("copy", cfg) * a if long else best + stop_multiple("copy", cfg) * a
+        if long and trail > pos.stop:
+            pos.stop = trail
+        elif (not long) and trail < pos.stop:
+            pos.stop = trail
+        if pos.bars_held >= int(s.get("copy_max_hold_bars", 63)):
+            pos.exit_next_open, pos.exit_reason = True, "time stop (about 3 months)"
     else:
         sma5 = float(row["sma5"])
         if np.isfinite(sma5) and ((long and c > sma5) or ((not long) and c < sma5)):
@@ -1126,7 +1681,7 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
 
 def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval, warnings, paper_note,
                  origin: str | None = None, volatility: str | None = None, history: str | None = None,
-                 news: list[str] | None = None) -> str:
+                 news: list[str] | None = None, insiders: list[str] | None = None) -> str:
     strong = score >= int(cfg["scan"]["strong_score"])
     ccy, acct_ccy = plan["currency"], cfg["account"]["currency"]
     unit_word = {"shares": "a share", "coins": "a coin"}.get(plan["unit_name"], "a unit")
@@ -1139,6 +1694,12 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
     ]
     if origin:
         lines.append(f"Found on today's movers: {esc(origin)}")
+    if insiders:
+        lines.append("Who bought (their own SEC Form 4 filings):")
+        lines.extend(insiders)
+    if direction == "short":
+        lines.append("Shorting needs a spread bet, CFD or margin account. Losses on a short have no ceiling "
+                     "if the price gaps up, so the stop matters even more.")
     lines += [
         "",
         f"Entry: about {fmt_price(plan['price'], ccy)} at the next open",
@@ -1148,6 +1709,11 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
         lines.append(
             f"Exit plan: trail the stop under the {int(s['breakout_exit_lookback'])}-bar "
             f"{'low' if direction == 'long' else 'high'}; {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
+        )
+    elif setup == "copy":
+        lines.append(
+            f"Exit plan: trail the stop {plan['k']:g} x ATR under the best close since you bought; sell after "
+            f"{int(s.get('copy_max_hold_bars', 63))} bars (about 3 months) at most; {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
         )
     else:
         lines.append(
@@ -1343,15 +1909,18 @@ def recap_positions(st: dict, cfg: dict, csv_dir) -> list[str]:
             lines = [f"<b>{'OPEN' if p['status'] == 'open' else 'WAITING TO OPEN'}: {esc(sym)}</b> · "
                      f"{SETUP_TITLES.get(p['setup'], p['setup'])} · score {p['score']}/100",
                      f"Signal on {p['signal_date']} at {fmt_price(float(p['signal_price']), ccy)}"]
+            long = p.get("direction", "long") == "long"
             if p["status"] == "open":
-                pnl = (price - float(p["entry_price"])) * float(p["units"]) * float(p.get("fx_to_account") or 1)
-                lines += [f"Bought {p['entry_date']} at {fmt_price(float(p['entry_price']), ccy)}, "
+                move = price - float(p["entry_price"]) if long else float(p["entry_price"]) - price
+                pnl = move * float(p["units"]) * float(p.get("fx_to_account") or 1)
+                lines += [f"{'Bought' if long else 'Sold short'} {p['entry_date']} at {fmt_price(float(p['entry_price']), ccy)}, "
                           f"{float(p['units']):g} units, stop now {fmt_price(float(p['stop']), ccy)}",
                           f"Now {fmt_price(price, ccy)}: {fmt_money(pnl, acct)} so far (not counted until it closes)"]
             else:
                 risk = stop_multiple(p["setup"], cfg) * float(p["atr_at_signal"])
-                lines.append(f"Buys at the next open; stop about {fmt_price(float(p['signal_price']) - risk, ccy)} "
-                             f"({stop_multiple(p['setup'], cfg):g} x ATR below the entry)")
+                stop = float(p["signal_price"]) - risk if long else float(p["signal_price"]) + risk
+                lines.append(f"{'Buys' if long else 'Sells short'} at the next open; stop about {fmt_price(stop, ccy)} "
+                             f"({stop_multiple(p['setup'], cfg):g} x ATR {'below' if long else 'above'} the entry)")
             heads = headline_lines(get_headlines(sym, 2, 72)) if cfg["news"].get("enabled", True) else []
             if heads:
                 lines += ["Latest news:"] + heads
@@ -1396,6 +1965,19 @@ def cmd_scan(cfg: dict, args) -> int:
         syms = [m["symbol"] for m in movers if mover_benchmark(m, cfg) == bench and m["symbol"] not in on_list]
         if syms:
             watch.append((bench, syms))
+
+    # Copy the insiders: shares that company directors and bosses have just bought with their own money
+    # (read from SEC filings by "python bot.py insiders"). They get their own setup, with its own score.
+    cc = cfg.get("copy", {})
+    clusters = {}
+    if cc.get("enabled", True) and not getattr(args, "symbols", None) and insiders_path().exists():
+        clusters = insider_clusters(load_insiders()["buys"], cfg, now)
+    copy_info = {k: v for k, v in clusters.items() if v["qualified"]}
+    listed = {s for _, syms in watch for s in syms}
+    copy_syms = sorted(k for k in copy_info if k not in listed)
+    if copy_syms:
+        watch.append((cc.get("benchmark", "SPY"), copy_syms))
+    breadth = []
     extra = sorted({p["symbol"] for p in st["positions"]} - {s for _, syms in watch for s in syms})
     if extra:
         watch.append(("", extra))  # keep managing paper trades for symbols no longer listed
@@ -1421,10 +2003,11 @@ def cmd_scan(cfg: dict, args) -> int:
                 continue
             seen.add(sym)
             is_mover = sym in mover_info and sym not in on_list
+            quiet = is_mover or (sym in copy_info and sym not in on_list)  # leads: skip errors quietly
             try:
                 df, meta = get_data(sym, interval, history, args.csv_dir)
                 if len(df) < 210:
-                    if not is_mover:  # brand-new listings on the movers lists are skipped quietly
+                    if not quiet:  # brand-new listings on the movers lists are skipped quietly
                         errors.append(f"{sym} (only {len(df)} bars of history)")
                     continue
                 checked += 1
@@ -1433,9 +2016,15 @@ def cmd_scan(cfg: dict, args) -> int:
                 lr = ind.iloc[-1]
                 if pd.notna(lr["atr"]) and lr["Close"] > 0:
                     vol_rows.append((sym, float(lr["atr"]) / float(lr["Close"]) * 100.0))
+                if sym in on_list and pd.notna(lr["sma200"]):
+                    breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
                 manage_paper(st, sym, ind, meta, cfg, interval, msgs)
                 sigs = compute_signals(ind, bench, cfg, sym, bench_sym)
+                if sym in copy_info:
+                    cs = copy_signal(ind, bench, copy_info[sym], cfg, sym, bench_sym, st, now)
+                    if cs:
+                        sigs[("copy", "long")] = cs
                 i = len(ind) - 1
                 bar = bar_label(ind.index[i], interval)
                 for (setup, direction), (frame, checks) in sigs.items():
@@ -1504,7 +2093,12 @@ def cmd_scan(cfg: dict, args) -> int:
                             ": very volatile, so expect big swings both ways. The size is smaller to keep the risk the same."
                             if atr_pct >= 5.0 else "."
                         )
-                        hist = history_line(sym, setup_history(sym, setup, direction, cfg, interval, bench_sym, args.csv_dir), cfg)
+                        if setup == "copy":
+                            hist = ("No 10-year test for this one: the bot only keeps recent insider filings. "
+                                    "Studies found insider cluster buys beat the market on average over the next "
+                                    "months, but many single trades still lose. The paper account is the real test.")
+                        else:
+                            hist = history_line(sym, setup_history(sym, setup, direction, cfg, interval, bench_sym, args.csv_dir), cfg)
                         tml = time_machine_line(tm)
                         if tml:
                             hist = f"{hist}\n{tml}" if hist else tml
@@ -1517,6 +2111,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         alerts.append(format_alert(
                             sym, setup, direction, score, desc, plan, cfg, interval, warnings, paper_note,
                             origin=mover_info.get(sym) if is_mover else None, volatility=vol_line, history=hist, news=heads,
+                            insiders=insider_lines(copy_info[sym]) if setup == "copy" else None,
                         ))
                         st["sent"][key] = now_iso
                         alerted = True
@@ -1526,7 +2121,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         "direction": direction, "score": score, "alerted": alerted,
                     })
             except Exception as exc:
-                if not is_mover:
+                if not quiet:
                     errors.append(f"{sym} ({exc})")
 
     if not st.get("recap_v1") and st["positions"]:
@@ -1536,6 +2131,14 @@ def cmd_scan(cfg: dict, args) -> int:
             for text in recap:
                 send_telegram(cfg, text, args)
     st["recap_v1"] = True
+    ac = cfg.get("analysis", {})
+    if ac.get("enabled", True) and ac.get("send_with_scan", True) and not getattr(args, "symbols", None):
+        try:
+            read = market_read_text(cfg, args, breadth, clusters if cc.get("enabled", True) else None, compact=True)
+            if read:
+                send_telegram(cfg, read, args)
+        except Exception as exc:
+            errors.append(f"market read ({exc})")
     for text in alerts:
         send_telegram(cfg, text, args)
     if msgs:
@@ -1566,6 +2169,12 @@ def cmd_scan(cfg: dict, args) -> int:
         ]
         if movers:
             lines.append(f"Today's movers: {movers_checked} checked, {movers_passed} passed the rules")
+        if cc.get("enabled", True):
+            if insiders_path().exists():
+                lines.append(f"Insider buying: {len(copy_info)} share{'s' if len(copy_info) != 1 else ''} with strong "
+                             "buying in the last 30 days, checked as copy trades")
+            else:
+                lines.append("Insider buying: no SEC filings read yet (run python bot.py insiders)")
         if regimes:
             lines.append("Market trend: " + " · ".join(esc(r) for r in regimes))
         if vol_rows:
@@ -1654,7 +2263,7 @@ def run_backtest_symbol(ind, sigs, cfg, sym, interval, cost, min_score) -> list[
     trades: list[Position] = []
     idx = ind.index
     n = len(ind)
-    cols = ["Open", "High", "Low", "Close", "sma5", "exit_lo", "exit_hi", "atr"]
+    cols = ["Open", "High", "Low", "Close", "sma5", "exit_lo", "exit_hi", "atr"]  # step_bar reads these
     arr = {c: ind[c].to_numpy(dtype=float) for c in cols}
     for (setup, direction), (frame, _) in sigs.items():
         trig = frame["trig"].to_numpy(dtype=bool)
@@ -1686,7 +2295,7 @@ def time_machine(ind: pd.DataFrame, setup: str, direction: str, cfg: dict, repla
     (open, high, low and close as ratios to the previous close) from this market's own recent history,
     then runs the exact same stop and exit rules. A simulation, not a prediction."""
     tc = cfg.get("timemachine", {})
-    if direction != "long" or len(ind) < 120:
+    if direction != "long" or setup not in {"breakout", "pullback"} or len(ind) < 120:
         return None
     n = int(replays or tc.get("replays", 10000))
     horizon = int(tc.get("horizon_bars", 60))
@@ -2065,7 +2674,7 @@ def watch_once(cfg: dict, args) -> int:
                     msgs.append(
                         f"<b>Stop hit: {esc(sym)}</b> traded at {fmt_price(extreme, ccy)}, through the paper stop at "
                         f"{fmt_price(float(pos['stop']), ccy)}. Tonight's scan records the exit. "
-                        "With real money, this is where your stop order would have sold."
+                        f"With real money, this is where your stop order would have {'sold' if long else 'bought it back'}."
                     )
                     ws["sent"][key] = stamp
 
@@ -2205,6 +2814,77 @@ def cmd_news(cfg: dict, args) -> int:
     return 0
 
 
+def cmd_analyse(cfg: dict, args) -> int:
+    """Reads the market: each market's trend, momentum and volatility, the fear gauge, breadth, insider
+    buying, and whether that favours going long or short. With --symbols, reads those markets and
+    says which setups (long or short) are live on each."""
+    breadth = []
+    if not getattr(args, "symbols", None):
+        for _, symbols in iter_watchlist(cfg, args):
+            for sym in symbols:
+                try:
+                    df, _ = get_data(sym, "1d", cfg["scan"]["history"], args.csv_dir)
+                    ind = add_indicators(df, cfg)
+                    lr = ind.iloc[-1]
+                    if pd.notna(lr["sma200"]):
+                        breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
+                except Exception:
+                    continue
+    clusters = None
+    if cfg.get("copy", {}).get("enabled", True) and insiders_path().exists():
+        clusters = insider_clusters(load_insiders()["buys"], cfg)
+    text = market_read_text(cfg, args, breadth, clusters)
+    if not text:
+        print("No price data available right now.")
+        return 1
+    if getattr(args, "symbols", None):
+        extra = []
+        bench_sym = getattr(args, "benchmark", "") or ""
+        bench_df = None
+        if bench_sym:
+            try:
+                bench_df, _ = get_data(bench_sym, "1d", cfg["scan"]["history"], args.csv_dir)
+            except Exception:
+                bench_df = None
+        both = dict(cfg, scan=dict(cfg["scan"], allow_shorts=cfg["scan"].get("allow_shorts") or "auto"))
+        for sym in [x.strip() for x in args.symbols.split(",") if x.strip()]:
+            try:
+                df, _ = get_data(sym, "1d", cfg["scan"]["history"], args.csv_dir)
+                ind = add_indicators(df, cfg)
+                sigs = compute_signals(ind, align_benchmark(ind, bench_df), both, sym, bench_sym)
+            except Exception:
+                continue
+            live = [f"{SETUP_TITLES[st_]} {d} {int(fr['score'].iloc[-1])}/100"
+                    for (st_, d), (fr, _c) in sigs.items() if bool(fr["trig"].iloc[-1])]
+            extra.append(f"{esc(sym)} setups today: " + (", ".join(live) if live else "none"))
+            if clusters and sym.upper() in clusters:
+                c = clusters[sym.upper()]
+                extra.append(f"{esc(sym)} insiders: {c['insiders']} bought {fmt_money(c['total_value'], 'USD')} in the last 30 days"
+                             + ("" if c["qualified"] else " (not enough to copy)"))
+        if extra:
+            text = text.replace("\n<i>This describes", "\n" + "\n".join(extra) + "\n<i>This describes")
+    output(cfg, text, args)
+    return 0
+
+
+def cmd_insiders(cfg: dict, args) -> int:
+    """Reads new SEC Form 4 filings (insiders buying their own company's shares) and lists the strongest."""
+    if not cfg.get("copy", {}).get("enabled", True):
+        print("Copying insiders is switched off ([copy] enabled = false in config.toml).")
+        return 0
+    if not getattr(args, "no_fetch", False):
+        try:
+            update_insiders(cfg, int(getattr(args, "days", 0) or 0) or None)
+        except Exception as exc:
+            print(f"Couldn't read the SEC filings: {exc}")
+            if not insiders_path().exists():
+                return 1
+    st = load_insiders()
+    text = insiders_report(insider_clusters(st["buys"], cfg), st.get("updated", ""))
+    output(cfg, text, args)
+    return 0
+
+
 def cmd_events(cfg: dict, args) -> int:
     evs = upcoming_events(cfg, 14)
     lines = ["<b>Big scheduled events, next 14 days</b> (UK time)"]
@@ -2250,8 +2930,9 @@ def cmd_timemachine(cfg: dict, args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan for trading setups, send alerts, paper-trade, backtest.")
-    parser.add_argument("command", choices=["scan", "watch", "movers", "volatile", "news", "events",
-                                            "timemachine", "resend", "backtest", "status", "leaders", "test-telegram"])
+    parser.add_argument("command", choices=["scan", "watch", "movers", "volatile", "news", "events", "analyse", "analyze",
+                                            "market", "insiders", "timemachine", "resend", "backtest", "status",
+                                            "leaders", "test-telegram"])
     parser.add_argument("--config", default=str(BASE_DIR / "config.toml"), help="settings file (default: config.toml)")
     parser.add_argument("--symbols", help="comma-separated symbols to use instead of the watchlist")
     parser.add_argument("--benchmark", default="", help="benchmark symbol to use with --symbols")
@@ -2259,6 +2940,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-telegram", action="store_true", help="print messages here instead of sending them")
     parser.add_argument("--telegram", action="store_true", help="send the report to Telegram as well (status, movers, volatile, news, events)")
     parser.add_argument("--every", type=float, default=0, help="watch: keep checking every this many minutes")
+    parser.add_argument("--days", type=int, default=0, help="insiders: how many days of SEC filings to read")
+    parser.add_argument("--no-fetch", action="store_true", help="insiders: list what's already saved, without downloading")
     args = parser.parse_args(argv)
     global OFFLINE
     OFFLINE = bool(args.csv_dir)
@@ -2270,6 +2953,10 @@ def main(argv: list[str] | None = None) -> int:
         "volatile": cmd_volatile,
         "news": cmd_news,
         "events": cmd_events,
+        "analyse": cmd_analyse,
+        "analyze": cmd_analyse,
+        "market": cmd_analyse,
+        "insiders": cmd_insiders,
         "timemachine": cmd_timemachine,
         "resend": cmd_resend,
         "backtest": cmd_backtest,
