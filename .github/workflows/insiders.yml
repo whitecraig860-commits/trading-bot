@@ -1,0 +1,49 @@
+name: Insider buying
+
+on:
+  schedule:
+    # 05:41 UTC Tuesday to Saturday: reads the SEC filings from the previous US business day,
+    # in time for that night's scan.
+    - cron: "41 5 * * 2-6"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: setup-scanner
+  cancel-in-progress: false
+
+jobs:
+  insiders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Read new insider filings from the SEC
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot.py insiders
+
+      - name: Save what was read
+        if: always()
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add state
+          if ! git diff --cached --quiet; then
+            git commit -m "Insiders $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
