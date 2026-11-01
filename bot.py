@@ -764,13 +764,20 @@ def event_text(ev: dict) -> str:
 # Copy the insiders: directors and bosses buying their own company's shares
 # ---------------------------------------------------------------------------
 # By US law, company insiders must report every trade in their own company's shares to the SEC
-# within two business days (Form 4). Purchases on the open market with their own money are the
-# trades worth copying: studies have found they are followed by better-than-market returns over the
-# next months, most clearly when several insiders buy together, when the CEO or CFO buys, and when
-# the purchase is not part of a pre-arranged (10b5-1) plan. Insider SALES say much less (people sell
-# for tax, houses and diversification), so the bot ignores them.
+# within two business days (Form 4). What the research says, and what the bot does with it:
+#  - Open-market PURCHASES with their own money are the trades worth copying. Sales say much less
+#    (people sell for tax, houses and diversification), so sales only count against a share.
+#  - "Routine" insiders, who trade in the same month every year, carry no information; the
+#    "opportunistic" rest beat the market by about 0.8% a month (Cohen, Malloy & Pomorski, Journal of
+#    Finance 2012). The bot checks each buyer's last three years of filings and skips routine ones.
+#  - Several insiders buying together, the CEO or CFO buying, big stake increases and buying after a
+#    fall are the strongest versions. Trades under pre-arranged 10b5-1 plans are skipped.
+#  - Speed matters: the bot reads EDGAR's live feed every few minutes during the day, plus the full
+#    daily index each morning so nothing is missed.
 
 SEC_ARCHIVES = "https://www.sec.gov/Archives/"
+SEC_LIVE = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&company=&dateb=&owner=include"
+            "&start={start}&count=100&output=atom")
 _SEC_LAST = [0.0]
 TOP_TITLES = re.compile(r"\b(CEO|CFO|COO|PRESIDENT|CHIEF EXECUTIVE|CHIEF FINANCIAL|CHIEF OPERATING|CHAIR)", re.I)
 
@@ -808,8 +815,13 @@ def sec_get(url: str, cfg: dict, timeout: float = 30) -> str:
     raise RuntimeError(f"SEC download failed ({err})")
 
 
+def accession_of(path: str) -> str:
+    return path.rsplit("/", 1)[-1].removesuffix(".txt")
+
+
 def parse_form_index(text: str) -> list[dict]:
-    """EDGAR's daily form index: Form 4 filings only, one row per filing."""
+    """EDGAR's daily form index: Form 4 filings only, one row per filing. Each filing is listed twice,
+    under the company and under the insider, with different paths, so rows are matched by accession number."""
     out, seen, started = [], set(), False
     for line in text.splitlines():
         if not started:
@@ -818,11 +830,30 @@ def parse_form_index(text: str) -> list[dict]:
         parts = line.split()
         if len(parts) < 5 or parts[0] != "4":  # "4/A" amendments are skipped
             continue
-        path = parts[-1]
-        if path in seen:  # each filing is listed under the company and under the insider
+        acc = accession_of(parts[-1])
+        if acc in seen:
             continue
-        seen.add(path)
-        out.append({"cik": parts[-3], "filed": parts[-2], "path": path})
+        seen.add(acc)
+        out.append({"acc": acc, "cik": parts[-3], "filed": parts[-2], "path": parts[-1]})
+    return out
+
+
+def parse_live_feed(text: str) -> list[dict]:
+    """EDGAR's 'latest filings' Atom feed: Form 4s only (the type filter also lets 424B2, 425... through)."""
+    out, seen = [], set()
+    for entry in re.findall(r"<entry>(.*?)</entry>", text, re.S):
+        term = re.search(r'<category[^>]*term="([^"]+)"', entry)
+        link = re.search(r"/Archives/edgar/data/(\d+)/(\d{18})/", entry)
+        if not term or term.group(1).strip() != "4" or not link:
+            continue
+        d = link.group(2)
+        acc = f"{d[:10]}-{d[10:12]}-{d[12:]}"
+        if acc in seen:
+            continue
+        seen.add(acc)
+        when = re.search(r"<updated>(\d{4}-\d{2}-\d{2})", entry)
+        filed = when.group(1).replace("-", "") if when else datetime.now(timezone.utc).strftime("%Y%m%d")
+        out.append({"acc": acc, "cik": link.group(1), "filed": filed, "path": f"edgar/data/{link.group(1)}/{acc}.txt"})
     return out
 
 
@@ -853,45 +884,43 @@ def yahoo_symbol(raw: str) -> str:
     return s
 
 
-def parse_form4(text: str, filed: str = "", path: str = "") -> dict | None:
-    """The open-market purchases in one Form 4 filing, added up. None if there are none."""
+def parse_form4(text: str, filed: str = "", path: str = "") -> list[dict]:
+    """The open-market purchases and sales in one Form 4 filing, each side added up."""
     m = re.search(r"<ownershipDocument>.*?</ownershipDocument>", text, re.S)
     if not m:
-        return None
+        return []
     try:
         root = ET.fromstring(m.group(0))
     except ET.ParseError:
-        return None
+        return []
     sym = yahoo_symbol(_xv(root, "issuer/issuerTradingSymbol"))
     if not sym:
-        return None
-    shares = value = 0.0
-    after = 0.0
-    dates = []
+        return []
+    sides = {"buy": {"shares": 0.0, "value": 0.0, "after": float("nan"), "dates": []},
+             "sell": {"shares": 0.0, "value": 0.0, "after": float("nan"), "dates": []}}
     for t in root.findall("nonDerivativeTable/nonDerivativeTransaction"):
-        if _xv(t, "transactionCoding/transactionCode") != "P":  # P = bought on the open market
+        code = _xv(t, "transactionCoding/transactionCode")
+        if code not in {"P", "S"}:  # P = bought on the open market, S = sold on the open market
             continue
-        if _xv(t, "transactionAmounts/transactionAcquiredDisposedCode") not in {"A", ""}:
-            continue
+        side = sides["buy" if code == "P" else "sell"]
         n = _num(_xv(t, "transactionAmounts/transactionShares"))
         px = _num(_xv(t, "transactionAmounts/transactionPricePerShare"))
         if not (np.isfinite(n) and np.isfinite(px) and n > 0 and px > 0):
             continue
-        shares += n
-        value += n * px
+        side["shares"] += n
+        side["value"] += n * px
         own = _num(_xv(t, "postTransactionAmounts/sharesOwnedFollowingTransaction"))
         if np.isfinite(own):
-            after = max(after, own)
+            side["after"] = own  # the last row is the holding after all of that day's trades
         d = _xv(t, "transactionDate")
         if d:
-            dates.append(d[:10])
-    if shares <= 0:
-        return None
-    owners = root.findall("reportingOwner")
+            side["dates"].append(d[:10])
+    if sides["buy"]["shares"] <= 0 and sides["sell"]["shares"] <= 0:
+        return []
     names, titles = [], []
     director = officer = ten_pct = False
     owner_id = ""
-    for o in owners:
+    for o in root.findall("reportingOwner"):
         nm = _xv(o, "reportingOwnerId/rptOwnerName")
         owner_id = owner_id or _xv(o, "reportingOwnerId/rptOwnerCik") or nm
         names.append(nm)
@@ -902,11 +931,9 @@ def parse_form4(text: str, filed: str = "", path: str = "") -> dict | None:
         title = _xv(rel, "officerTitle")
         if title:
             titles.append(title)
-    before = after - shares
-    increase = (shares / before * 100.0) if before > 0 else 100.0
     if filed and re.fullmatch(r"\d{8}", filed):
         filed = f"{filed[:4]}-{filed[4:6]}-{filed[6:]}"
-    return {
+    base = {
         "symbol": sym,
         "issuer": _xv(root, "issuer/issuerName"),
         "owner": " / ".join(n for n in names if n)[:80],
@@ -917,14 +944,21 @@ def parse_form4(text: str, filed: str = "", path: str = "") -> dict | None:
         "ten_pct": ten_pct,
         "top": bool(TOP_TITLES.search(" ".join(titles))),
         "plan": _truthy(_xv(root, "aff10b5One")),  # ticked when the trade was pre-arranged under a 10b5-1 plan
-        "shares": shares,
-        "value": value,
-        "avg_price": value / shares,
-        "increase_pct": min(increase, 1000.0),
-        "trade_date": min(dates) if dates else filed,
         "filed": filed,
         "path": path,
+        "acc": accession_of(path) if path else "",
     }
+    out = []
+    for kind, sd in sides.items():
+        if sd["shares"] <= 0:
+            continue
+        after = sd["after"] if np.isfinite(sd["after"]) else 0.0
+        before = after - sd["shares"] if kind == "buy" else after + sd["shares"]
+        change = (sd["shares"] / before * 100.0) if before > 0 else 100.0
+        out.append(dict(base, kind=kind, shares=sd["shares"], value=sd["value"], avg_price=sd["value"] / sd["shares"],
+                        increase_pct=min(change, 1000.0) if kind == "buy" else 0.0,
+                        trade_date=min(sd["dates"]) if sd["dates"] else filed))
+    return out
 
 
 def insiders_path() -> Path:
@@ -941,8 +975,11 @@ def load_insiders() -> dict:
         except Exception:
             d = {}
     d.setdefault("days_done", [])
-    d.setdefault("partial", {})
+    d.setdefault("seen", {})
     d.setdefault("buys", [])
+    d.setdefault("routine", {})
+    d.setdefault("alerted", {})
+    d.pop("partial", None)
     return d
 
 
@@ -950,19 +987,110 @@ def save_insiders(d: dict) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = insiders_path().with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(d, fh, indent=1)
+        json.dump(d, fh, indent=0)
     tmp.replace(insiders_path())
 
 
+def worth_checking(b: dict, cfg: dict) -> bool:
+    """A purchase that could count towards copying (before the routine-trader check)."""
+    cc = cfg["copy"]
+    if b.get("kind", "buy") != "buy" or float(b.get("value", 0)) < float(cc.get("min_buy_usd", 10000)):
+        return False
+    if b.get("plan") and cc.get("skip_planned", True):
+        return False
+    return bool(b.get("officer") or b.get("director") or (b.get("ten_pct") and cc.get("include_big_holders", False)))
+
+
+def is_routine(st: dict, cfg: dict, owner_cik: str, month: str) -> bool | None:
+    """True if this insider also traded on the open market in the same calendar month in each of the
+    last three years: the 'routine' pattern that carries no information. None if it can't be checked."""
+    try:
+        cik = int(str(owner_cik).strip())
+    except ValueError:
+        return None
+    key = f"{cik}|{month}"
+    cache = st.setdefault("routine", {})
+    if key in cache:
+        return cache[key]
+    try:
+        data = json.loads(sec_get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", cfg))
+    except Exception:
+        return None
+    rec = data.get("filings", {}).get("recent", {})
+    rows = list(zip(rec.get("form", []), rec.get("filingDate", []), rec.get("accessionNumber", [])))
+    year, mm = int(month[:4]), month[5:7]
+    routine = True
+    for back in (1, 2, 3):
+        target = f"{year - back}-{mm}"
+        traded = False
+        for form, day, acc in [r for r in rows if r[0] == "4" and r[1].startswith(target)][:4]:
+            try:
+                if parse_form4(sec_get(f"{SEC_ARCHIVES}edgar/data/{cik}/{acc}.txt", cfg)):
+                    traded = True
+                    break
+            except Exception:
+                continue
+        if not traded:
+            routine = False
+            break
+    cache[key] = routine
+    return routine
+
+
+def read_filings(st: dict, cfg: dict, entries: list[dict], budget: int, log=print) -> tuple[list[dict], int]:
+    """Downloads and reads Form 4 filings not seen before. Returns (new records, budget left)."""
+    new = []
+    for n, e in enumerate(entries, 1):
+        if e["acc"] in st["seen"]:
+            continue
+        if budget <= 0:
+            break
+        budget -= 1
+        try:
+            recs = parse_form4(sec_get(SEC_ARCHIVES + e["path"], cfg), e["filed"], e["path"])
+        except FileNotFoundError:
+            recs = []
+        except Exception as exc:
+            log(f"  stopped early: {exc}")
+            return new, 0
+        st["seen"][e["acc"]] = e["filed"]
+        for r in recs:
+            if cfg["copy"].get("skip_routine", True) and worth_checking(r, cfg):
+                r["routine"] = is_routine(st, cfg, r["owner_id"], r["trade_date"][:7] or r["filed"][:7])
+            if r["kind"] == "buy" or not r.get("plan"):
+                new.append(r)
+        if n % 250 == 0:
+            log(f"  {n} of {len(entries)} read")
+    st["buys"].extend(new)
+    return new, budget
+
+
+def tidy_insiders(st: dict, cfg: dict) -> None:
+    today = datetime.now(timezone.utc).date()
+    cutoff = (today - pd.Timedelta(days=int(cfg["copy"].get("keep_days", 120))).to_pytimedelta()).isoformat()
+    seen_cut = (today - pd.Timedelta(days=8).to_pytimedelta()).strftime("%Y%m%d")
+    keys, recs = set(), []
+    for b in st["buys"]:
+        k = (b.get("acc") or b.get("path"), b.get("kind", "buy"))
+        if b.get("filed", "") >= cutoff and k not in keys:
+            keys.add(k)
+            recs.append(b)
+    st["buys"] = recs
+    st["seen"] = {a: d for a, d in st["seen"].items() if str(d).replace("-", "") >= seen_cut}
+    st["days_done"] = sorted(d for d in set(st["days_done"]) if d >= seen_cut)
+    a_cut = (today - pd.Timedelta(days=45).to_pytimedelta()).isoformat()
+    st["alerted"] = {s: d for s, d in st["alerted"].items() if d >= a_cut}
+    st["updated"] = datetime.now(timezone.utc).isoformat()
+
+
 def update_insiders(cfg: dict, days: int | None = None, log=print) -> dict:
-    """Reads every Form 4 filed on recent days that haven't been read yet, and keeps the purchases."""
+    """Reads every Form 4 filed on recent days that hasn't been read yet (the complete daily indexes)."""
     cc = cfg["copy"]
     st = load_insiders()
     today = datetime.now(timezone.utc).date()
     budget = int(cc.get("max_filings_per_run", 6000))
     done = set(st["days_done"])
-    look = int(days or cc.get("fetch_days", 5))
-    for back in range(look, 0, -1):  # oldest first, up to yesterday (today's index isn't published yet)
+    for back in range(int(days or cc.get("fetch_days", 5)), 0, -1):  # oldest first, up to yesterday
         day = today - pd.Timedelta(days=back).to_pytimedelta()
         key = day.strftime("%Y%m%d")
         if day.weekday() >= 5 or key in done or budget <= 0:
@@ -974,42 +1102,29 @@ def update_insiders(cfg: dict, days: int | None = None, log=print) -> dict:
             if back >= 4:  # a holiday: no filings that day
                 done.add(key)
             continue
-        read = set(st["partial"].get(key, []))
-        todo = [e for e in entries if e["path"] not in read]
-        log(f"SEC filings for {day}: {len(todo)} Form 4s to read")
-        for n, e in enumerate(todo, 1):
-            if budget <= 0:
-                break
-            budget -= 1
-            try:
-                rec = parse_form4(sec_get(SEC_ARCHIVES + e["path"], cfg), e["filed"], e["path"])
-            except FileNotFoundError:
-                rec = None
-            except Exception as exc:
-                log(f"  stopped early: {exc}")
-                budget = 0
-                break
-            read.add(e["path"])
-            if rec:
-                st["buys"].append(rec)
-            if n % 250 == 0:
-                log(f"  {n} read, {sum(1 for b in st['buys'] if b['filed'] == f'{day}')} purchases so far")
-        if read >= {e["path"] for e in entries}:
+        todo = [e for e in entries if e["acc"] not in st["seen"]]
+        log(f"SEC filings for {day}: {len(entries)} Form 4s, {len(todo)} not read yet")
+        _, budget = read_filings(st, cfg, todo, budget, log)
+        if all(e["acc"] in st["seen"] for e in entries):
             done.add(key)
-            st["partial"].pop(key, None)
-        else:
-            st["partial"][key] = sorted(read)
-    cutoff = (today - pd.Timedelta(days=int(cc.get("keep_days", 120))).to_pytimedelta()).isoformat()
-    seen, buys = set(), []
-    for b in st["buys"]:
-        if b.get("filed", "") >= cutoff and b.get("path") not in seen:
-            seen.add(b.get("path"))
-            buys.append(b)
-    st["buys"] = buys
-    st["days_done"] = sorted(d for d in done if d >= cutoff.replace("-", ""))
-    st["updated"] = datetime.now(timezone.utc).isoformat()
+    st["days_done"] = sorted(done)
+    tidy_insiders(st, cfg)
     save_insiders(st)
     return st
+
+
+def poll_live_insiders(cfg: dict, st: dict, log=print) -> list[dict]:
+    """Reads the newest Form 4s from EDGAR's live feed (seconds to minutes after they're filed)."""
+    new_entries = []
+    for page in range(int(cfg["copy"].get("live_pages", 4))):
+        entries = parse_live_feed(sec_get(SEC_LIVE.format(start=page * 100), cfg))
+        fresh = [e for e in entries if e["acc"] not in st["seen"]]
+        new_entries += fresh
+        if len(fresh) < len(entries) or not entries:
+            break  # reached filings already read
+    recs, _ = read_filings(st, cfg, new_entries, int(cfg["copy"].get("max_filings_per_run", 6000)), log)
+    tidy_insiders(st, cfg)
+    return recs
 
 
 def insider_clusters(buys: list[dict], cfg: dict, now: datetime | None = None) -> dict[str, dict]:
@@ -1018,13 +1133,19 @@ def insider_clusters(buys: list[dict], cfg: dict, now: datetime | None = None) -
     now = now or datetime.now(timezone.utc)
     cutoff = (now - pd.Timedelta(days=int(cc.get("cluster_days", 30)))).strftime("%Y-%m-%d")
     by_sym: dict[str, list[dict]] = {}
+    sold: dict[str, float] = {}
+    routine_skipped: dict[str, int] = {}
     for b in buys:
-        if b.get("filed", "") < cutoff or float(b.get("value", 0)) < float(cc.get("min_buy_usd", 10000)):
+        if b.get("filed", "") < cutoff:
             continue
-        if b.get("plan") and cc.get("skip_planned", True):
+        if b.get("kind", "buy") == "sell":
+            if (b.get("officer") or b.get("director")) and not b.get("plan"):
+                sold[b["symbol"]] = sold.get(b["symbol"], 0.0) + float(b["value"])
             continue
-        insider = b.get("officer") or b.get("director")
-        if not insider and not (b.get("ten_pct") and cc.get("include_big_holders", False)):
+        if not worth_checking(b, cfg):
+            continue
+        if b.get("routine") and cc.get("skip_routine", True):
+            routine_skipped[b["symbol"]] = routine_skipped.get(b["symbol"], 0) + 1
             continue
         by_sym.setdefault(b["symbol"], []).append(b)
     out = {}
@@ -1049,6 +1170,8 @@ def insider_clusters(buys: list[dict], cfg: dict, now: datetime | None = None) -
             "insiders": len(who),
             "top": any(x.get("top") for x in who.values()),
             "total_value": total,
+            "sold_value": sold.get(sym, 0.0),
+            "routine_skipped": routine_skipped.get(sym, 0),
             "avg_price": total / shares if shares else float("nan"),
             "max_increase_pct": max(float(b.get("increase_pct", 0)) for b in bs),
             "first_trade": min(b.get("trade_date", b["filed"]) for b in bs),
@@ -1074,6 +1197,8 @@ def insider_lines(cl: dict, n: int = 4) -> list[str]:
            f" at about {fmt_price(float(b['avg_price']), 'USD')} on {esc(b['trade_date'])}" for b in rows[:n]]
     if len(rows) > n:
         out.append(f"• and {len(rows) - n} more")
+    if cl.get("sold_value"):
+        out.append(f"• other insiders sold {fmt_money(cl['sold_value'], 'USD')} in the same 30 days")
     return out
 
 
@@ -1098,6 +1223,9 @@ def copy_signal(ind: pd.DataFrame, bench: pd.DataFrame | None, cl: dict, cfg: di
     chase = (price / paid - 1.0) * 100.0 if paid > 0 else 0.0
     if chase > float(cc.get("block_chase_pct", 30)):
         return None  # the price has already run away from what they paid
+    # How far the share had fallen over the 3 months before the first purchase
+    before = ind["Close"][ind.index <= pd.Timestamp(cl["first_trade"])]
+    fall = float(before.iloc[-1] / before.iloc[-64] - 1.0) * 100.0 if len(before) > 64 else 0.0
     idx = ind.index
     const = lambda flag: pd.Series(bool(flag), index=idx)  # noqa: E731
     trig = pd.Series(False, index=idx)
@@ -1109,10 +1237,13 @@ def copy_signal(ind: pd.DataFrame, bench: pd.DataFrame | None, cl: dict, cfg: di
         Check("size", f"they spent {fmt_money(cl['total_value'], 'USD')} of their own money",
               const(cl["total_value"] >= float(cc.get("big_total_usd", 250000))), 10),
         Check("stake", f"raised their own stake by up to {cl['max_increase_pct']:.0f}%", const(cl["max_increase_pct"] >= 10), 10),
+        Check("fall", f"bought after a {abs(fall):.0f}% fall" if fall < 0 else "bought after a fall of 10% or more",
+              const(fall <= -10), 10),
         Check("trend", "share price above its 200-day average",
               pd.Series(ind["sma200"].notna() & (ind["Close"] > ind["sma200"]), index=idx), 10),
         Check("regime", "{bench} in an uptrend", bench["up"] if use_bench else None, 10),
         Check("chased", f"already {chase:.0f}% above what they paid", const(chase > float(cc.get("max_chase_pct", 15))), 15, True),
+        Check("selling", "other insiders sold more than these bought", const(cl.get("sold_value", 0) > cl["total_value"]), 15, True),
         Check("shock", "huge one-day drop: check the news", (-ind["move_atr"] > 3.0), 15, True),
     ]
     return pd.DataFrame({"trig": trig, "score": _score(30, checks, idx)}), checks
@@ -1125,15 +1256,39 @@ def insiders_report(clusters: dict[str, dict], updated: str = "", n: int = 10) -
         lines.append("No cluster buys right now.")
     for c in good[:n]:
         who = f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''}" + (" incl. the boss" if c["top"] else "")
+        sold = f" · others sold {fmt_money(c['sold_value'], 'USD')}" if c.get("sold_value") else ""
         lines.append(f"<b>{esc(c['symbol'])}</b> {esc(str(c['issuer'])[:28])} · {who} · "
-                     f"{fmt_money(c['total_value'], 'USD')} at about {fmt_price(c['avg_price'], 'USD')} · latest filing {c['last_filed']}")
+                     f"{fmt_money(c['total_value'], 'USD')} at about {fmt_price(c['avg_price'], 'USD')}{sold} · "
+                     f"latest filing {c['last_filed']}")
     if len(good) > n:
         lines.append(f"...and {len(good) - n} more.")
+    skipped = sum(c.get("routine_skipped", 0) for c in clusters.values())
+    if skipped:
+        lines.append(f"Skipped {skipped} purchase{'s' if skipped != 1 else ''} by 'routine' insiders who trade in the same "
+                     "month every year (research finds those trades carry no information).")
     if updated:
         lines.append(f"Filings read up to {updated[:16].replace('T', ' ')} UTC.")
     lines.append("<i>Insiders are often early: shares they buy can keep falling for a while. The nightly scan only "
                  "copies the strongest of these, with a stop, and paper-trades them first.</i>")
     return "\n".join(lines)
+
+
+def new_insider_alerts(st: dict, cfg: dict) -> list[str]:
+    """Telegram messages for shares whose insider buying has just become strong enough to copy."""
+    out = []
+    today = datetime.now(timezone.utc).date().isoformat()
+    for sym, c in insider_clusters(st["buys"], cfg).items():
+        if not c["qualified"] or sym in st["alerted"]:
+            continue
+        st["alerted"][sym] = today
+        lines = [f"<b>INSIDERS BUYING: {esc(sym)}</b> · {esc(str(c['issuer'])[:40])}",
+                 f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''} bought {fmt_money(c['total_value'], 'USD')} "
+                 f"of their own shares at about {fmt_price(c['avg_price'], 'USD')}:"]
+        lines += insider_lines(c)
+        lines.append("Tonight's scan checks the chart and scores it as a copy trade (paper first).")
+        lines.append("<i>Not advice. Insiders are often early.</i>")
+        out.append("\n".join(lines))
+    return out
 
 
 # ---------------------------------------------------------------------------
