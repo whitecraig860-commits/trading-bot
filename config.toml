@@ -13,7 +13,8 @@ interval = "1d"             # "1d" = daily bars (recommended), "1h" = hourly
 history = "2y"              # how much price history each scan loads
 alert_min_score = 70        # only message you about setups scoring at least this
 strong_score = 80           # setups at or above this are labelled STRONG
-allow_shorts = false        # true also looks for falling-market setups (needs a spread bet, CFD or margin account)
+allow_shorts = "auto"       # "auto" = also go short, but only when the wider market is in a downtrend too;
+                            # true = shorts everywhere; false = longs only. Shorts need a spread bet, CFD or margin account.
 earnings_warning_days = 7   # flag shares that report earnings within this many days
 daily_summary = true        # send a short "scan done" message every run
 
@@ -29,6 +30,8 @@ volume_surge = 1.5            # "heavy volume" = at least this many times the 20
 adx_trending = 20             # ADX at or above this counts as a trending market
 squeeze_pctile = 0.25         # squeeze = Bollinger width in the narrowest 25% of the last 6 months
 overextended_atr = 3.0        # breakouts this many ATRs above the 20-day average lose points
+copy_stop_atr = 3.0           # copy-the-insiders trades: stop and trailing stop, in ATRs (insiders are often early)
+copy_max_hold_bars = 63       # ...and sold after about 3 months at most
 
 [paper]
 enabled = true              # paper-trade strong alerts automatically (no real money)
@@ -131,6 +134,41 @@ weekly_loss_limit_pct = 5   # ...or this week's reach 5%
 max_open_risk_pct = 5       # total at risk across all open trades
 max_new_trades_per_day = 3
 min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
+
+[analysis]
+# "python bot.py analyse" reads the market: each market's trend, momentum and volatility, the fear gauge,
+# how many watchlist markets are above their 200-day average, and whether that favours longs or shorts.
+enabled = true
+send_with_scan = true       # send a short market read with every nightly scan
+markets = ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"]   # your group benchmarks are added too
+fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
+
+[copy]
+# Copy the insiders: company directors and bosses buying their own company's shares with their own money.
+# US law makes them report every trade to the SEC within two business days (Form 4), and research has found
+# their open-market purchases, especially several insiders together or the CEO/CFO, have tended to beat the
+# market over the following months. "python bot.py insiders" reads the filings (GitHub does it every morning);
+# the nightly scan then scores the strongest ones as "Copy the insiders" trades and paper-trades them.
+# US shares only. Insider SALES are ignored: people sell for many reasons that say nothing about the company.
+enabled = true
+sec_user_agent = ""         # the SEC asks for your name and email, e.g. "Jane Smith jane@example.com".
+                            # On GitHub, leave this empty and add an SEC_USER_AGENT secret instead.
+fetch_days = 5              # read up to this many days back that haven't been read yet
+max_filings_per_run = 6000  # each filing is one download; the SEC allows 10 a second (the bot does 8)
+cluster_days = 30           # look at purchases filed in the last 30 days
+max_signal_age_days = 7     # only copy if the buying became strong in the last 7 days
+min_buy_usd = 10000         # ignore purchases smaller than this
+min_total_usd = 50000       # all insiders together must have bought at least this much...
+min_insiders = 2            # ...and at least this many insiders bought,
+big_buy_usd = 100000        # ...or the CEO, CFO, President or Chair alone bought at least this much
+big_total_usd = 250000      # buying this big earns extra points
+skip_planned = true         # skip purchases made under a pre-arranged 10b5-1 plan (they carry less information)
+include_big_holders = false # true also counts 10% shareholders (often funds) who aren't directors or officers
+min_price_usd = 5           # don't copy shares under $5
+min_dollar_volume = 1000000 # ...or shares trading less than $1m a day (hard to get in and out of)
+max_chase_pct = 15          # lose points if the price is already 15% above what the insiders paid
+block_chase_pct = 30        # don't copy at all if it's 30% above
+benchmark = "SPY"
 
 [scalper]
 # The 0DTE options day-trader (scalper.py). PAPER ONLY: it is hard-wired to Alpaca's paper account.
