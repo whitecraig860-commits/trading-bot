@@ -123,6 +123,7 @@ DEFAULTS: dict = {
         "uk": True,
         "per_list": 10,
         "min_price_usd": 5.0,
+        "max_daily_swing_pct": 15.0,
         "us_benchmark": "SPY",
         "uk_benchmark": "^FTSE",
     },
@@ -169,6 +170,7 @@ DEFAULTS: dict = {
         "send_signals": True,
         "max_signals_per_market": 4,
         "min_trades": 15,
+        "min_edge_r": 0.1,
         "record_every_minutes": 60,
         "cost_pct": 0.02,
         "costs": {"SPY": 0.005, "QQQ": 0.005, "IWM": 0.01, "GC=F": 0.01, "^FTSE": 0.01, "BTC-USD": 0.05},
@@ -1259,7 +1261,8 @@ def copy_signal(ind: pd.DataFrame, bench: pd.DataFrame | None, cl: dict, cfg: di
     trig.iloc[-1] = True
     use_bench = bench is not None and bench_symbol and bench_symbol.upper() != symbol.upper()
     checks = [
-        Check("cluster", f"{cl['insiders']} different insiders bought", const(cl["insiders"] >= 3), 15),
+        Check("cluster", "3 or more insiders bought" if cl["insiders"] >= 3 else
+              f"only {cl['insiders']} insider{'s' if cl['insiders'] != 1 else ''} bought (3+ is stronger)", const(cl["insiders"] >= 3), 15),
         Check("top", "the CEO, CFO, President or Chair bought", const(cl["top"]), 15),
         Check("size", f"they spent {fmt_money(cl['total_value'], 'USD')} of their own money",
               const(cl["total_value"] >= float(cc.get("big_total_usd", 250000))), 10),
@@ -1345,13 +1348,20 @@ def read_market(sym: str, cfg: dict, csv_dir) -> dict | None:
     usual = float(atr_pct.tail(252).median())
     vol_word = "jumpier than usual" if now_vol > 1.3 * usual else ("calmer than usual" if now_vol < 0.8 * usual else "normal")
     r2 = float(last["rsi2"]) if pd.notna(last["rsi2"]) else 50.0
+    if trend == "uptrend" and c < s50:
+        trend_note = "uptrend, but pulling back under its 50-day"
+    elif trend == "downtrend" and c > s50:
+        trend_note = "downtrend, but bouncing above its 50-day"
+    else:
+        trend_note = trend
     short_term = ""
     if r2 < 10:
         short_term = "sharp dip in the last two days" + (": the kind the pullback setup buys" if trend == "uptrend" else "")
     elif r2 > 90:
         short_term = "sharp jump in the last two days" + (": the kind the pullback setup shorts" if trend == "downtrend" else "")
     return {
-        "symbol": sym, "currency": meta.get("currency", "USD"), "price": c, "trend": trend, "rising200": rising,
+        "symbol": sym, "currency": meta.get("currency", "USD"), "price": c, "trend": trend, "trend_note": trend_note,
+        "rising200": rising,
         "r1m": float(c / ind["Close"].iloc[-22] - 1.0), "r3m": float(last["ret63"]) if pd.notna(last["ret63"]) else float("nan"),
         "atr_pct": now_vol, "vol_word": vol_word, "short_term": short_term,
         "above20": bool(c > float(last["ema20"])),
@@ -1382,7 +1392,7 @@ def market_read_text(cfg: dict, args, breadth: list[tuple[str, bool, bool]] | No
         return ""
     for r in rows:
         mom = f"{r['r1m']:+.1%} this month, {r['r3m']:+.1%} in 3 months" if r["r3m"] == r["r3m"] else f"{r['r1m']:+.1%} this month"
-        line = (f"<b>{esc(r['symbol'])}</b> {r['trend']} · {mom} · moves ~{r['atr_pct']:.1f}% a day ({r['vol_word']})"
+        line = (f"<b>{esc(r['symbol'])}</b> {r['trend_note']} · {mom} · moves ~{r['atr_pct']:.1f}% a day ({r['vol_word']})"
                 f" → {stance_for(r['trend'], cfg)}")
         if r["short_term"] and not compact:
             line += f". Short term: {r['short_term']}"
@@ -1539,6 +1549,15 @@ def _score(base: int, checks: list[Check], index) -> pd.Series:
             available += ch.weight
             earned = earned + hit * ch.weight
     return (100.0 * earned / available).clip(0, 100).round()
+
+
+def min_score_for(setup: str, cfg: dict, which: str = "alert") -> int:
+    """The score a setup needs to alert ("alert") or be paper-traded ("paper"). Per-setup values in
+    [scan] setup_min_score override both, e.g. breakouts, where the 10-year test found the score didn't help."""
+    per = cfg["scan"].get("setup_min_score", {}) or {}
+    if setup in per:
+        return int(per[setup])
+    return int(cfg["scan"]["alert_min_score"] if which == "alert" else cfg["paper"]["min_score"])
 
 
 def shorts_mode(cfg: dict) -> str:
@@ -2151,7 +2170,6 @@ def cmd_scan(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["scan"]["history"]
     st = load_state(cfg)
-    alert_min = int(cfg["scan"]["alert_min_score"])
     paper_on = bool(cfg["paper"]["enabled"])
     acct_ccy = cfg["account"]["currency"]
     news_on = bool(cfg["news"].get("enabled", True))
@@ -2223,8 +2241,11 @@ def cmd_scan(cfg: dict, args) -> int:
                 movers_checked += int(is_mover)
                 ind = add_indicators(df, cfg)
                 lr = ind.iloc[-1]
-                if pd.notna(lr["atr"]) and lr["Close"] > 0:
-                    vol_rows.append((sym, float(lr["atr"]) / float(lr["Close"]) * 100.0))
+                swing = float(lr["atr"]) / float(lr["Close"]) * 100.0 if pd.notna(lr["atr"]) and lr["Close"] > 0 else float("nan")
+                if quiet and swing > float(cfg["movers"].get("max_daily_swing_pct", 15)):
+                    continue  # a movers-list share swinging 15%+ a day: usually a penny share or bad data
+                if swing == swing:
+                    vol_rows.append((sym, swing))
                 if sym in on_list and pd.notna(lr["sma200"]):
                     breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
@@ -2241,7 +2262,8 @@ def cmd_scan(cfg: dict, args) -> int:
                         continue
                     score = int(frame["score"].iloc[i])
                     warnings = []
-                    days = next_earnings_days(sym, meta) if score >= alert_min - 10 else None
+                    need = min_score_for(setup, cfg)
+                    days = next_earnings_days(sym, meta) if score >= need - 10 else None
                     if days is not None and days <= int(cfg["scan"]["earnings_warning_days"]):
                         score = max(0, score - 10)
                         warnings.append(f"Earnings in {days} day{'s' if days != 1 else ''}: prices can jump past any stop")
@@ -2250,7 +2272,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         warnings.append(f"Big event soon, {event_text(ev)}: prices can jump on the day")
                     key = f"{sym}|{setup}|{direction}|{bar}"
                     alerted = False
-                    if score >= alert_min and key not in st["sent"]:
+                    if score >= need and key not in st["sent"]:
                         last = ind.iloc[i]
                         price, a = float(last["Close"]), float(last["atr"])
                         k = stop_multiple(setup, cfg)
@@ -2285,7 +2307,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         if ok and tm and min_r > -1 and tm["avg_r"] < min_r:
                             ok, why = False, f"time machine average {tm['avg_r']:+.2f}R is below your minimum {min_r:+.2f}R"
                         warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
-                        if paper_on and score >= int(cfg["paper"]["min_score"]):
+                        if paper_on and score >= min_score_for(setup, cfg, "paper"):
                             if sym in open_syms:
                                 paper_note = "Paper trading: already holding this one, so no new paper trade."
                             elif not ok:
@@ -2807,7 +2829,6 @@ def watch_once(cfg: dict, args) -> int:
     ws = load_watch_state()
     wc = cfg["watch"]
     news_on = bool(cfg["news"].get("enabled", True))
-    alert_min = int(cfg["scan"]["alert_min_score"])
     now = datetime.now(timezone.utc)
     stamp, day = now.isoformat(), now.strftime("%Y-%m-%d")
     held = {p["symbol"]: p for p in st["positions"] if p["status"] == "open"}
@@ -2872,7 +2893,7 @@ def watch_once(cfg: dict, args) -> int:
                         continue
                     score = int(frame["score"].iloc[i])
                     key = f"bo|{sym}|{direction}|{day}"
-                    if score >= alert_min and key not in ws["sent"]:
+                    if score >= min_score_for(setup, cfg) and key not in ws["sent"]:
                         side = "high" if direction == "long" else "low"
                         msgs.append(
                             f"<b>Breakout in progress: {esc(sym)}</b> is through its "
@@ -2905,6 +2926,19 @@ def watch_once(cfg: dict, args) -> int:
                     msgs.append("\n".join([f"<b>News on {esc(sym)}</b> (in your paper account):"] + headline_lines(fresh[:3])))
                     for p in fresh:
                         ws["sent"][f"news|{p['id']}"] = stamp
+
+            # 5) Earnings coming up on something the paper account holds: the share can gap past the stop
+            if sym in held:
+                days = next_earnings_days(sym, meta)
+                key = f"earn|{sym}|{(pd.Timestamp(day) + pd.Timedelta(days=days or 0)):%Y-%m-%d}"
+                if days is not None and days <= int(wc.get("earnings_days", 3)) and key not in ws["sent"]:
+                    pos = held[sym]
+                    msgs.append(
+                        f"<b>Earnings soon: {esc(sym)}</b> reports in {days} day{'s' if days != 1 else ''}. You hold it in the paper "
+                        f"account ({pos['direction']}, stop {fmt_price(float(pos['stop']), ccy)}). Results can make a share jump "
+                        "straight past a stop. With real money, many traders take some or all of the profit off first."
+                    )
+                    ws["sent"][key] = stamp
     for m in msgs:
         send_telegram(cfg, m, args)
     if not msgs:
@@ -2996,7 +3030,8 @@ def won_lost(r: float, cfg: dict) -> str:
 def pulse_market_text(sym, spec, ind, m, ccy, cfg, head: str) -> str:
     row = ind.iloc[-1]
     d, k = row["direction"], row["kind"]
-    best = intraday.best_approach(d, k, m.get("record", {}), int(cfg["pulse"].get("min_trades", 15)))
+    best = intraday.best_approach(d, k, m.get("record", {}), int(cfg["pulse"].get("min_trades", 15)),
+                                  float(cfg["pulse"].get("min_edge_r", 0.1)))
     tz = cfg["news"].get("timezone", "Europe/London")
     when = ind.index[-1].tz_convert(tz) + pd.Timedelta(minutes=5)
     vw_dir = "rising" if row["vwap_slope"] > 0 else "falling"
@@ -3086,7 +3121,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         m["last_bar"] = str(last_ts)
         row = ind.iloc[-1]
         d, k = row["direction"], row["kind"]
-        best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)))
+        best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)), float(pc.get("min_edge_r", 0.1)))
         key = f"{d}|{k}|{best}"
         if m.get("brief_day") != today:
             if pc.get("send_open_brief", True):

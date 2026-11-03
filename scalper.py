@@ -77,6 +77,7 @@ DEFAULTS = {
     "trend_filter": True,             # calls only when the 5-min/1-hour trend is UP, puts only when it's DOWN, nothing when choppy
     "max_losses_per_worker": 2,       # a worker stops for the day after this many losing trades
     "loss_cooldown_minutes": 30,      # and waits this long after any loss (the normal cooldown applies after a win)
+    "entry_offset_pct": 25,           # buy at mid + 25% of the way to the ask (0 = mid, 100 = the ask)
     "poll_seconds": 15,
     "max_runtime_minutes": 350,       # stops itself before GitHub's 6-hour job limit
 }
@@ -713,20 +714,23 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
             print(f"{sym}: {con.symbol} spread too wide ({bid}/{ask}), skipped")
             continue
+        # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
+        # traders found most of their losses came from trading costs (the bid/ask spread).
+        limit = round(min(ask, mid + float(cfg.get("entry_offset_pct", 25)) / 100 * (ask - mid)) + 0.004, 2)
         risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
-        per_contract_risk = ask * 100 * cfg["stop_loss_pct"] / 100
+        per_contract_risk = limit * 100 * cfg["stop_loss_pct"] / 100
         max_spend = cfg["account_size"] * cfg["max_premium_pct"] / 100
-        qty = int(min(risk_cash / per_contract_risk, max_spend / (ask * 100)))
+        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100)))
         if qty < 1:
-            print(f"{sym}: one contract (${ask * 100:,.0f}) is over your limits, skipped")
+            print(f"{sym}: one contract (${limit * 100:,.0f}) is over your limits, skipped")
             continue
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
-        o = api.buy(con.symbol, qty, ask)
-        t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=ask, entry_time=str(now),
+        o = api.buy(con.symbol, qty, limit)
+        t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending")
         trades.append(t)
-        print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {ask:.2f} ({t.why})")
+        print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
             break
     day.trades = [asdict(t) for t in trades]
