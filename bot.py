@@ -1306,11 +1306,23 @@ def insiders_report(clusters: dict[str, dict], updated: str = "", n: int = 10) -
 def new_insider_alerts(st: dict, cfg: dict) -> list[str]:
     """Telegram messages for shares whose insider buying has just become strong enough to copy."""
     out = []
-    today = datetime.now(timezone.utc).date().isoformat()
-    for sym, c in insider_clusters(st["buys"], cfg).items():
+    now = datetime.now(timezone.utc)
+    today = now.date().isoformat()
+    fresh_from = (now - pd.Timedelta(days=2)).strftime("%Y-%m-%d")
+    clusters = insider_clusters(st["buys"], cfg)
+    if not st.get("alerts_seeded"):
+        # first run: everything already known has been in the nightly scan; only alert on new buying from now on
+        for sym, c in clusters.items():
+            if c["qualified"]:
+                st["alerted"][sym] = today
+        st["alerts_seeded"] = True
+        return out
+    for sym, c in clusters.items():
         if not c["qualified"] or sym in st["alerted"]:
             continue
         st["alerted"][sym] = today
+        if c["first_qualified"] < fresh_from:
+            continue  # old news
         lines = [f"<b>INSIDERS BUYING: {esc(sym)}</b> · {esc(str(c['issuer'])[:40])}",
                  f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''} bought {fmt_money(c['total_value'], 'USD')} "
                  f"of their own shares at about {fmt_price(c['avg_price'], 'USD')}:"]
