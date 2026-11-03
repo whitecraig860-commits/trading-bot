@@ -13,6 +13,7 @@ setup automatically so you can see whether it works before risking money.
   python bot.py volatile         the most volatile markets right now
   python bot.py news             market headlines and big events coming up (--symbols for one)
   python bot.py analyse          read the market: trend, momentum, fear, breadth, long or short
+  python bot.py pulse --every 5  read gold, SPY, QQQ, IWM, FTSE and Bitcoin every 5 minutes: best approach, signals
   python bot.py insiders         fetch company insiders' share purchases from the SEC (to copy)
   python bot.py events           big scheduled events: rate decisions, inflation, jobs
   python bot.py timemachine --symbols AAPL   replay a trade 10,000 times from its own bars
@@ -45,6 +46,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+import intraday
 
 try:
     import tomllib  # Python 3.11+
@@ -154,8 +157,26 @@ DEFAULTS: dict = {
         "markets": ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"],
         "fear_gauge": "^VIX",
     },
+    "pulse": {
+        "markets": ["GC=F", "SPY", "QQQ", "IWM", "^FTSE", "BTC-USD"],
+        "every_minutes": 5,
+        "send_open_brief": True,
+        "send_changes": True,
+        "confirm_bars": 3,
+        "max_changes_per_market": 3,
+        "send_signals": True,
+        "max_signals_per_market": 4,
+        "min_trades": 15,
+        "record_every_minutes": 60,
+        "cost_pct": 0.02,
+        "sessions": {},
+    },
     "copy": {
         "enabled": True,
+        "live": True,
+        "live_every_minutes": 10,
+        "live_pages": 4,
+        "skip_routine": True,
         "sec_user_agent": "",
         "fetch_days": 5,
         "max_filings_per_run": 6000,
@@ -2024,8 +2045,10 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                 ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
                 held = "on its first bar" if pos.bars_held == 0 else f"after {pos.bars_held} bar{'s' if pos.bars_held != 1 else ''}"
                 msgs.append(
-                    f"<b>Paper trade closed</b>: {esc(sym)} {pos.r_multiple:+.2f}R ({fmt_money(pos.pnl, acct_ccy)}), "
-                    f"{esc(pos.exit_reason)} at {fmt_price(pos.exit_price, pos.currency)} {held}. "
+                    f"<b>Paper trade closed: {esc(sym)} {pos.direction} {'WON' if pos.pnl > 0 else 'LOST'} "
+                    f"{fmt_money(pos.pnl, acct_ccy)}</b> ({pos.r_multiple:+.2f}R). "
+                    f"In at {fmt_price(pos.entry_price, pos.currency)}, out at {fmt_price(pos.exit_price, pos.currency)} "
+                    f"({esc(pos.exit_reason)}) {held}. "
                     f"Paper account {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}%)."
                 )
                 break
@@ -2869,6 +2892,262 @@ def cmd_watch(cfg: dict, args) -> int:
         _EVENTS_CACHE = None
 
 
+# ---------------------------------------------------------------------------
+# Pulse: read gold, the S&P 500, Nasdaq, Russell, FTSE and Bitcoin every 5 minutes
+# ---------------------------------------------------------------------------
+
+
+def pulse_path() -> Path:
+    return STATE_DIR / "pulse.json"
+
+
+def load_pulse() -> dict:
+    d: dict = {}
+    if pulse_path().exists():
+        try:
+            d = json.loads(pulse_path().read_text(encoding="utf-8"))
+        except Exception:
+            d = {}
+    d.setdefault("markets", {})
+    d.setdefault("trades", [])
+    d.setdefault("closed", [])
+    return d
+
+
+def save_pulse(d: dict) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    d["closed"] = d["closed"][-500:]
+    tmp = pulse_path().with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, indent=1, default=str), encoding="utf-8")
+    tmp.replace(pulse_path())
+
+
+def pulse_risk(cfg: dict) -> float:
+    """Money at risk on each paper intraday trade (so R can be shown as pounds won or lost)."""
+    return float(cfg["account"]["size"]) * float(cfg["account"]["risk_per_trade_pct"]) / 100.0
+
+
+def intraday_frame(sym: str, period: str, cfg: dict, csv_dir):
+    df, meta = get_data(sym, "5m", period, csv_dir)
+    spec = intraday.spec_for(sym, cfg["pulse"].get("sessions", {}).get(sym))
+    return intraday.add_intraday(intraday.prepare(df, spec), spec), spec, meta
+
+
+def record_line(record: dict) -> str:
+    parts = []
+    for a, name in intraday.APPROACHES.items():
+        r = record.get(a, {})
+        if r.get("trades"):
+            parts.append(f"{name} {r['avg_r']:+.2f}R a trade ({r['trades']} trades, {r['win_rate']:.0%} won)")
+        else:
+            parts.append(f"{name}: no trades")
+    n = max((r.get("sessions", 0) for r in record.values()), default=0)
+    return f"Lately here ({n} sessions of 5-min bars, after costs): " + " · ".join(parts)
+
+
+def won_lost(r: float, cfg: dict) -> str:
+    money = r * pulse_risk(cfg)
+    acct = cfg["account"]["currency"]
+    return f"{'WON' if money > 0 else 'LOST'} {fmt_money(money, acct)} ({r:+.2f}R)"
+
+
+def pulse_market_text(sym, spec, ind, m, ccy, cfg, head: str) -> str:
+    row = ind.iloc[-1]
+    d, k = row["direction"], row["kind"]
+    best = intraday.best_approach(d, k, m.get("record", {}), int(cfg["pulse"].get("min_trades", 15)))
+    tz = cfg["news"].get("timezone", "Europe/London")
+    when = ind.index[-1].tz_convert(tz) + pd.Timedelta(minutes=5)
+    vw_dir = "rising" if row["vwap_slope"] > 0 else "falling"
+    h1 = "up" if row["h1_up"] else ("down" if row["h1_down"] else "flat")
+    lines = [f"<b>{head}{esc(spec['name'])} · {intraday.describe(d, k)}</b> · {when:%H:%M} UK",
+             f"Price {fmt_price(float(row['Close']), ccy)} · VWAP {fmt_price(float(row['vwap']), ccy)} ({vw_dir}) · "
+             f"1-hour trend {h1} · today {(row['Close'] / row['sess_open'] - 1) * 100:+.2f}%",
+             f"Best approach now: {esc(intraday.advice(d, k, best))}"]
+    if np.isfinite(row["or_high"]):
+        lines.append(f"Opening range {fmt_price(float(row['or_low']), ccy)} to {fmt_price(float(row['or_high']), ccy)} · "
+                     f"VWAP bands {fmt_price(float(row['vwap'] - 2 * row['vwap_sd']), ccy)} to "
+                     f"{fmt_price(float(row['vwap'] + 2 * row['vwap_sd']), ccy)}")
+    if m.get("record"):
+        lines.append(esc(record_line(m["record"])))
+    return "\n".join(lines)
+
+
+def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
+    msgs, keep = [], []
+    cost = float(cfg["pulse"].get("cost_pct", 0.02))
+    pos = {str(t): i for i, t in enumerate(ind.index)}
+    for t in ps["trades"]:
+        if t["symbol"] != sym:
+            keep.append(t)
+            continue
+        i = pos.get(t["signal_time"])
+        if i is None:
+            if pd.Timestamp(t["signal_time"]) < ind.index[0]:
+                continue  # too old to follow any more
+            keep.append(t)
+            continue
+        res = intraday.follow(ind, i, t["approach"], t["side"], cost)
+        if res is None:
+            msgs.append(f"Paper intraday trade skipped: {esc(spec['name'])} {t['side']} (couldn't be taken at the next open).")
+            continue
+        if res.get("status") != "closed":
+            if res.get("status") == "open" and not t.get("opened_said"):
+                t.update(entry=res["entry"], stop=res["stop"], target=res["target"], opened_said=True)
+            keep.append(t)
+            continue
+        t.update(res)
+        t["money"] = t["r"] * pulse_risk(cfg)
+        ps["closed"].append(t)
+        today = [c for c in ps["closed"] if str(c.get("exit_time", ""))[:10] == str(res["exit_time"])[:10]]
+        day_r = sum(c["r"] for c in today)
+        msgs.append(
+            f"<b>{esc(spec['name'])} {intraday.APPROACHES[t['approach']]} {t['side'].upper()}: {won_lost(t['r'], cfg)}</b>\n"
+            f"{'Bought' if t['side'] == 'long' else 'Sold'} at {fmt_price(res['entry'], ccy)}, out at {fmt_price(res['exit'], ccy)} "
+            f"({esc(res['reason'])}). Paper only.\n"
+            f"Today's intraday paper trades: {len(today)}, {won_lost(day_r, cfg)}"
+        )
+    ps["trades"] = keep
+    return msgs
+
+
+def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
+    pc = cfg["pulse"]
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    cost = float(pc.get("cost_pct", 0.02))
+    msgs = []
+    for sym in pc.get("markets", []):
+        m = ps["markets"].setdefault(sym, {})
+        stale = not m.get("record_at") or (now - pd.Timestamp(m["record_at"])).total_seconds() > 60 * float(pc.get("record_every_minutes", 60))
+        try:
+            ind, spec, meta = intraday_frame(sym, "60d" if stale else "5d", cfg, args.csv_dir)
+        except Exception as exc:
+            print(f"{sym}: {exc}")
+            continue
+        if len(ind) < 80:
+            continue
+        ccy = meta.get("currency", "USD")
+        if stale:
+            m["record"] = intraday.recent_record(ind, cost)
+            m["record_at"] = now.isoformat()
+        msgs += manage_pulse_trades(ps, sym, ind, spec, ccy, cfg)
+        last_ts = ind.index[-1]
+        live = OFFLINE or (now - last_ts.tz_convert("UTC")).total_seconds() <= 20 * 60
+        if not live or m.get("last_bar") == str(last_ts):
+            continue  # market closed, or no new bar yet
+        m["last_bar"] = str(last_ts)
+        row = ind.iloc[-1]
+        d, k = row["direction"], row["kind"]
+        best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)))
+        key = f"{d}|{k}|{best}"
+        if m.get("brief_day") != today:
+            if pc.get("send_open_brief", True):
+                msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "OPEN: "))
+            m.update(brief_day=today, stance=key, pending=None, pending_n=0, alerts={})
+        elif key != m.get("stance"):
+            m["pending_n"] = m.get("pending_n", 0) + 1 if m.get("pending") == key else 1
+            m["pending"] = key
+            if m["pending_n"] >= int(pc.get("confirm_bars", 3)):
+                old = m.get("stance", "none|mixed|None").split("|")
+                n_ch = m.setdefault("changes", {}).get(today, 0)
+                if pc.get("send_changes", True) and n_ch < int(pc.get("max_changes_per_market", 3)):
+                    msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "CHANGE: ") +
+                                f"\n(was {intraday.describe(old[0], old[1]).lower()})")
+                    m["changes"] = {today: n_ch + 1}
+                m.update(stance=key, pending=None, pending_n=0)
+        else:
+            m.update(pending=None, pending_n=0)
+        if best and pc.get("send_signals", True):
+            side = intraday.signal_now(ind, best, d)
+            n_today = m.setdefault("alerts", {}).get(today, 0)
+            if side and n_today < int(pc.get("max_signals_per_market", 4)):
+                m["alerts"] = {today: n_today + 1}
+                price = float(row["Close"])
+                stop = float(row[f"{best}_{'l' if side == 'long' else 's'}stop"])
+                risk = abs(price - stop)
+                target = float(row["vwap"]) if best == "fade" else (price + 2 * risk if side == "long" else price - 2 * risk)
+                rec = m.get("record", {}).get(best, {})
+                msgs.append(
+                    f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
+                    f"{intraday.APPROACHES[best]} · 5-min chart\n"
+                    f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · target {fmt_price(target, ccy)}\n"
+                    f"Why: {esc(intraday.describe(d, k).lower())}; {esc(intraday.HOW[(best, side)])}\n"
+                    f"This approach has made {rec.get('avg_r', 0):+.2f}R a trade on this market lately "
+                    f"({rec.get('trades', 0)} trades). At {fmt_money(pulse_risk(cfg), cfg['account']['currency'])} risk, "
+                    f"the stop costs {fmt_money(-pulse_risk(cfg), cfg['account']['currency'])} and the target makes about "
+                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk else 2), cfg['account']['currency'])}.\n"
+                    "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
+                )
+                ps["trades"].append({"symbol": sym, "approach": best, "side": side, "signal_time": str(last_ts), "signal_price": price})
+    # End-of-day results, once, after the US close
+    if now.hour >= 21 and ps.get("summary_day") != today:
+        todays = [c for c in ps["closed"] if str(c.get("exit_time", ""))[:10] == today]
+        if todays:
+            lines = [f"<b>Intraday paper results · {today}</b>"]
+            for c in todays:
+                lines.append(f"{esc(intraday.spec_for(c['symbol'])['name'])} {intraday.APPROACHES[c['approach']]} {c['side']}: "
+                             f"{won_lost(c['r'], cfg)}")
+            lines.append(f"Today: {won_lost(sum(c['r'] for c in todays), cfg)}")
+            allr = [c["r"] for c in ps["closed"]]
+            lines.append(f"All intraday paper trades so far: {len(allr)}, {np.mean([r > 0 for r in allr]):.0%} won, "
+                         f"{won_lost(sum(allr), cfg)}")
+            for a, name in intraday.APPROACHES.items():
+                rs = [c["r"] for c in ps["closed"] if c["approach"] == a]
+                if rs:
+                    lines.append(f"  {name}: {len(rs)} trades, {won_lost(sum(rs), cfg)}")
+            msgs.append("\n".join(lines))
+        ps["summary_day"] = today
+    return msgs
+
+
+def cmd_pulse(cfg: dict, args) -> int:
+    """Reads each market every few minutes. --every 5 keeps going; --until 21:35 (UTC) or --for 340 (minutes) stops it."""
+    every = float(getattr(args, "every", 0) or 0)
+    started = time.time()
+    until = getattr(args, "until", "") or ""
+    for_min = float(getattr(args, "for_minutes", 0) or 0)
+    ps = load_pulse()
+    cc = cfg.get("copy", {})
+    last_insider_poll = 0.0
+    while True:
+        _DATA_CACHE.clear()
+        try:
+            msgs = pulse_once(cfg, args, ps)
+        except Exception as exc:
+            msgs = []
+            print(f"Pulse check failed: {exc}")
+        # Copy the insiders, quickly: EDGAR's live feed every few minutes
+        if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
+                and time.time() - last_insider_poll >= 60 * float(cc.get("live_every_minutes", 10))):
+            last_insider_poll = time.time()
+            try:
+                ist = load_insiders()
+                poll_live_insiders(cfg, ist, log=print)
+                msgs += new_insider_alerts(ist, cfg)
+                save_insiders(ist)
+            except Exception as exc:
+                print(f"Insider feed: {exc}")
+        for text in msgs:
+            send_telegram(cfg, text, args)
+        save_pulse(ps)
+        if not msgs:
+            print(f"Pulse {datetime.now(timezone.utc):%H:%M} UTC: nothing new.")
+        if every <= 0:
+            return 0
+        now = datetime.now(timezone.utc)
+        if until and now.strftime("%H:%M") >= until:
+            return 0
+        if for_min and (time.time() - started) / 60 >= for_min:
+            return 0
+        # wake just after the next bar finishes (bars close on the 5-minute mark; Yahoo needs a moment)
+        step = every * 60
+        wait = step - (time.time() % step) + 40
+        try:
+            time.sleep(wait)
+        except KeyboardInterrupt:
+            return 0
+
+
 def cmd_movers(cfg: dict, args) -> int:
     movers = fetch_movers(dict(cfg, movers=dict(cfg["movers"], enabled=True)))
     if not movers:
@@ -3086,7 +3365,7 @@ def cmd_timemachine(cfg: dict, args) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan for trading setups, send alerts, paper-trade, backtest.")
     parser.add_argument("command", choices=["scan", "watch", "movers", "volatile", "news", "events", "analyse", "analyze",
-                                            "market", "insiders", "timemachine", "resend", "backtest", "status",
+                                            "market", "insiders", "pulse", "timemachine", "resend", "backtest", "status",
                                             "leaders", "test-telegram"])
     parser.add_argument("--config", default=str(BASE_DIR / "config.toml"), help="settings file (default: config.toml)")
     parser.add_argument("--symbols", help="comma-separated symbols to use instead of the watchlist")
@@ -3095,6 +3374,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-telegram", action="store_true", help="print messages here instead of sending them")
     parser.add_argument("--telegram", action="store_true", help="send the report to Telegram as well (status, movers, volatile, news, events)")
     parser.add_argument("--every", type=float, default=0, help="watch: keep checking every this many minutes")
+    parser.add_argument("--until", default="", help="pulse: stop at this UTC time, e.g. 21:35")
+    parser.add_argument("--for", dest="for_minutes", type=float, default=0, help="pulse: stop after this many minutes")
     parser.add_argument("--days", type=int, default=0, help="insiders: how many days of SEC filings to read")
     parser.add_argument("--no-fetch", action="store_true", help="insiders: list what's already saved, without downloading")
     args = parser.parse_args(argv)
@@ -3112,6 +3393,7 @@ def main(argv: list[str] | None = None) -> int:
         "analyze": cmd_analyse,
         "market": cmd_analyse,
         "insiders": cmd_insiders,
+        "pulse": cmd_pulse,
         "timemachine": cmd_timemachine,
         "resend": cmd_resend,
         "backtest": cmd_backtest,

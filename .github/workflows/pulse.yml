@@ -1,0 +1,50 @@
+name: Market pulse (every 5 minutes)
+
+on:
+  schedule:
+    # Three back-to-back shifts on weekdays (a GitHub job can run for 6 hours at most), covering
+    # 07:00 to 21:35 UTC: from before the London open to after the US close. Free on a public repo.
+    - cron: "0 7 * * 1-5"
+    - cron: "50 12 * * 1-5"
+    - cron: "40 18 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pulse
+  cancel-in-progress: false
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Read the markets every 5 minutes
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python bot.py pulse --every 5 --for 340 --until 21:35
+
+      - name: Save the pulse and insider state
+        if: always()
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add state
+          if ! git diff --cached --quiet; then
+            git commit -m "Pulse $(date -u +%F-%H%M)"
+            for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+          fi
