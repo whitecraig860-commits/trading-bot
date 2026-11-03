@@ -12,6 +12,8 @@ For each market it works out, from the latest finished 5-minute bar:
       orb     the first break of the opening range
       fade    in a range, fade a stretch beyond the VWAP bands back towards VWAP
       vwap    every VWAP cross (what the old scalper did): the benchmark to beat
+      late    "market intraday momentum": if the first half-hour moved strongly from yesterday's close,
+              trade the same way for the last half-hour (Gao, Han, Li & Zhou, J. Financial Economics 2018)
   - and whether the best approach has a fresh signal right now.
 
 Every approach enters at the next bar's open, uses a stop, exits by the end of the session, and pays
@@ -38,6 +40,7 @@ APPROACHES = {
     "orb": "Opening-range breakout",
     "fade": "Fade back to VWAP",
     "vwap": "VWAP cross",
+    "late": "Last-half-hour momentum",
 }
 
 HOW = {
@@ -49,6 +52,8 @@ HOW = {
     ("fade", "short"): "sell when price snaps back inside the upper VWAP band; target VWAP",
     ("vwap", "long"): "buy the close back above VWAP",
     ("vwap", "short"): "sell the close back below VWAP",
+    ("late", "long"): "the first half-hour was strongly up, so buy for the last half-hour and sell at the close",
+    ("late", "short"): "the first half-hour was strongly down, so sell for the last half-hour and buy back at the close",
 }
 
 
@@ -113,6 +118,10 @@ def add_intraday(df: pd.DataFrame, spec: dict, bar_minutes: int = 5, or_minutes:
     out["or_high"] = h.where(in_or).groupby(g).transform("max").where(or_done)
     out["or_low"] = l.where(in_or).groupby(g).transform("min").where(or_done)
     out["sess_open"] = o.groupby(g).transform("first")
+    last_close = c.groupby(g).last()
+    out["prev_close"] = g.map(last_close.shift(1))
+    first30 = c.where(since < 30).groupby(g).transform("last")  # close of the first half-hour
+    out["r_first30"] = (first30 / out["prev_close"] - 1.0).where(since >= 30)
 
     # 1-hour trend, from finished hours only
     hc = c.resample("60min").last().dropna()
@@ -157,10 +166,21 @@ def add_intraday(df: pd.DataFrame, spec: dict, bar_minutes: int = 5, or_minutes:
     out["vwap_long"] = ok & (c > vwap) & (pc <= vwap.shift(1))
     out["vwap_short"] = ok & (c < vwap) & (pc >= vwap.shift(1))
     out["vwap_lstop"], out["vwap_sstop"] = c - 1.5 * a, c + 1.5 * a
+    # last half-hour momentum: the bar that ends 30 minutes before the close, after a big first half-hour
+    # (big = more than a quarter of a normal day's range, judged on this market's own 5-minute ATR x 8)
+    late_bar = same & (out["mins_left"] > 30) & (out["mins_left"] <= 30 + bar_minutes)
+    big = out["r_first30"].abs() * c > 2.0 * a
+    out["late_long"] = late_bar & big & (out["r_first30"] > 0)
+    out["late_short"] = late_bar & big & (out["r_first30"] < 0)
+    out["late_lstop"], out["late_sstop"] = c - 2.0 * a, c + 2.0 * a
     return out
 
 
-def follow(ind: pd.DataFrame, i: int, approach: str, side: str, cost_pct: float = 0.02) -> dict | None:
+MIN_RISK_ATR = 1.0  # stops closer than one normal 5-minute bar get shaken out by noise, and costs swamp them
+
+
+def follow(ind: pd.DataFrame, i: int, approach: str, side: str, cost_pct: float = 0.02,
+           min_risk_atr: float | None = None) -> dict | None:
     """One trade signalled on bar i's close: enters at bar i+1's open and follows it to the exit.
     Returns None if it can't be taken, else a dict with status 'open' or 'closed' and the result in R."""
     n = len(ind)
@@ -176,12 +196,14 @@ def follow(ind: pd.DataFrame, i: int, approach: str, side: str, cost_pct: float 
     risk = (entry - stop) if long else (stop - entry)
     if not (np.isfinite(risk) and np.isfinite(atr) and atr > 0) or risk <= 0 or risk > 3 * atr:
         return None
-    risk = max(risk, 0.25 * atr)
+    risk = max(risk, (MIN_RISK_ATR if min_risk_atr is None else min_risk_atr) * atr)
     stop = entry - risk if long else entry + risk
     if approach == "fade":
         target = float(ind["vwap"].iat[i])
         if ((target - entry) if long else (entry - target)) < 0.8 * risk:
             return None
+    elif approach == "late":
+        target = entry + 10 * risk if long else entry - 10 * risk  # no target: held to the close
     else:
         target = entry + 2 * risk if long else entry - 2 * risk
     exit_px, reason, j = None, "", i + 1
@@ -226,7 +248,7 @@ def follow(ind: pd.DataFrame, i: int, approach: str, side: str, cost_pct: float 
     return trade
 
 
-def backtest(ind: pd.DataFrame, approach: str, cost_pct: float = 0.02) -> list[dict]:
+def backtest(ind: pd.DataFrame, approach: str, cost_pct: float = 0.02, min_risk_atr: float | None = None) -> list[dict]:
     """Every trade the approach would have taken, one at a time."""
     trades = []
     longs, shorts = ind[f"{approach}_long"].to_numpy(bool), ind[f"{approach}_short"].to_numpy(bool)
@@ -235,7 +257,7 @@ def backtest(ind: pd.DataFrame, approach: str, cost_pct: float = 0.02) -> list[d
     for i in range(len(ind) - 1):
         if i <= busy_until or not (longs[i] or shorts[i]):
             continue
-        t = follow(ind, i, approach, "long" if longs[i] else "short", cost_pct)
+        t = follow(ind, i, approach, "long" if longs[i] else "short", cost_pct, min_risk_atr)
         if not t or t.get("status") != "closed":
             continue
         trades.append(t)
@@ -250,13 +272,14 @@ def stats(trades: list[dict]) -> dict:
     return {"trades": int(len(r)), "win_rate": float((r > 0).mean()), "avg_r": float(r.mean()), "total_r": float(r.sum())}
 
 
-def recent_record(ind: pd.DataFrame, cost_pct: float = 0.02) -> dict:
-    return {a: stats(backtest(ind, a, cost_pct)) | {"sessions": int(ind["session"].nunique())} for a in APPROACHES}
+def recent_record(ind: pd.DataFrame, cost_pct: float = 0.02, min_risk_atr: float | None = None) -> dict:
+    return {a: stats(backtest(ind, a, cost_pct, min_risk_atr)) | {"sessions": int(ind["session"].nunique())}
+            for a in APPROACHES}
 
 
 def suits(direction: str, kind: str) -> list[str]:
     if kind == "trend":
-        return ["trend", "orb", "vwap"]
+        return ["trend", "orb", "vwap", "late"]
     if kind == "range":
         return ["fade"]
     return []
@@ -275,7 +298,7 @@ def signal_now(ind: pd.DataFrame, approach: str, direction: str) -> str | None:
         return None
     for side in ("long", "short"):
         if bool(ind[f"{approach}_{side}"].iat[-1]):
-            if approach in {"orb", "vwap"} and direction != ("up" if side == "long" else "down"):
+            if approach in {"orb", "vwap", "late"} and direction != ("up" if side == "long" else "down"):
                 continue  # only with the trend
             return side
     return None

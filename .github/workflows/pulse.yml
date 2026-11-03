@@ -2,15 +2,16 @@ name: Market pulse (every 5 minutes)
 
 on:
   schedule:
-    # Three back-to-back shifts on weekdays (a GitHub job can run for 6 hours at most), covering
-    # 07:00 to 21:35 UTC: from before the London open to after the US close. Free on a public repo.
-    - cron: "0 7 * * 1-5"
-    - cron: "50 12 * * 1-5"
-    - cron: "40 18 * * 1-5"
+    # GitHub often starts scheduled runs late, or drops them when it's busy, so this asks every hour on
+    # weekdays from 06:07 to 20:07 UTC. Only one pulse runs at a time: an extra start waits for the running
+    # one to finish its shift (about 5.7 hours) and then carries on from there, so the day stays covered
+    # without gaps. Extra waiting starts are cancelled by GitHub (grey icons in the Actions tab: that's normal).
+    - cron: "7 6-20 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: write   # save the pulse, insider and watch state
+  actions: write    # start the scalper at the US open (GitHub's own schedule for it can be hours late)
 
 concurrency:
   group: pulse
@@ -31,14 +32,18 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
 
-      - name: Read the markets every 5 minutes
+      - name: Get the latest saved state (this run may have waited behind the previous shift)
+        run: git pull --rebase origin main
+
+      - name: Read the markets every 5 minutes (also starts the scalper, runs the watch and reads insider filings)
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          GH_TOKEN: ${{ github.token }}
         run: python bot.py pulse --every 5 --for 340 --until 21:35
 
-      - name: Save the pulse and insider state
+      - name: Save the pulse, insider and watch state
         if: always()
         run: |
           git config user.name "setup-scanner-bot"
@@ -46,5 +51,5 @@ jobs:
           git add state
           if ! git diff --cached --quiet; then
             git commit -m "Pulse $(date -u +%F-%H%M)"
-            for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+            for i in 1 2 3; do git pull --rebase -X theirs origin main && git push && break; sleep 5; done
           fi
