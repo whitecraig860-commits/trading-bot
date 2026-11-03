@@ -41,6 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 import bot  # reuses Telegram, settings loading and the event calendar
+import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 
 BASE = Path(__file__).resolve().parent
@@ -98,6 +99,19 @@ def load_cfg(path: str) -> tuple[dict, dict]:
 
 def say(full: dict, text: str, args) -> None:
     bot.send_telegram(full, text, args)
+
+
+def picture(full: dict, bars: dict, sym: str, caption: str, args, level: float | None = None) -> None:
+    """A 5-minute chart of the share (the option follows it) at the moment of the trade."""
+    try:
+        df = to_bars(bars.get(sym, pd.DataFrame()), 5)
+        if len(df) < 3:
+            return
+        ind = session_indicators(df, {**DEFAULTS, "signal_minutes": 5})
+        png = charts.intraday_chart(ind.rename(columns={"ema": "ema21"}), bot.to_plain(caption)[:90], entry=level)
+        bot.send_photo(full, png, caption, args)
+    except Exception as exc:
+        print(f"chart: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -610,6 +624,9 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 t.status = "open"
                 say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> {t.contract} at ${t.entry_price:.2f} "
                           f"(${t.entry_price * 100 * t.qty:,.0f}) · {t.why}", args)
+                if t.worker in bars:
+                    picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper bought the {t.side}", args,
+                            float(bars[t.worker]["Close"].iloc[-1]))
             elif (now - pd.Timestamp(t.entry_time)).total_seconds() > 90 or force_exit:
                 api.cancel(t.order_id)
                 t.status = "cancelled"
@@ -653,6 +670,9 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             say(full, f"<b>{t.worker} {t.side.upper()} {'WON' if t.pnl > 0 else 'LOST'} {money(t.pnl)}</b> ({chg:+.0f}%)\n"
                       f"{t.qty} x {t.contract}: bought at ${t.entry_price:.2f}, sold at ${px:.2f}, {reason}.\n"
                       f"Today so far: {money(total)} (paper)", args)
+            if t.worker in bars:
+                picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper sold: {'WON' if t.pnl > 0 else 'LOST'} "
+                        f"{money(t.pnl)}", args)
     day.trades = [asdict(t) for t in trades]
     if force_exit:
         return
