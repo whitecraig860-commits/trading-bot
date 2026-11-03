@@ -171,7 +171,11 @@ DEFAULTS: dict = {
         "min_trades": 15,
         "record_every_minutes": 60,
         "cost_pct": 0.02,
+        "costs": {"SPY": 0.005, "QQQ": 0.005, "IWM": 0.01, "GC=F": 0.01, "^FTSE": 0.01, "BTC-USD": 0.05},
         "sessions": {},
+        "start_scalper": True,
+        "run_watch": True,
+        "watch_every_minutes": 30,
     },
     "copy": {
         "enabled": True,
@@ -3012,7 +3016,7 @@ def pulse_market_text(sym, spec, ind, m, ccy, cfg, head: str) -> str:
 
 def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
     msgs, keep = [], []
-    cost = float(cfg["pulse"].get("cost_pct", 0.02))
+    cost = market_cost(cfg, sym)
     pos = {str(t): i for i, t in enumerate(ind.index)}
     for t in ps["trades"]:
         if t["symbol"] != sym:
@@ -3048,11 +3052,16 @@ def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
     return msgs
 
 
+def market_cost(cfg: dict, sym: str) -> float:
+    """Spread + slippage each way for this market, in %."""
+    pc = cfg["pulse"]
+    return float(pc.get("costs", {}).get(sym, pc.get("cost_pct", 0.02)))
+
+
 def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
     pc = cfg["pulse"]
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
-    cost = float(pc.get("cost_pct", 0.02))
     msgs = []
     for sym in pc.get("markets", []):
         m = ps["markets"].setdefault(sym, {})
@@ -3065,6 +3074,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         if len(ind) < 80:
             continue
         ccy = meta.get("currency", "USD")
+        cost = market_cost(cfg, sym)
         if stale:
             m["record"] = intraday.recent_record(ind, cost)
             m["record_at"] = now.isoformat()
@@ -3102,18 +3112,26 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                 m["alerts"] = {today: n_today + 1}
                 price = float(row["Close"])
                 stop = float(row[f"{best}_{'l' if side == 'long' else 's'}stop"])
-                risk = abs(price - stop)
-                target = float(row["vwap"]) if best == "fade" else (price + 2 * risk if side == "long" else price - 2 * risk)
+                risk = max(abs(price - stop), intraday.MIN_RISK_ATR * float(row["atr"]))  # same rules as the record
+                stop = price - risk if side == "long" else price + risk
+                if best == "fade":
+                    target = float(row["vwap"])
+                elif best == "late":
+                    target = float("nan")  # held to the close
+                else:
+                    target = price + 2 * risk if side == "long" else price - 2 * risk
                 rec = m.get("record", {}).get(best, {})
                 msgs.append(
                     f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
                     f"{intraday.APPROACHES[best]} · 5-min chart\n"
-                    f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · target {fmt_price(target, ccy)}\n"
+                    f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · "
+                    f"{'sell at the close' if best == 'late' else 'target ' + fmt_price(target, ccy)}\n"
                     f"Why: {esc(intraday.describe(d, k).lower())}; {esc(intraday.HOW[(best, side)])}\n"
                     f"This approach has made {rec.get('avg_r', 0):+.2f}R a trade on this market lately "
                     f"({rec.get('trades', 0)} trades). At {fmt_money(pulse_risk(cfg), cfg['account']['currency'])} risk, "
                     f"the stop costs {fmt_money(-pulse_risk(cfg), cfg['account']['currency'])} and the target makes about "
-                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk else 2), cfg['account']['currency'])}.\n"
+                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk and target == target else 2), cfg['account']['currency'])}"
+                    f"{' (if it runs 2R by the close)' if best == 'late' else ''}.\n"
                     "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
                 )
                 ps["trades"].append({"symbol": sym, "approach": best, "side": side, "signal_time": str(last_ts), "signal_price": price})
@@ -3138,15 +3156,74 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
     return msgs
 
 
+def dispatch_workflow(name: str) -> bool:
+    """Starts another GitHub workflow now (GitHub's own schedules can start hours late)."""
+    import subprocess
+
+    if not (os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_ACTIONS")):
+        return False
+    try:
+        r = subprocess.run(["gh", "workflow", "run", name, "--ref", os.environ.get("GITHUB_REF_NAME", "main")],
+                           capture_output=True, text=True, timeout=60)
+        print(f"Started {name}: {r.returncode} {r.stdout.strip()} {r.stderr.strip()}")
+        return r.returncode == 0
+    except Exception as exc:
+        print(f"Couldn't start {name}: {exc}")
+        return False
+
+
+def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
+    """Jobs the all-day pulse does so they don't depend on GitHub's unreliable schedules."""
+    pc, cc = cfg["pulse"], cfg.get("copy", {})
+    msgs: list[str] = []
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    ny = pd.Timestamp.now(tz="America/New_York")
+    # 1) Start the 0DTE scalper just before the US open (once a day, weekdays)
+    if pc.get("start_scalper", True) and ny.weekday() < 5 and ps.get("scalper_day") != today:
+        mins = ny.hour * 60 + ny.minute
+        if 9 * 60 <= mins <= 9 * 60 + 40:
+            if dispatch_workflow("scalper.yml") or not os.environ.get("GITHUB_ACTIONS"):
+                ps["scalper_day"] = today
+    # 2) The daily insider catch-up (every filing from the previous days), once a day
+    if cc.get("enabled", True) and not OFFLINE and ps.get("insiders_day") != today:
+        try:
+            update_insiders(cfg, log=print)
+            ps["insiders_day"] = today
+        except Exception as exc:
+            print(f"Insider catch-up: {exc}")
+    # 3) EDGAR's live insider feed every few minutes
+    if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
+            and time.time() - state.get("insider_poll", 0) >= 60 * float(cc.get("live_every_minutes", 10))):
+        state["insider_poll"] = time.time()
+        try:
+            ist = load_insiders()
+            poll_live_insiders(cfg, ist, log=print)
+            msgs += new_insider_alerts(ist, cfg)
+            save_insiders(ist)
+        except Exception as exc:
+            print(f"Insider feed: {exc}")
+    # 4) The watchlist check (big moves, breakouts in progress, paper stops, news) every 30 minutes
+    if pc.get("run_watch", True) and time.time() - state.get("watch", 0) >= 60 * float(pc.get("watch_every_minutes", 30)):
+        state["watch"] = time.time()
+        try:
+            watch_once(cfg, args)
+        except Exception as exc:
+            print(f"Watch check failed: {exc}")
+    return msgs
+
+
 def cmd_pulse(cfg: dict, args) -> int:
     """Reads each market every few minutes. --every 5 keeps going; --until 21:35 (UTC) or --for 340 (minutes) stops it."""
     every = float(getattr(args, "every", 0) or 0)
     started = time.time()
     until = getattr(args, "until", "") or ""
     for_min = float(getattr(args, "for_minutes", 0) or 0)
+    if every > 0 and until and datetime.now(timezone.utc).strftime("%H:%M") >= until:
+        print(f"After {until} UTC: nothing to do until tomorrow.")
+        return 0
     ps = load_pulse()
-    cc = cfg.get("copy", {})
-    last_insider_poll = 0.0
+    state: dict = {}
     while True:
         _DATA_CACHE.clear()
         try:
@@ -3154,17 +3231,10 @@ def cmd_pulse(cfg: dict, args) -> int:
         except Exception as exc:
             msgs = []
             print(f"Pulse check failed: {exc}")
-        # Copy the insiders, quickly: EDGAR's live feed every few minutes
-        if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
-                and time.time() - last_insider_poll >= 60 * float(cc.get("live_every_minutes", 10))):
-            last_insider_poll = time.time()
-            try:
-                ist = load_insiders()
-                poll_live_insiders(cfg, ist, log=print)
-                msgs += new_insider_alerts(ist, cfg)
-                save_insiders(ist)
-            except Exception as exc:
-                print(f"Insider feed: {exc}")
+        try:
+            msgs += pulse_chores(cfg, args, ps, state)
+        except Exception as exc:
+            print(f"Pulse chores failed: {exc}")
         for text in msgs:
             send_telegram(cfg, text, args)
         save_pulse(ps)

@@ -16,37 +16,28 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Daily backtest, pullbacks sell on the bounce (current)
-        run: python -W ignore bot.py backtest 2>&1 | grep -v Warning | head -80
+        run: python -W ignore bot.py backtest 2>/dev/null | head -70
       - name: Daily backtest, pullbacks let winners run
         run: |
           sed 's/^pullback_rsi2_entry = 10 .*/&\npullback_exit = "trail"/' config.toml > /tmp/trail.toml
-          grep -n pullback_exit /tmp/trail.toml
-          python -W ignore bot.py backtest --config /tmp/trail.toml 2>&1 | grep -v Warning | head -80
+          python -W ignore bot.py backtest --config /tmp/trail.toml 2>/dev/null | head -45
       - name: Intraday approaches on 60 days of real 5-minute bars
         run: |
-          python -W ignore - <<'PY'
-          import bot, intraday as I, time
+          python -W ignore - 2>/dev/null <<'PY'
+          import bot, intraday as I
           cfg = bot.load_config("config.toml")
           for sym in cfg["pulse"]["markets"]:
-              t = time.time()
               try:
                   ind, spec, meta = bot.intraday_frame(sym, "60d", cfg, None)
               except Exception as e:
                   print(sym, "ERROR", e); continue
-              rec = I.recent_record(ind, 0.02)
-              last = ind.iloc[-1]
-              best = I.best_approach(last.direction, last.kind, rec)
-              print(f"{sym}: {len(ind)} bars, {ind.session.nunique()} sessions, last {ind.index[-1]}, {last.direction}/{last.kind}, best={best}, {time.time()-t:.1f}s")
-              for a, r in rec.items():
-                  print(f"   {a:6} {r['trades']:4} trades {r['win_rate']:.0%} won {r['avg_r']:+.3f}R/trade total {r['total_r']:+.1f}R")
-              by = {}
-              for a in I.APPROACHES:
-                  for side in ("long", "short"):
-                      tr = [x for x in I.backtest(ind, a, 0.02) if x["side"] == side]
-                      st = I.stats(tr); by[f"{a}-{side}"] = (st["trades"], round(st["avg_r"], 3))
-              print("   by side:", by)
+              cost = bot.market_cost(cfg, sym)
+              print(f"{sym}: {ind.session.nunique()} sessions, cost {cost}%/side, now {ind.direction.iat[-1]}/{ind.kind.iat[-1]}")
+              for mr in (0.5, 1.0, 1.5):
+                  rec = I.recent_record(ind, cost, mr)
+                  print(f"   min stop {mr} ATR: " + " | ".join(f"{a} {r['trades']}t {r['win_rate']:.0%} {r['avg_r']:+.2f}R" for a, r in rec.items()))
+              rec = I.recent_record(ind, 0.0, 1.0)
+              print("   no costs, 1.0 ATR: " + " | ".join(f"{a} {r['trades']}t {r['avg_r']:+.2f}R" for a, r in rec.items()))
           PY
       - name: Scalper, old rules vs new rules (1-minute bars, last ~30 days)
-        run: python -W ignore scalper.py backtest --no-telegram 2>&1 | grep -v Warning | head -60
-      - name: One pulse pass (printed, not sent)
-        run: python -W ignore bot.py pulse --no-telegram 2>&1 | grep -v Warning | head -120
+        run: python -W ignore scalper.py backtest --no-telegram 2>/dev/null | grep -v "^1R here\|^ways\|^A month" | head -40
