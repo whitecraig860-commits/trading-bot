@@ -1,0 +1,52 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Daily backtest, pullbacks sell on the bounce (current)
+        run: python -W ignore bot.py backtest 2>&1 | grep -v Warning | head -80
+      - name: Daily backtest, pullbacks let winners run
+        run: |
+          sed 's/^pullback_rsi2_entry = 10 .*/&\npullback_exit = "trail"/' config.toml > /tmp/trail.toml
+          grep -n pullback_exit /tmp/trail.toml
+          python -W ignore bot.py backtest --config /tmp/trail.toml 2>&1 | grep -v Warning | head -80
+      - name: Intraday approaches on 60 days of real 5-minute bars
+        run: |
+          python -W ignore - <<'PY'
+          import bot, intraday as I, time
+          cfg = bot.load_config("config.toml")
+          for sym in cfg["pulse"]["markets"]:
+              t = time.time()
+              try:
+                  ind, spec, meta = bot.intraday_frame(sym, "60d", cfg, None)
+              except Exception as e:
+                  print(sym, "ERROR", e); continue
+              rec = I.recent_record(ind, 0.02)
+              last = ind.iloc[-1]
+              best = I.best_approach(last.direction, last.kind, rec)
+              print(f"{sym}: {len(ind)} bars, {ind.session.nunique()} sessions, last {ind.index[-1]}, {last.direction}/{last.kind}, best={best}, {time.time()-t:.1f}s")
+              for a, r in rec.items():
+                  print(f"   {a:6} {r['trades']:4} trades {r['win_rate']:.0%} won {r['avg_r']:+.3f}R/trade total {r['total_r']:+.1f}R")
+              by = {}
+              for a in I.APPROACHES:
+                  for side in ("long", "short"):
+                      tr = [x for x in I.backtest(ind, a, 0.02) if x["side"] == side]
+                      st = I.stats(tr); by[f"{a}-{side}"] = (st["trades"], round(st["avg_r"], 3))
+              print("   by side:", by)
+          PY
+      - name: Scalper, old rules vs new rules (1-minute bars, last ~30 days)
+        run: python -W ignore scalper.py backtest --no-telegram 2>&1 | grep -v Warning | head -60
+      - name: One pulse pass (printed, not sent)
+        run: python -W ignore bot.py pulse --no-telegram 2>&1 | grep -v Warning | head -120

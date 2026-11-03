@@ -94,6 +94,8 @@ DEFAULTS: dict = {
         "pullback_rsi2_entry": 10.0,
         "pullback_stop_atr": 2.5,
         "pullback_max_hold_bars": 10,
+        "pullback_exit": "bounce",
+        "pullback_trail_max_bars": 63,
         "target_r": 2.0,
         "volume_surge": 1.5,
         "adx_trending": 20.0,
@@ -1672,6 +1674,7 @@ class Position:
     risk_amount: float = 0.0
     bars_held: int = 0
     best_price: float = 0.0
+    trailing: bool = False
     last_bar: str = ""
     exit_next_open: bool = False
     exit_reason: str = ""
@@ -1762,10 +1765,26 @@ def step_bar(pos: Position, date: str, row, cfg: dict, cost: float) -> bool:
             pos.stop = trail
         if pos.bars_held >= int(s.get("copy_max_hold_bars", 63)):
             pos.exit_next_open, pos.exit_reason = True, "time stop (about 3 months)"
+    elif pos.trailing:
+        # "let it run" pullbacks: once the bounce has come, the stop goes to break-even and then
+        # trails under the 20-bar low (high for shorts), like a breakout, for up to ~3 months
+        trail = float(row["exit_lo"] if long else row["exit_hi"])
+        if np.isfinite(trail):
+            if long and trail > pos.stop:
+                pos.stop = trail
+            elif (not long) and trail < pos.stop:
+                pos.stop = trail
+        if pos.bars_held >= int(s.get("pullback_trail_max_bars", 63)):
+            pos.exit_next_open, pos.exit_reason = True, "time stop (about 3 months)"
     else:
         sma5 = float(row["sma5"])
         if np.isfinite(sma5) and ((long and c > sma5) or ((not long) and c < sma5)):
-            pos.exit_next_open, pos.exit_reason = True, "bounce done: closed past the 5-day average"
+            if str(s.get("pullback_exit", "bounce")).lower() == "trail":
+                pos.trailing = True
+                if (long and pos.entry_price > pos.stop) or ((not long) and pos.entry_price < pos.stop):
+                    pos.stop = pos.entry_price  # break-even: this trade can no longer lose (bar gaps aside)
+            else:
+                pos.exit_next_open, pos.exit_reason = True, "bounce done: closed past the 5-day average"
         elif pos.bars_held >= int(s["pullback_max_hold_bars"]):
             pos.exit_next_open, pos.exit_reason = True, "time stop"
     return False
@@ -1891,6 +1910,12 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
             f"Exit plan: trail the stop {plan['k']:g} x ATR under the best close since you bought; sell after "
             f"{int(s.get('copy_max_hold_bars', 63))} bars (about 3 months) at most; {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
         )
+    elif str(s.get("pullback_exit", "bounce")).lower() == "trail":
+        lines.append(
+            f"Exit plan: when it bounces back past the 5-day average, move the stop to break-even, then trail it under the "
+            f"{int(s['breakout_exit_lookback'])}-bar {'low' if direction == 'long' else 'high'} to let it run "
+            f"(up to {int(s.get('pullback_trail_max_bars', 63))} bars); {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
+        )
     else:
         lines.append(
             f"Exit plan: close it when price closes back past the 5-day average, or after "
@@ -2001,6 +2026,8 @@ def summarise_r(rs: list[float]) -> dict:
         "profit_factor": float(wins.sum() / gross_loss) if gross_loss > 0 else float("inf"),
         "total_r": float(r.sum()),
         "max_dd_r": float((peak - eq).max()) if len(eq) else 0.0,
+        "best_r": float(r.max()),
+        "big_wins": int((r >= 3).sum()),
     }
 
 
@@ -2500,6 +2527,8 @@ def time_machine(ind: pd.DataFrame, setup: str, direction: str, cfg: dict, repla
     init_stop = stop.copy()
     alive = np.ones(n, bool)
     flag = np.zeros(n, bool)
+    trailing = np.zeros(n, bool)
+    trail_mode = setup == "pullback" and str(s.get("pullback_exit", "bounce")).lower() == "trail"
     exit_px = np.full(n, np.nan)
     stopped = np.zeros(n, bool)
     bars = np.zeros(n, int)
@@ -2526,6 +2555,12 @@ def time_machine(ind: pd.DataFrame, setup: str, direction: str, cfg: dict, repla
         closes = np.column_stack([closes[:, 1:], c])
         if setup == "breakout":
             stop = np.where(alive, np.maximum(stop, lows.min(axis=1)), stop)
+        elif trail_mode:
+            bounced = alive & ~trailing & (c > closes.mean(axis=1))
+            trailing |= bounced
+            stop = np.where(bounced, np.maximum(stop, entry), stop)
+            stop = np.where(alive & trailing, np.maximum(stop, lows.min(axis=1)), stop)
+            flag |= alive & ~trailing & (bars >= int(s["pullback_max_hold_bars"]))
         else:
             flag |= alive & ((c > closes.mean(axis=1)) | (bars >= int(s["pullback_max_hold_bars"])))
         prev = c
@@ -2629,7 +2664,7 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 
 def _stats_row(label: str, st: dict) -> list[str]:
     if not st.get("trades"):
-        return [label, "0", "-", "-", "-", "-", "-", "-"]
+        return [label, "0", "-", "-", "-", "-", "-", "-", "-", "-"]
     pf = st["profit_factor"]
     return [
         label,
@@ -2640,6 +2675,8 @@ def _stats_row(label: str, st: dict) -> list[str]:
         f"{st['expectancy']:+.3f}",
         "inf" if pf == float("inf") else f"{pf:.2f}",
         f"{st['max_dd_r']:.1f}",
+        f"{st['best_r']:+.1f}",
+        str(st["big_wins"]),
     ]
 
 
@@ -2687,7 +2724,8 @@ def cmd_backtest(cfg: dict, args) -> int:
         t0, t1 = min(first_dates), max(last_dates)
         cut = t0 + (t1 - t0) * float(cfg["backtest"]["in_sample_share"])
     risk_pct = float(cfg["account"]["risk_per_trade_pct"])
-    headers = ["Group", "Trades", "Won", "Avg win R", "Avg loss R", "Expectancy R", "Profit factor", "Worst run R"]
+    headers = ["Group", "Trades", "Won", "Avg win R", "Avg loss R", "Expectancy R", "Profit factor", "Worst run R",
+               "Best R", "3R+ wins"]
     print(f"\nBacktest: {len(bh_rows)} markets, {interval} bars, costs {cost * 100:.2f}% each way, "
           f"entries at the next open after the signal.\n")
     for (setup, direction) in sorted({(t.setup, t.direction) for t in all_trades}):
