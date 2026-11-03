@@ -5,3 +5,4 @@ requests>=2.31
 tomli>=2.0; python_version < "3.11"
 # ccxt>=4.4   # optional: remove the # to use exchange symbols like kraken:BTC/GBP
 alpaca-py>=0.40
+matplotlib>=3.8

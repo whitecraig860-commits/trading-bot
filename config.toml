@@ -44,6 +44,27 @@ overextended_atr = 3.0        # breakouts this many ATRs above the 20-day averag
 copy_stop_atr = 3.0           # copy-the-insiders trades: stop and trailing stop, in ATRs (insiders are often early)
 copy_max_hold_bars = 63       # ...and sold after about 3 months at most
 
+[sizing]
+# Confidence sizing: before each trade the bot adds up what agrees and what doesn't: the score, whether the wider
+# market agrees, this setup's own 10-year record on that market, the time machine, the news headlines (good or
+# bad keywords), earnings or big events close by, insider buying, and very high volatility. Each alert lists them.
+#   3+ points  -> HIGH confidence:   1.5x the normal risk (£150 at 2% of £5,000)
+#   0 or less  -> LOW confidence:    0.5x (£50)
+#   otherwise  -> NORMAL:            1x (£100)
+# max_risk_pct is a hard ceiling for any one trade. It's 3% (£150) on purpose: the 10-year test's worst losing run
+# for breakouts was 26.7R, which at 2% a trade is a 53% fall in the account, and at 20% a trade (£1,000) would
+# have wiped it out several times over. "python bot.py status" shows how each confidence level has really done,
+# so you can see by January whether HIGH trades actually earn their bigger size.
+enabled = true
+low_mult = 0.5
+high_mult = 1.5
+high_points = 3
+low_points = 0
+max_risk_pct = 3.0
+
+[charts]
+enabled = true              # send a chart picture with alerts, closed trades, pulse signals and scalper trades
+
 [paper]
 enabled = true              # paper-trade strong alerts automatically (no real money)
 min_score = 70              # only paper-trade setups scoring at least this
