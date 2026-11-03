@@ -12,6 +12,15 @@ Reads the market, checks your watchlist and the day's biggest movers every night
 
 **Reading the market.** `python bot.py analyse` (also sent with every nightly scan) shows, for each main market: the trend, this month's and the last 3 months' returns, how jumpy it is compared with normal, and whether that favours longs or shorts. It also shows the VIX "fear gauge", how many of your watchlist markets are above their 200-day average (breadth), and which shares insiders are buying. `--symbols AAPL,TSLA` reads those instead and says which long or short setups are live on each.
 
+**Every 5 minutes: gold, the S&P 500, Nasdaq, Russell 2000, FTSE 100 and Bitcoin.** `python bot.py pulse --every 5` (GitHub runs it on weekdays from 07:00 to 21:35 UTC) reads each market on 5-minute bars and works out:
+- whether it's **trending up, trending down or choppy**, from VWAP and its slope, the 9/21/50 EMAs, the 1-hour trend, the opening range and the day's open
+- **which approach has actually made money on that market over the last 60 days**, after costs, by testing four of them: buying dips in a trend, opening-range breakouts, fading stretches back to VWAP, and plain VWAP crosses (what the old scalper did)
+- whether the approach that fits today's market, and has been working, has a **signal right now**
+
+You get a brief when each market opens, a message when one changes character (at most 3 a day each), signals with entry, stop and target, and a **WON/LOST £** message when each paper trade ends. After the US close you get the day's results by approach. Each paper trade risks 1% of `account.size` (£50 by default), so the money figures are what you'd have made or lost at that size.
+
+**The 0DTE scalper now trades with the trend.** It used to buy calls on any one-minute tick above VWAP, even while the market was falling. Now it judges its triggers on 5-minute bars and checks the same trend reading as the pulse. It only buys calls when the trend is up, puts when it's down, and nothing when the market is choppy. It also stops a symbol for the day after 2 losses, waits 30 minutes after any loss, and records the price the option actually sold for. `python scalper.py backtest` prints the old rules and the new rules side by side.
+
 **Copying other people's trades: the insiders.** US company directors and officers must report every trade in their own company's shares to the SEC within two business days (Form 4). Of all the "copy someone's trades" ideas, their open-market *purchases* have the best research behind them: they have tended to beat the market over the following months, most clearly when several insiders buy together, when the CEO or CFO buys, and when the trade isn't part of a pre-arranged 10b5-1 plan. The bot reads every Form 4 from the SEC each morning, keeps only those purchases, and the nightly scan copies the strongest as a long trade at the next open. It sets a 3 x ATR trailing stop, sells after about 3 months at most, and skips any share whose price has already run 30% past what the insiders paid. Insider *sales* are ignored, because people sell for tax, houses and diversification. Two other ideas were left out on purpose. Politicians' trades are reported up to 45 days late, and studies have mostly found no edge in copying them. Copy-trading apps like eToro have no way for a bot to copy them.
 
 **The score** gives points for trend alignment, heavy volume, a quiet squeeze first, trend strength, beating the market and the market's own trend. It takes points off for chasing a stretched move, a news-sized one-day drop, or earnings within a week.
@@ -44,6 +53,7 @@ Education and tooling only. Not financial advice. Any setup can lose.
 | `python bot.py watch --every 10` | Keeps checking every 10 minutes until you press Ctrl+C |
 | `python bot.py movers` | Today's most active, biggest risers and biggest fallers (US and UK), each checked against the rules |
 | `python bot.py volatile` | The most volatile markets right now, with their trend |
+| `python bot.py pulse --every 5` | Read gold, SPY, QQQ, IWM, FTSE and Bitcoin every 5 minutes: trend or chop, the approach that's working, signals, WON/LOST paper trades (add `--until 21:35` to stop at a UTC time) |
 | `python bot.py analyse` | Read the market: trend, momentum, volatility, fear gauge, breadth, insider buying, long or short |
 | `python bot.py insiders` | Read new SEC insider filings and list the strongest insider buying (`--days 10` reads further back, `--no-fetch` lists what's saved) |
 | `python bot.py news` | Market headlines and big events in the next 7 days; add `--symbols AAPL,RR.L` for one market |
@@ -59,6 +69,7 @@ Education and tooling only. Not financial advice. Any setup can lose.
 
 **Free, in the cloud (GitHub Actions)**: create a free GitHub account, make a new **private** repository, and upload all these files (including the `.github` folder). In the repository, go to Settings, Secrets and variables, Actions, and add `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID`. Leave them empty in `config.toml`. Also add `SEC_USER_AGENT` set to your name and email (for example `Jane Smith jane@example.com`): the SEC asks everyone who downloads its filings to identify themselves, and may refuse requests that don't. These schedules then run themselves, even with your computer off:
 
+- **Market pulse**: every 5 minutes on weekdays, 07:00 to 21:35 UTC, in three back-to-back shifts. It also reads the SEC's live insider feed every 10 minutes and alerts you within minutes when insiders start buying. This runs for about 14 hours a day, which is only free on a **public** repository.
 - **Insider buying**: every morning at 05:41 UTC, Tuesday to Saturday (reads the previous US business day's SEC filings).
 - **Setup scanner**: every night at 00:23 UTC (the market read and the full scan; alerts are waiting before the London open).
 - **Market watch**: every 30 minutes on weekdays from 07:07 to 21:37 UTC (the quick check).

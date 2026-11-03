@@ -41,6 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 import bot  # reuses Telegram, settings loading and the event calendar
+import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 
 BASE = Path(__file__).resolve().parent
 STATE = BASE / "state"
@@ -71,6 +72,11 @@ DEFAULTS = {
     "cooldown_minutes": 10,           # per worker, after any exit
     "max_spread_pct": 10.0,           # skip options whose bid/ask gap is over 10% of the price
     "event_blackout_minutes": 30,     # no entries 30 min either side of a big scheduled event
+    "signal_minutes": 5,              # judge the triggers on 5-minute bars (1 = the old, twitchy 1-minute version)
+    "ema_length_5m": 20,              # the EMA trigger's length on 5-minute bars (20 x 5 min = 100 minutes)
+    "trend_filter": True,             # calls only when the 5-min/1-hour trend is UP, puts only when it's DOWN, nothing when choppy
+    "max_losses_per_worker": 2,       # a worker stops for the day after this many losing trades
+    "loss_cooldown_minutes": 30,      # and waits this long after any loss (the normal cooldown applies after a win)
     "poll_seconds": 15,
     "max_runtime_minutes": 350,       # stops itself before GitHub's 6-hour job limit
 }
@@ -98,18 +104,59 @@ def say(full: dict, text: str, args) -> None:
 # ---------------------------------------------------------------------------
 
 
+def bar_minutes(df: pd.DataFrame) -> int:
+    if len(df) < 2:
+        return 1
+    return max(1, int(round(pd.Series(df.index).diff().dropna().median().total_seconds() / 60)))
+
+
+def ema_len(cfg: dict) -> int:
+    return int(cfg["ema_length_5m"]) if int(cfg.get("signal_minutes", 1)) > 1 else int(cfg["ema_length"])
+
+
+def to_bars(df1: pd.DataFrame, minutes: int, now: pd.Timestamp | None = None) -> pd.DataFrame:
+    """1-minute bars to finished N-minute bars (a 10:30 bar covers 10:30-10:34 and is done at 10:35)."""
+    if minutes <= 1 or df1.empty:
+        return df1
+    out = df1.resample(f"{minutes}min", label="left", closed="left").agg(
+        {"Open": "first", "High": "max", "Low": "min", "Close": "last", "Volume": "sum"}).dropna()
+    if now is not None:
+        out = out[out.index + pd.Timedelta(minutes=minutes) <= now]
+    return out
+
+
+def trend_now(history5: pd.DataFrame | None, today5: pd.DataFrame, sym: str) -> tuple[str, str]:
+    """(direction, kind) from the shared 5-minute reading: ('up'|'down'|'none', 'trend'|'range'|'mixed')."""
+    frames = [f for f in (history5, today5) if f is not None and len(f)]
+    if not frames:
+        return "none", "mixed"
+    df = pd.concat(frames)
+    df = df[~df.index.duplicated(keep="last")].sort_index()
+    spec = intraday.spec_for(sym)
+    ind = intraday.add_intraday(intraday.prepare(df, spec), spec)
+    if not len(ind):
+        return "none", "mixed"
+    return str(ind["direction"].iat[-1]), str(ind["kind"].iat[-1])
+
+
+def trend_allows(side: str, direction: str, kind: str) -> bool:
+    if kind == "range":
+        return False  # choppy: VWAP and EMA crosses mostly whipsaw
+    return direction == ("up" if side == "call" else "down")
+
+
 def session_indicators(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """df: one session's 1-minute bars, index in New York time, columns Open High Low Close Volume."""
+    """df: one session's 1- or 5-minute bars, index in New York time, columns Open High Low Close Volume."""
     out = df.copy()
     tp = (out["High"] + out["Low"] + out["Close"]) / 3.0
     vol = out["Volume"].clip(lower=0)
     cum_v = vol.cumsum()
     out["vwap"] = np.where(cum_v > 0, (tp * vol).cumsum() / cum_v.replace(0, np.nan), tp.expanding().mean())
-    out["ema"] = out["Close"].ewm(span=int(cfg["ema_length"]), adjust=False).mean()
+    out["ema"] = out["Close"].ewm(span=ema_len(cfg), adjust=False).mean()
     n = int(cfg["opening_range_minutes"])
     start = out.index[0].normalize() + pd.Timedelta(hours=9, minutes=30)
     in_or = (out.index >= start) & (out.index < start + pd.Timedelta(minutes=n))
-    if in_or.sum() >= max(3, n // 2):
+    if in_or.sum() >= max(2, n // bar_minutes(out) // 2):
         out["or_high"] = out.loc[in_or, "High"].max()
         out["or_low"] = out.loc[in_or, "Low"].min()
     else:
@@ -133,11 +180,11 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set) -> tuple[str,
             fired["call"].append("closed above VWAP")
         if pc >= pvw and c < vw:
             fired["put"].append("closed below VWAP")
-    if "ema50" in trig and i >= int(cfg["ema_length"]) // 2:
+    if "ema50" in trig and i >= min(ema_len(cfg) // 2, 10):
         if pc <= pem and c > em:
-            fired["call"].append(f"closed above the {cfg['ema_length']} EMA")
+            fired["call"].append(f"closed above the {ema_len(cfg)} EMA")
         if pc >= pem and c < em:
-            fired["put"].append(f"closed below the {cfg['ema_length']} EMA")
+            fired["put"].append(f"closed below the {ema_len(cfg)} EMA")
     if "orb" in trig and bool(ind["or_done"].iloc[i]) and np.isfinite(ind["or_high"].iloc[i]):
         hi, lo = ind["or_high"].iloc[i], ind["or_low"].iloc[i]
         if c > hi and pc <= hi and "call" not in orb_used:
@@ -175,7 +222,7 @@ def in_window(ts: pd.Timestamp, cfg: dict) -> bool:
 def cmd_backtest(cfg: dict, full: dict, args) -> int:
     import yfinance as yf
 
-    rows = []
+    frames_by_sym: dict[str, pd.DataFrame] = {}
     for sym in cfg["symbols"]:
         frames = []
         end = pd.Timestamp.now(tz="UTC")
@@ -192,19 +239,35 @@ def cmd_backtest(cfg: dict, full: dict, args) -> int:
         df = pd.concat(frames).sort_index()
         df = df[~df.index.duplicated()]
         df.index = df.index.tz_convert(NY)
-        rows += backtest_frame(sym, df, cfg)
-    return report_backtest(rows, cfg)
+        frames_by_sym[sym] = df
+    if not frames_by_sym:
+        print("No 1-minute data could be downloaded.")
+        return 1
+    old = dict(cfg, signal_minutes=1, trend_filter=False)
+    print("\n=== OLD RULES: 1-minute triggers, no trend filter ===")
+    report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, old)], old, save=False)
+    print(f"\n=== NEW RULES: {cfg['signal_minutes']}-minute triggers, trend filter {'on' if cfg['trend_filter'] else 'off'} ===")
+    return report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, cfg)], cfg)
 
 
 def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
     """Simulates the triggers on the share price. Risk = distance to VWAP or 0.15%, whichever is bigger;
     exits on the reverse cross, the time stop or the close. Results in R (multiples of that risk)."""
     trades = []
+    mins = int(cfg.get("signal_minutes", 1))
+    trend = None
+    if cfg.get("trend_filter"):
+        spec = intraday.spec_for(sym)
+        d5 = to_bars(df.between_time("09:30", "15:59")[["Open", "High", "Low", "Close", "Volume"]], 5)
+        t5 = intraday.add_intraday(intraday.prepare(d5, spec), spec)
+        trend = t5[["direction", "kind"]]
+        trend.index = trend.index + pd.Timedelta(minutes=5)  # known once the 5-minute bar has finished
     for day, sess in df.groupby(df.index.date):
         sess = sess.between_time("09:30", "15:59")
         if len(sess) < 120:
             continue
-        ind = session_indicators(sess[["Open", "High", "Low", "Close", "Volume"]], cfg)
+        sess = to_bars(sess[["Open", "High", "Low", "Close", "Volume"]], mins)
+        ind = session_indicators(sess, cfg)
         orb_used: set = set()
         pos = None
         last_exit = None
@@ -236,6 +299,10 @@ def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
             if not sig:
                 continue
             side, why = sig
+            if trend is not None:
+                known = trend[trend.index <= ts + pd.Timedelta(minutes=mins)]
+                if not len(known) or not trend_allows(side, known["direction"].iat[-1], known["kind"].iat[-1]):
+                    continue
             if any("opening range" in w for w in why):
                 orb_used.add(side)
             entry = float(ind["Open"].iloc[i + 1])
@@ -245,7 +312,7 @@ def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
     return trades
 
 
-def report_backtest(rows: list[dict], cfg: dict) -> int:
+def report_backtest(rows: list[dict], cfg: dict, save: bool = True) -> int:
     if not rows:
         print("No trades (or no 1-minute data could be downloaded).")
         return 1
@@ -270,8 +337,9 @@ def report_backtest(rows: list[dict], cfg: dict) -> int:
     print("1R here = the share's distance to VWAP at entry. An option moves several times more than the share, both")
     print("ways, and loses value every minute (time decay), so option results swing far more than this.")
     print("A month of 1-minute data is a small sample: treat this as a sanity check, not proof.")
-    STATE.mkdir(exist_ok=True)
-    df.to_csv(STATE / "scalper_backtest.csv", index=False)
+    if save:
+        STATE.mkdir(exist_ok=True)
+        df.to_csv(STATE / "scalper_backtest.csv", index=False)
     return 0
 
 
@@ -367,6 +435,41 @@ class Alpaca:
             out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
         return out
 
+    def bars_history(self, symbols: list[str], days: int = 7) -> dict[str, pd.DataFrame]:
+        """5-minute bars from the last few sessions, for the trend reading (fetched once at the start)."""
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+        from alpaca.data.enums import DataFeed
+
+        now = pd.Timestamp.now(tz=NY)
+        req = StockBarsRequest(symbol_or_symbols=symbols, timeframe=TimeFrame(5, TimeFrameUnit.Minute),
+                               start=(now - pd.Timedelta(days=days)).tz_convert("UTC").to_pydatetime(),
+                               end=now.normalize().tz_convert("UTC").to_pydatetime(), feed=DataFeed.IEX)
+        df = self.stocks.get_stock_bars(req).df
+        out = {}
+        if df is None or df.empty:
+            return out
+        for sym in symbols:
+            if sym in df.index.get_level_values(0):
+                d = df.xs(sym, level=0).rename(columns=str.title)
+                d.index = pd.DatetimeIndex(d.index).tz_convert(NY)
+                out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
+        return out
+
+    def exit_fill(self, order, fallback: float) -> float:
+        """The price the sale actually filled at (falls back to the quote if it can't be read)."""
+        if order is None:
+            return fallback
+        for _ in range(6):
+            try:
+                o = self.trading.get_order_by_id(order.id)
+                if getattr(o, "filled_avg_price", None):
+                    return float(o.filled_avg_price)
+            except Exception:
+                pass
+            time.sleep(1)
+        return fallback
+
     def pick_contract(self, sym: str, side: str, price: float):
         from alpaca.trading.requests import GetOptionContractsRequest
         from alpaca.trading.enums import ContractType
@@ -461,8 +564,15 @@ def run_session(cfg: dict, full: dict, args) -> int:
         return 0
     if not day.trades:
         say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
-                  f"Triggers: VWAP cross, {cfg['ema_length']} EMA cross, opening-range breakout. "
+                  f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: VWAP cross, {ema_len(cfg)} EMA cross, opening-range breakout"
+                  f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}. "
                   f"Daily loss limit {money(cfg['account_size'] * cfg['daily_loss_limit_pct'] / 100)}.", args)
+    history5: dict = {}
+    if cfg.get("trend_filter"):
+        try:
+            history5 = api.bars_history(cfg["symbols"])
+        except Exception as exc:
+            print(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.")
     fh, fm = ny_time(cfg["flat_by"])
     while True:
         now = pd.Timestamp.now(tz=NY)
@@ -470,7 +580,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
         out_of_time = (time.time() - started) / 60 > float(cfg["max_runtime_minutes"])
         try:
             bars = api.bars_today(cfg["symbols"])
-            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time)
+            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5)
         except Exception as exc:
             print(f"{now:%H:%M:%S} error: {exc}")
         save_day(day)
@@ -483,8 +593,11 @@ def run_session(cfg: dict, full: dict, args) -> int:
     return 0
 
 
-def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool) -> None:
+def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool,
+         history5: dict | None = None) -> None:
     trades = [Trade(**t) for t in day.trades]
+    mins = int(cfg.get("signal_minutes", 1))
+    sig_bars = {s: to_bars(d, mins, now) for s, d in bars.items()}
     # 1) manage open trades
     for t in trades:
         if t.status == "pending":
@@ -512,7 +625,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         t.best = max(t.best, px)
         chg = (px / t.entry_price - 1) * 100
         reason = None
-        ind = session_indicators(bars[t.worker], cfg) if t.worker in bars and len(bars[t.worker]) > 5 else None
+        sb = sig_bars.get(t.worker)
+        ind = session_indicators(sb, cfg) if sb is not None and len(sb) > 3 else None
         if force_exit:
             reason = "end of the trading window"
         elif chg <= -float(cfg["stop_loss_pct"]):
@@ -529,13 +643,15 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if (t.side == "call" and c < vw) or (t.side == "put" and c > vw):
                 reason = "price closed back across VWAP"
         if reason:
-            api.sell_all(t.contract)
+            px = api.exit_fill(api.sell_all(t.contract), px)
+            chg = (px / t.entry_price - 1) * 100
             t.exit_price, t.exit_time, t.exit_reason, t.status = px, str(now), reason, "closed"
             t.pnl = (px - t.entry_price) * 100 * t.qty
             day.last_exit[t.worker] = str(now)
             total = sum(x.pnl for x in trades if x.status == "closed")
-            say(full, f"<b>{t.worker} sold</b> {t.contract}: {money(t.pnl)} ({chg:+.0f}%), {reason}. "
-                      f"Today: {money(total)}", args)
+            say(full, f"<b>{t.worker} {t.side.upper()} {'WON' if t.pnl > 0 else 'LOST'} {money(t.pnl)}</b> ({chg:+.0f}%)\n"
+                      f"{t.qty} x {t.contract}: bought at ${t.entry_price:.2f}, sold at ${px:.2f}, {reason}.\n"
+                      f"Today so far: {money(total)} (paper)", args)
     day.trades = [asdict(t) for t in trades]
     if force_exit:
         return
@@ -553,9 +669,13 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         return
     ev = blackout(full, cfg, now)
     # 3) look for new signals on the latest finished bar
-    for sym, df in bars.items():
-        if len(df) < 20 or any(t.worker == sym and t.status in {"open", "pending"} for t in trades):
+    for sym, df1 in bars.items():
+        df = sig_bars.get(sym, df1)
+        if len(df) < (4 if mins > 1 else 20) or any(t.worker == sym and t.status in {"open", "pending"} for t in trades):
             continue
+        mine = [t for t in trades if t.worker == sym and t.status == "closed"]
+        if sum(1 for t in mine if t.pnl < 0) >= int(cfg.get("max_losses_per_worker", 99)):
+            continue  # this worker has had enough for today
         last_ts = str(df.index[-1])
         if day.seen_bar.get(sym) == last_ts:
             continue
@@ -563,7 +683,10 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if not in_window(df.index[-1], cfg) or ev:
             continue
         le = day.last_exit.get(sym)
-        if le and (now - pd.Timestamp(le)).total_seconds() / 60 < int(cfg["cooldown_minutes"]):
+        wait = int(cfg["cooldown_minutes"])
+        if mine and mine[-1].pnl < 0:
+            wait = max(wait, int(cfg.get("loss_cooldown_minutes", wait)))
+        if le and (now - pd.Timestamp(le)).total_seconds() / 60 < wait:
             continue
         ind = session_indicators(df, cfg)
         used = set(day.orb_used.get(sym, []))
@@ -571,6 +694,12 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if not sig:
             continue
         side, why = sig
+        if cfg.get("trend_filter"):
+            direction, kind = trend_now((history5 or {}).get(sym), to_bars(df1, 5, now), sym)
+            if not trend_allows(side, direction, kind):
+                print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
+                continue
+            why = why + [f"trend {direction}"]
         price = float(ind["Close"].iloc[-1])
         con = api.pick_contract(sym, side, price)
         if not con:
