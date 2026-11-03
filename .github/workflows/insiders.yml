@@ -1,10 +1,8 @@
 name: Insider buying
 
 on:
-  schedule:
-    # 05:41 UTC Tuesday to Saturday: reads the SEC filings from the previous US business day,
-    # in time for that night's scan.
-    - cron: "41 5 * * 2-6"
+  # The market pulse reads the SEC filings now: the full catch-up once a day and the live feed
+  # every 10 minutes. Use the Actions tab to run this by hand.
   workflow_dispatch: {}
 
 permissions:
