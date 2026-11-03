@@ -47,6 +47,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import charts
 import intraday
 
 try:
@@ -154,6 +155,8 @@ DEFAULTS: dict = {
         "max_new_trades_per_day": 3,
         "min_replay_avg_r": -1.0,
     },
+    "charts": {"enabled": True},
+    "sizing": {"enabled": True, "low_mult": 0.5, "high_mult": 1.5, "high_points": 3, "low_points": 0, "max_risk_pct": 3.0},
     "analysis": {
         "enabled": True,
         "send_with_scan": True,
@@ -629,24 +632,114 @@ def _parse_news_item(item) -> dict | None:
     return {"title": title, "publisher": publisher, "url": url, "when": when, "id": key}
 
 
+_NEWS_ERRORS: set = set()
+
+
+def _news_note(source: str, exc) -> None:
+    """Says once per run when a news source fails, instead of quietly reporting 'no news'."""
+    if source not in _NEWS_ERRORS:
+        _NEWS_ERRORS.add(source)
+        print(f"News source {source} failed: {exc}")
+
+
+def _rss_items(url: str, source: str) -> list[dict]:
+    import requests
+
+    try:
+        r = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (setup-scanner-bot)"})
+        r.raise_for_status()
+        root = ET.fromstring(r.content)
+    except Exception as exc:
+        _news_note(source, exc)
+        return []
+    out = []
+    for it in root.iter("item"):
+        title = (it.findtext("title") or "").strip()
+        if not title:
+            continue
+        link = (it.findtext("link") or "").strip()
+        src = it.find("source")
+        publisher = (src.text or "").strip() if src is not None else source
+        if source == "Google News" and " - " in title:  # Google appends " - Publisher" to every title
+            title, publisher = title.rsplit(" - ", 1)[0].strip(), title.rsplit(" - ", 1)[1].strip()
+        when = None
+        try:
+            when = pd.Timestamp(it.findtext("pubDate") or "")
+            when = when.tz_localize("UTC") if when.tzinfo is None else when.tz_convert("UTC")
+        except Exception:
+            when = None
+        out.append({"title": title, "publisher": publisher, "url": link, "when": when, "id": link or title})
+    return out
+
+
+NEWS_JUNK = re.compile(r"(stock|share)s? (price|quote)s?[,:]|stock quote|quote,? (&|and) history|stock forecasts?\b|"
+                       r"symbol__|price, news|share chat|stock (price )?today\b", re.I)
+COMPANY_NAMES: dict[str, str] = {  # also filled from the movers lists and insider filings, for better news searches
+    "AZN.L": "AstraZeneca", "SHEL.L": "Shell", "HSBA.L": "HSBC", "ULVR.L": "Unilever", "RR.L": "Rolls-Royce",
+    "BARC.L": "Barclays", "BP.L": "BP", "LLOY.L": "Lloyds", "GSK.L": "GSK", "RIO.L": "Rio Tinto", "VOD.L": "Vodafone",
+    "TSCO.L": "Tesco", "BA.L": "BAE Systems", "GLEN.L": "Glencore", "NG.L": "National Grid", "DGE.L": "Diageo",
+    "JPM": "JPMorgan", "XOM": "Exxon Mobil", "META": "Meta Platforms", "GOOGL": "Alphabet",
+}
+
+
+def news_query(symbol: str) -> str:
+    names = {"^GSPC": "S&P 500", "^FTSE": "FTSE 100", "^NDX": "Nasdaq 100", "GC=F": "gold price", "SI=F": "silver price",
+             "BZ=F": "Brent oil", "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
+             "GBPUSD=X": "pound dollar", "EURUSD=X": "euro dollar", "SPY": "S&P 500", "QQQ": "Nasdaq", "IWM": "Russell 2000"}
+    if symbol in names:
+        return names[symbol]
+    name = COMPANY_NAMES.get(symbol.upper())
+    if name:
+        name = re.sub(r"\b(inc|corp|corporation|plc|ltd|limited|holdings?|co|company|group|the)\b\.?", "", name, flags=re.I)
+        name = re.sub(r"[^\w&' -]", " ", name).strip()
+        if len(name) >= 3:
+            return f'"{name}" stock' if not symbol.endswith(".L") else f'"{name}" shares'
+    if symbol.endswith(".L"):
+        return f"{symbol[:-2]} LON shares"
+    if len(symbol) <= 3:
+        return f'"NYSE:{symbol}" OR "NASDAQ:{symbol}" OR "({symbol})" stock'  # short tickers are common words
+    return f"{symbol} stock"
+
+
 def get_headlines(symbol: str, n: int = 3, max_age_hours: float = 72) -> list[dict]:
-    """The newest headlines Yahoo Finance has for one market, newest first."""
+    """The newest headlines for one market, newest first, from Yahoo Finance (two ways) and Google News,
+    with duplicates removed. If a source fails, the run log says so."""
     if OFFLINE:
         return []
+    from urllib.parse import quote_plus
+
+    raw: list[dict] = []
     try:
         import yfinance as yf
 
-        raw = yf.Ticker(symbol).get_news(count=max(10, n))
-    except Exception:
-        return []
+        for it in yf.Ticker(symbol).get_news(count=max(10, n)) or []:
+            p = _parse_news_item(it)
+            if p:
+                raw.append(p)
+    except Exception as exc:
+        _news_note("Yahoo (yfinance)", exc)  # Yahoo often blocks cloud servers like GitHub's
+    if len(raw) < n:
+        raw += _rss_items(f"https://news.google.com/rss/search?q={quote_plus(news_query(symbol))}+when:3d"
+                          "&hl=en-GB&gl=GB&ceid=GB:en", "Google News")
+    if len(raw) < n:
+        # Yahoo's RSS feed mixes in general market stories: for a share, keep only headlines that name it
+        root = symbol.split(".")[0].split("-")[0].upper()
+        general = symbol.startswith("^") or "=" in symbol or symbol in {"SPY", "QQQ", "IWM"} or "-USD" in symbol
+        for p in _rss_items(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={quote_plus(symbol)}&region=US&lang=en-US",
+                            "Yahoo RSS"):
+            if general or re.search(rf"\b{re.escape(root)}\b", p["title"]):
+                raw.append(p)
     now = pd.Timestamp.now(tz="UTC")
-    items = []
-    for it in raw or []:
-        p = _parse_news_item(it)
-        if not p:
-            continue
+    items, seen = [], set()
+    for p in raw:
         if p["when"] is not None and (now - p["when"]).total_seconds() > max_age_hours * 3600:
             continue
+        if NEWS_JUNK.search(p["title"]):
+            continue  # share-price pages, not news
+        k = re.sub(r"[^a-z0-9]", "", p["title"].lower())[:60]
+        if k in seen:
+            continue
+        seen.add(k)
         items.append(p)
     items.sort(key=lambda p: p["when"] if p["when"] is not None else pd.Timestamp(0, tz="UTC"), reverse=True)
     return items[:n]
@@ -1707,6 +1800,8 @@ class Position:
     units: float = 1.0
     fx_to_account: float = 1.0
     risk_amount: float = 0.0
+    risk_mult: float = 1.0
+    confidence: str = ""
     bars_held: int = 0
     best_price: float = 0.0
     trailing: bool = False
@@ -1825,9 +1920,80 @@ def step_bar(pos: Position, date: str, row, cfg: dict, cost: float) -> bool:
     return False
 
 
-def size_position(equity: float, cfg: dict, price: float, risk_unit: float, fx: float, crypto: bool):
+NEWS_GOOD = re.compile(r"\b(upgrade[sd]?|beats?|tops estimates|raises? (its )?(guidance|outlook|forecast)|record (high|revenue|"
+                       r"profit|quarter)|buyback|outperform|approv(al|ed|es)|wins? (contract|deal)|surges?|soars?|jumps?|"
+                       r"rall(y|ies)|strong (demand|results|growth)|partnership|acquire[sd]? by)\b", re.I)
+NEWS_BAD = re.compile(r"\b(downgrade[sd]?|miss(es|ed)?|cuts? (its )?(guidance|outlook|forecast|jobs)|lowers? (guidance|outlook)|"
+                      r"lawsuit|sued|probe|investigation|fraud|recall|share offering|dilution|plunges?|slumps?|tumbles?|sinks?|"
+                      r"warns?|profit warning|layoffs?|bankruptcy|delist|short seller|halts?)\b", re.I)
+
+
+def news_tone(items: list[dict]) -> tuple[int, str]:
+    """+1 if the headlines lean good, -1 if they lean bad, 0 if mixed or none. Keyword-based: a rough read."""
+    good = sum(1 for p in items if NEWS_GOOD.search(p["title"]) and not NEWS_BAD.search(p["title"]))
+    bad = sum(1 for p in items if NEWS_BAD.search(p["title"]) and not NEWS_GOOD.search(p["title"]))
+    if not items:
+        return 0, "no recent headlines"
+    if good > bad:
+        return 1, f"news leans good ({good} of {len(items)} headlines)"
+    if bad > good:
+        return -1, f"news leans bad ({bad} of {len(items)} headlines)"
+    return 0, f"news is mixed or neutral ({len(items)} headlines)"
+
+
+def assess_confidence(cfg: dict, direction: str, score: int, regime_ok: bool | None, hist: dict | None,
+                      tm: dict | None, tone: int, tone_text: str, warned: bool, insiders: bool, atr_pct: float):
+    """How strongly everything agrees, as points, a tier and a risk multiplier.
+    Returns (multiplier, tier, [(points, reason), ...])."""
+    sz = cfg.get("sizing", {})
+    long = direction == "long"
+    pts: list[tuple[int, str]] = []
+    if score >= 80:
+        pts.append((1, f"score {score}/100"))
+    elif score < 60:
+        pts.append((-1, f"score only {score}/100"))
+    if regime_ok is True:
+        pts.append((1, "the wider market agrees"))
+    elif regime_ok is False:
+        pts.append((-1, "the wider market disagrees"))
+    if hist and hist.get("trades", 0) >= int(cfg.get("history", {}).get("min_trades", 5)):
+        if hist["expectancy"] > 0.1:
+            pts.append((1, f"this setup made {hist['expectancy']:+.2f}R a trade on this market before"))
+        elif hist["expectancy"] < 0:
+            pts.append((-1, f"this setup lost {hist['expectancy']:+.2f}R a trade on this market before"))
+    if tm:
+        if tm["avg_r"] > 0.1:
+            pts.append((1, f"time machine average {tm['avg_r']:+.2f}R"))
+        elif tm["avg_r"] < 0:
+            pts.append((-1, f"time machine average {tm['avg_r']:+.2f}R"))
+    t = tone if long else -tone
+    if t > 0:
+        pts.append((1, tone_text))
+    elif t < 0:
+        pts.append((-1, tone_text))
+    if warned:
+        pts.append((-1, "earnings or a big event is close"))
+    if insiders and long:
+        pts.append((1, "company insiders are buying"))
+    if atr_pct >= 5:
+        pts.append((-1, f"very volatile ({atr_pct:.0f}% a day)"))
+    total = sum(p for p, _ in pts)
+    if not sz.get("enabled", True):
+        return 1.0, "NORMAL", pts
+    if total >= int(sz.get("high_points", 3)):
+        return float(sz.get("high_mult", 1.5)), "HIGH", pts
+    if total <= int(sz.get("low_points", 0)):
+        return float(sz.get("low_mult", 0.5)), "LOW", pts
+    return 1.0, "NORMAL", pts
+
+
+def size_position(equity: float, cfg: dict, price: float, risk_unit: float, fx: float, crypto: bool, mult: float = 1.0):
+    """Units to buy so a stop-out costs risk_per_trade_pct of the account, times the confidence multiplier,
+    never more than sizing.max_risk_pct of the account, and never more than max_position_pct in one position."""
     acct = cfg["account"]
-    risk_amt = equity * float(acct["risk_per_trade_pct"]) / 100.0
+    pct = float(acct["risk_per_trade_pct"]) * float(mult or 1.0)
+    pct = min(pct, float(cfg.get("sizing", {}).get("max_risk_pct", 3.0)))
+    risk_amt = equity * pct / 100.0
     units = risk_amt / (risk_unit * fx) if risk_unit > 0 else 0.0
     max_units = (equity * float(acct["max_position_pct"]) / 100.0) / (price * fx) if price > 0 else 0.0
     units = min(units, max_units)
@@ -1909,6 +2075,46 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
     return ok
 
 
+def send_photo(cfg: dict, png: bytes | None, caption: str, args=None) -> bool:
+    """Sends a chart picture to Telegram. Without Telegram (or with --no-telegram) it saves the picture to a
+    temporary folder and prints where. A missing picture never stops the text alert."""
+    if not png:
+        return False
+    token, chat = cfg["telegram"].get("token"), cfg["telegram"].get("chat_id")
+    if (args is not None and getattr(args, "no_telegram", False)) or not token or not chat:
+        import tempfile
+
+        folder = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / "bot-charts"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / (re.sub(r"[^A-Za-z0-9]+", "_", to_plain(caption))[:60] + ".png")
+        path.write_bytes(png)
+        print(f"[chart saved: {path}]")
+        return False
+    import requests
+
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto",
+                          data={"chat_id": chat, "caption": caption[:1000], "parse_mode": "HTML"},
+                          files={"photo": ("chart.png", png, "image/png")}, timeout=30)
+        if r.status_code != 200:
+            print(f"Telegram photo error {r.status_code}: {r.text[:200]}")
+        return r.status_code == 200
+    except Exception as exc:
+        print(f"Telegram photo error: {exc}")
+        return False
+
+
+def deliver(cfg: dict, item, args=None) -> None:
+    """A message is either text, or (text, chart picture): the picture goes first, then the text."""
+    if isinstance(item, tuple):
+        text, png = item
+        if png:
+            send_photo(cfg, png, text.split("\n")[0], args)
+        send_telegram(cfg, text, args)
+    else:
+        send_telegram(cfg, item, args)
+
+
 def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval, warnings, paper_note,
                  origin: str | None = None, volatility: str | None = None, history: str | None = None,
                  news: list[str] | None = None, insiders: list[str] | None = None) -> str:
@@ -1957,17 +2163,23 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
             f"{int(s['pullback_max_hold_bars'])} bars; {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
         )
     if plan["units"] > 0:
-        intended = plan["equity"] * float(cfg["account"]["risk_per_trade_pct"]) / 100.0
+        intended = plan["equity"] * min(float(cfg["account"]["risk_per_trade_pct"]) * float(plan.get("mult", 1.0)),
+                                        float(cfg.get("sizing", {}).get("max_risk_pct", 3.0))) / 100.0
         if plan["risk_amt"] < 0.97 * intended:
             why = f"capped by the {cfg['account']['max_position_pct']:g}% position limit; full risk would be {fmt_money(intended, acct_ccy)}"
         else:
-            why = f"{cfg['account']['risk_per_trade_pct']:g}% of {fmt_money(plan['equity'], acct_ccy)}"
+            why = f"{intended / plan['equity'] * 100:g}% of {fmt_money(plan['equity'], acct_ccy)}"
         lines.append(
             f"Size: {plan['units']:g} {plan['unit_name']} ≈ {fmt_money(plan['value'], acct_ccy)}, "
             f"risking {fmt_money(plan['risk_amt'], acct_ccy)} ({why})"
         )
     else:
         lines.append("Size: too small for your risk setting at this price")
+    if plan.get("confidence"):
+        mult = float(plan.get("mult", 1.0))
+        lines.append(f"Confidence: <b>{plan['confidence']}</b>" + (f" ({mult:g}x the normal size)" if mult != 1 else " (normal size)"))
+        for pts_, why_ in plan.get("conf_pts", []):
+            lines.append(f"   {'➕' if pts_ > 0 else '➖'} {esc(why_)}")
     if plan.get("fx_missing"):
         lines.append(f"(Could not get the {ccy} to {acct_ccy} rate, so size assumes 1 to 1. Check it.)")
     if volatility:
@@ -2071,7 +2283,8 @@ def summarise_r(rs: list[float]) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, interval: str, msgs: list[str]) -> None:
+def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, interval: str, msgs: list[str],
+                 photos: list | None = None) -> None:
     cost = float(cfg["backtest"]["cost_per_side_pct"]) / 100.0
     acct_ccy = cfg["account"]["currency"]
     keep = []
@@ -2091,7 +2304,8 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                 fx = fx_rate(pos.currency, acct_ccy)
                 pos.fx_to_account = fx if fx else 1.0
                 units, risk_amt, value = size_position(
-                    float(st["equity"]), cfg, pos.entry_price, pos.risk_per_unit, pos.fx_to_account, bool(meta.get("is_24_7"))
+                    float(st["equity"]), cfg, pos.entry_price, pos.risk_per_unit, pos.fx_to_account, bool(meta.get("is_24_7")),
+                    pos.risk_mult or 1.0,
                 )
                 if units <= 0:
                     pos.status, pos.exit_reason = "cancelled", "position too small"
@@ -2113,6 +2327,15 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                     f"({esc(pos.exit_reason)}) {held}. "
                     f"Paper account {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}%)."
                 )
+                if photos is not None and cfg.get("charts", {}).get("enabled", True):
+                    png = charts.daily_chart(
+                        ind[ind.index <= ts], f"{sym} {pos.direction} {pos.setup}: {'WON' if pos.pnl > 0 else 'LOST'} "
+                        f"{fmt_money(pos.pnl, acct_ccy)} ({pos.r_multiple:+.2f}R)",
+                        entry=pos.entry_price, stop=pos.initial_stop, exit_=pos.exit_price, mark_from=pos.entry_date,
+                    )
+                    if png:
+                        photos.append((f"<b>{esc(sym)}</b>: how the paper trade went, from {pos.entry_date} (shaded) "
+                                       f"to {pos.exit_date}", png))
                 break
             pos.last_bar = date
         if pos.status in {"pending", "open"}:
@@ -2120,6 +2343,34 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
         elif pos.status == "closed":
             st["closed"].append(asdict(pos))
     st["positions"] = keep
+
+
+def rescale_open_positions(st: dict, cfg: dict) -> list[str]:
+    """When you change risk_per_trade_pct, open paper trades are resized to match (once), so the whole
+    account runs at the new size. Paper only: a real broker would need you to buy or sell the difference."""
+    pct = float(cfg["account"]["risk_per_trade_pct"])
+    if st.get("risk_pct") == pct:
+        return []
+    st["risk_pct"] = pct
+    acct = cfg["account"]["currency"]
+    eq = float(st["equity"])
+    out = []
+    for d in st["positions"]:
+        if d.get("status") != "open" or not float(d.get("risk_amount") or 0) or not float(d.get("units") or 0):
+            continue
+        target = eq * min(pct * float(d.get("risk_mult") or 1.0), float(cfg.get("sizing", {}).get("max_risk_pct", 3.0))) / 100.0
+        factor = target / float(d["risk_amount"])
+        fx = float(d.get("fx_to_account") or 1.0)
+        cap = eq * float(cfg["account"]["max_position_pct"]) / 100.0 / (float(d["entry_price"]) * fx)
+        units = round(min(float(d["units"]) * factor, cap), 4)
+        if abs(units - float(d["units"])) < 1e-9:
+            continue
+        old_risk = float(d["risk_amount"])
+        d["risk_amount"] = old_risk * units / float(d["units"])
+        d["units"] = units
+        out.append(f"Resized paper trade {esc(d['symbol'])}: now risking {fmt_money(d['risk_amount'], acct)} "
+                   f"(was {fmt_money(old_risk, acct)}), {units:g} units, to match your {pct:g}% risk setting.")
+    return out
 
 
 def crypto_headlines(cfg: dict, n: int = 4) -> list[dict]:
@@ -2187,7 +2438,7 @@ def cmd_scan(cfg: dict, args) -> int:
     news_on = bool(cfg["news"].get("enabled", True))
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
-    alerts, msgs, errors, log_rows, regimes, vol_rows = [], [], [], [], [], []
+    alerts, msgs, errors, log_rows, regimes, vol_rows, photos = [], [], [], [], [], [], []
     checked = movers_checked = movers_passed = 0
     seen = set()
     watch = iter_watchlist(cfg, args)
@@ -2198,6 +2449,8 @@ def cmd_scan(cfg: dict, args) -> int:
     movers = [] if getattr(args, "symbols", None) else fetch_movers(cfg)
     mover_info = {}
     for m in movers:
+        if m.get("name") and m["name"] != m["symbol"]:
+            COMPANY_NAMES[m["symbol"].upper()] = str(m["name"])
         chg = m.get("change_pct")
         mover_info[m["symbol"]] = m["list"] + (f" ({chg:+.1f}% on the day)" if isinstance(chg, (int, float)) else "")
     for bench in sorted({mover_benchmark(m, cfg) for m in movers}):
@@ -2212,6 +2465,9 @@ def cmd_scan(cfg: dict, args) -> int:
     if cc.get("enabled", True) and not getattr(args, "symbols", None) and insiders_path().exists():
         clusters = insider_clusters(load_insiders()["buys"], cfg, now)
     copy_info = {k: v for k, v in clusters.items() if v["qualified"]}
+    for k, v in clusters.items():
+        if v.get("issuer"):
+            COMPANY_NAMES.setdefault(k.upper(), str(v["issuer"]))
     listed = {s for _, syms in watch for s in syms}
     copy_syms = sorted(k for k in copy_info if k not in listed)
     if copy_syms:
@@ -2225,6 +2481,7 @@ def cmd_scan(cfg: dict, args) -> int:
     events_soon = upcoming_events(cfg, max(3, warn_days)) if news_on else []
     warn_until = pd.Timestamp.now(tz=cfg["news"].get("timezone", "Europe/London")) + pd.Timedelta(days=warn_days)
 
+    msgs += rescale_open_positions(st, cfg)
     for bench_sym, symbols in watch:
         bench_df = None
         if bench_sym:
@@ -2261,7 +2518,7 @@ def cmd_scan(cfg: dict, args) -> int:
                 if sym in on_list and pd.notna(lr["sma200"]):
                     breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
-                manage_paper(st, sym, ind, meta, cfg, interval, msgs)
+                manage_paper(st, sym, ind, meta, cfg, interval, msgs, photos)
                 sigs = compute_signals(ind, bench, cfg, sym, bench_sym)
                 if sym in copy_info:
                     cs = copy_signal(ind, bench, copy_info[sym], cfg, sym, bench_sym, st, now)
@@ -2292,7 +2549,20 @@ def cmd_scan(cfg: dict, args) -> int:
                         risk_unit = k * a
                         fx = fx_rate(meta["currency"], acct_ccy)
                         crypto = bool(meta.get("is_24_7"))
-                        units, risk_amt, value = size_position(float(st["equity"]), cfg, price, risk_unit, fx or 1.0, crypto)
+                        # Everything that says how much to trust this trade, before deciding the size
+                        tm = time_machine(ind, setup, direction, cfg) if cfg["timemachine"].get("enabled", True) else None
+                        hist_stats = None if setup == "copy" else setup_history(sym, setup, direction, cfg, interval, bench_sym, args.csv_dir)
+                        head_items = get_headlines(sym, int(cfg["news"].get("headlines", 3)),
+                                                   float(cfg["news"].get("max_age_hours", 72))) if news_on else []
+                        tone, tone_text = news_tone(head_items)
+                        regime_ok = None
+                        if bench is not None and bench_sym and bench_sym.upper() != sym.upper():
+                            regime_ok = bool(bench["up"].iloc[i]) if long else bool(bench["down"].iloc[i])
+                        warned = any(w.startswith(("Earnings in", "Big event soon")) for w in warnings)
+                        atr_pct = a / price * 100.0 if price > 0 else 0.0
+                        mult, tier, conf_pts = assess_confidence(cfg, direction, score, regime_ok, hist_stats, tm, tone, tone_text,
+                                                                 warned, sym in copy_info, atr_pct)
+                        units, risk_amt, value = size_position(float(st["equity"]), cfg, price, risk_unit, fx or 1.0, crypto, mult)
                         plan = {
                             "price": price,
                             "stop": price - risk_unit if long else price + risk_unit,
@@ -2310,10 +2580,12 @@ def cmd_scan(cfg: dict, args) -> int:
                                 else "units"
                             ),
                             "fx_missing": fx is None,
+                            "confidence": tier,
+                            "mult": mult,
+                            "conf_pts": conf_pts,
                         }
                         open_syms = {p["symbol"] for p in st["positions"]}
                         paper_note = ""
-                        tm = time_machine(ind, setup, direction, cfg) if cfg["timemachine"].get("enabled", True) else None
                         ok, why = risk_check(st, cfg, risk_amt)
                         min_r = float(cfg["risk"].get("min_replay_avg_r", -1))
                         if ok and tm and min_r > -1 and tm["avg_r"] < min_r:
@@ -2328,10 +2600,10 @@ def cmd_scan(cfg: dict, args) -> int:
                                 pos = Position(
                                     symbol=sym, setup=setup, direction=direction, signal_date=bar,
                                     signal_price=price, atr_at_signal=a, score=score, currency=meta["currency"],
+                                    risk_mult=mult, confidence=tier,
                                 )
                                 st["positions"].append(asdict(pos))
                                 paper_note = "Paper trading: the bot will open this at the next open and manage it for you."
-                        atr_pct = a / price * 100.0 if price > 0 else 0.0
                         vol_line = f"Moves about {atr_pct:.1f}% a day" + (
                             ": very volatile, so expect big swings both ways. The size is smaller to keep the risk the same."
                             if atr_pct >= 5.0 else "."
@@ -2341,21 +2613,22 @@ def cmd_scan(cfg: dict, args) -> int:
                                     "Studies found insider cluster buys beat the market on average over the next "
                                     "months, but many single trades still lose. The paper account is the real test.")
                         else:
-                            hist = history_line(sym, setup_history(sym, setup, direction, cfg, interval, bench_sym, args.csv_dir), cfg)
+                            hist = history_line(sym, hist_stats, cfg)
                         tml = time_machine_line(tm)
                         if tml:
                             hist = f"{hist}\n{tml}" if hist else tml
-                        heads = None
-                        if news_on:
-                            heads = headline_lines(get_headlines(
-                                sym, int(cfg["news"].get("headlines", 3)), float(cfg["news"].get("max_age_hours", 72))
-                            ))
+                        heads = headline_lines(head_items) if news_on else None
                         desc = describe_checks(checks, i, ind, bench_sym)
-                        alerts.append(format_alert(
+                        text = format_alert(
                             sym, setup, direction, score, desc, plan, cfg, interval, warnings, paper_note,
                             origin=mover_info.get(sym) if is_mover else None, volatility=vol_line, history=hist, news=heads,
                             insiders=insider_lines(copy_info[sym]) if setup == "copy" else None,
-                        ))
+                        )
+                        png = charts.daily_chart(
+                            ind.iloc[: i + 1], f"{sym} · {SETUP_TITLES[setup]} · {'BUY' if long else 'SELL SHORT'} · score {score}",
+                            entry=price, stop=plan["stop"], target=plan["target"],
+                        ) if cfg.get("charts", {}).get("enabled", True) else None
+                        alerts.append((text, png))
                         st["sent"][key] = now_iso
                         alerted = True
                         movers_passed += int(is_mover)
@@ -2382,8 +2655,10 @@ def cmd_scan(cfg: dict, args) -> int:
                 send_telegram(cfg, read, args)
         except Exception as exc:
             errors.append(f"market read ({exc})")
-    for text in alerts:
-        send_telegram(cfg, text, args)
+    for item in alerts:
+        deliver(cfg, item, args)
+    for caption, png in photos:
+        send_photo(cfg, png, caption, args)
     if msgs:
         send_telegram(cfg, "\n".join(msgs), args)
     if news_on and cfg["news"].get("crypto_news", True) and not getattr(args, "symbols", None):
@@ -2494,6 +2769,12 @@ def cmd_status(cfg: dict, args) -> int:
             f"average loss {stats['avg_loss']:+.2f}R · expectancy {stats['expectancy']:+.2f}R per trade · "
             f"worst run {stats['max_dd_r']:.1f}R"
         )
+        for tier in ("HIGH", "NORMAL", "LOW"):
+            rs = [c for c in st["closed"] if c.get("confidence") == tier]
+            if rs:
+                t = summarise_r([c["r_multiple"] for c in rs])
+                lines.append(f"  {tier} confidence: {t['trades']} trades, {t['win_rate']:.0%} won, {t['expectancy']:+.2f}R a trade, "
+                             f"{fmt_money(sum(float(c['pnl']) for c in rs), acct_ccy)}")
         for c in st["closed"][-5:]:
             lines.append(f"  {esc(c['symbol'])} {c['setup']} {c['r_multiple']:+.2f}R ({esc(c['exit_reason'])}, {c['exit_date']})")
     else:
@@ -3089,12 +3370,16 @@ def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
         ps["closed"].append(t)
         today = [c for c in ps["closed"] if str(c.get("exit_time", ""))[:10] == str(res["exit_time"])[:10]]
         day_r = sum(c["r"] for c in today)
-        msgs.append(
+        text = (
             f"<b>{esc(spec['name'])} {intraday.APPROACHES[t['approach']]} {t['side'].upper()}: {won_lost(t['r'], cfg)}</b>\n"
             f"{'Bought' if t['side'] == 'long' else 'Sold'} at {fmt_price(res['entry'], ccy)}, out at {fmt_price(res['exit'], ccy)} "
             f"({esc(res['reason'])}). Paper only.\n"
             f"Today's intraday paper trades: {len(today)}, {won_lost(day_r, cfg)}"
         )
+        png = charts.intraday_chart(ind, f"{spec['name']} {t['side']}: {won_lost(t['r'], cfg)}", entry=res["entry"],
+                                    stop=res["stop"], target=None if t["approach"] == "late" else res["target"],
+                                    exit_=res["exit"]) if cfg.get("charts", {}).get("enabled", True) else None
+        msgs.append((text, png) if png else text)
     ps["trades"] = keep
     return msgs
 
@@ -3168,7 +3453,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                 else:
                     target = price + 2 * risk if side == "long" else price - 2 * risk
                 rec = m.get("record", {}).get(best, {})
-                msgs.append(
+                text = (
                     f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
                     f"{intraday.APPROACHES[best]} · 5-min chart\n"
                     f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · "
@@ -3181,6 +3466,9 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                     f"{' (if it runs 2R by the close)' if best == 'late' else ''}.\n"
                     "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
                 )
+                png = charts.intraday_chart(ind, f"{spec['name']} · {'BUY' if side == 'long' else 'SELL'} · {intraday.APPROACHES[best]}",
+                                            entry=price, stop=stop, target=target) if cfg.get("charts", {}).get("enabled", True) else None
+                msgs.append((text, png) if png else text)
                 ps["trades"].append({"symbol": sym, "approach": best, "side": side, "signal_time": str(last_ts), "signal_price": price})
     # End-of-day results, once, after the US close
     if now.hour >= 21 and ps.get("summary_day") != today:
@@ -3282,8 +3570,8 @@ def cmd_pulse(cfg: dict, args) -> int:
             msgs += pulse_chores(cfg, args, ps, state)
         except Exception as exc:
             print(f"Pulse chores failed: {exc}")
-        for text in msgs:
-            send_telegram(cfg, text, args)
+        for item in msgs:
+            deliver(cfg, item, args)
         save_pulse(ps)
         if not msgs:
             print(f"Pulse {datetime.now(timezone.utc):%H:%M} UTC: nothing new.")
