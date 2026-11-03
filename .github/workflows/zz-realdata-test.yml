@@ -1,0 +1,39 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: News sources, one by one
+        run: |
+          python -W ignore - 2>&1 <<'PY' | grep -v Warning | grep -v "^\s*df\." | head -120
+          import bot, yfinance as yf
+          from urllib.parse import quote_plus
+          for sym in ["NVDA", "AAPL", "TFC", "RR.L", "AZN.L", "GC=F", "BTC-USD", "SPY", "^FTSE"]:
+              try:
+                  raw = yf.Ticker(sym).get_news(count=10)
+                  print(f"{sym}: yfinance gave {len(raw or [])} items; first keys: {list((raw or [{}])[0].keys())[:6]}")
+                  p = bot._parse_news_item((raw or [None])[0]) if raw else None
+                  print("   parsed:", p and (p['title'][:70], str(p['when'])))
+              except Exception as e:
+                  print(f"{sym}: yfinance ERROR {type(e).__name__}: {e}")
+              y = bot._rss_items(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={quote_plus(sym)}&region=US&lang=en-US", "Yahoo RSS")
+              g = bot._rss_items(f"https://news.google.com/rss/search?q={quote_plus(bot.news_query(sym))}+when:3d&hl=en-GB&gl=GB&ceid=GB:en", "Google News")
+              print(f"   Yahoo RSS {len(y)} | Google News {len(g)}")
+              for h in bot.get_headlines(sym, 3, 72):
+                  print(f"   -> {h['title'][:80]} ({h['publisher']}, {bot.ago(h['when'])})")
+              print("   tone:", bot.news_tone(bot.get_headlines(sym, 3, 72)))
+          PY
+      - name: Full nightly scan (printed, not sent, not saved)
+        run: python -W ignore bot.py scan --no-telegram 2>/dev/null | grep -E "SETUP|Size:|Confidence|   [➕➖]|Latest news|^• |No headlines|Resized|Scan done|Paper account" | head -80
