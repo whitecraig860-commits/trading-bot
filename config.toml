@@ -62,6 +62,9 @@ high_points = 3
 low_points = 0
 max_risk_pct = 3.0
 
+[charts]
+enabled = true              # send a chart picture with alerts, closed trades, pulse signals and scalper trades
+
 [paper]
 enabled = true              # paper-trade strong alerts automatically (no real money)
 min_score = 70              # only paper-trade setups scoring at least this

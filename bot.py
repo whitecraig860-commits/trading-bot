@@ -672,14 +672,32 @@ def _rss_items(url: str, source: str) -> list[dict]:
     return out
 
 
+NEWS_JUNK = re.compile(r"(stock|share)s? (price|quote)s?[,:]|stock quote|quote,? (&|and) history|stock forecasts?\b|"
+                       r"symbol__|price, news|share chat|stock (price )?today\b", re.I)
+COMPANY_NAMES: dict[str, str] = {  # also filled from the movers lists and insider filings, for better news searches
+    "AZN.L": "AstraZeneca", "SHEL.L": "Shell", "HSBA.L": "HSBC", "ULVR.L": "Unilever", "RR.L": "Rolls-Royce",
+    "BARC.L": "Barclays", "BP.L": "BP", "LLOY.L": "Lloyds", "GSK.L": "GSK", "RIO.L": "Rio Tinto", "VOD.L": "Vodafone",
+    "TSCO.L": "Tesco", "BA.L": "BAE Systems", "GLEN.L": "Glencore", "NG.L": "National Grid", "DGE.L": "Diageo",
+    "JPM": "JPMorgan", "XOM": "Exxon Mobil", "META": "Meta Platforms", "GOOGL": "Alphabet",
+}
+
+
 def news_query(symbol: str) -> str:
     names = {"^GSPC": "S&P 500", "^FTSE": "FTSE 100", "^NDX": "Nasdaq 100", "GC=F": "gold price", "SI=F": "silver price",
              "BZ=F": "Brent oil", "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
              "GBPUSD=X": "pound dollar", "EURUSD=X": "euro dollar", "SPY": "S&P 500", "QQQ": "Nasdaq", "IWM": "Russell 2000"}
     if symbol in names:
         return names[symbol]
+    name = COMPANY_NAMES.get(symbol.upper())
+    if name:
+        name = re.sub(r"\b(inc|corp|corporation|plc|ltd|limited|holdings?|co|company|group|the)\b\.?", "", name, flags=re.I)
+        name = re.sub(r"[^\w&' -]", " ", name).strip()
+        if len(name) >= 3:
+            return f'"{name}" stock' if not symbol.endswith(".L") else f'"{name}" shares'
     if symbol.endswith(".L"):
         return f"{symbol[:-2]} LON shares"
+    if len(symbol) <= 3:
+        return f'"NYSE:{symbol}" OR "NASDAQ:{symbol}" OR "({symbol})" stock'  # short tickers are common words
     return f"{symbol} stock"
 
 
@@ -716,6 +734,8 @@ def get_headlines(symbol: str, n: int = 3, max_age_hours: float = 72) -> list[di
     for p in raw:
         if p["when"] is not None and (now - p["when"]).total_seconds() > max_age_hours * 3600:
             continue
+        if NEWS_JUNK.search(p["title"]):
+            continue  # share-price pages, not news
         k = re.sub(r"[^a-z0-9]", "", p["title"].lower())[:60]
         if k in seen:
             continue
@@ -2429,6 +2449,8 @@ def cmd_scan(cfg: dict, args) -> int:
     movers = [] if getattr(args, "symbols", None) else fetch_movers(cfg)
     mover_info = {}
     for m in movers:
+        if m.get("name") and m["name"] != m["symbol"]:
+            COMPANY_NAMES[m["symbol"].upper()] = str(m["name"])
         chg = m.get("change_pct")
         mover_info[m["symbol"]] = m["list"] + (f" ({chg:+.1f}% on the day)" if isinstance(chg, (int, float)) else "")
     for bench in sorted({mover_benchmark(m, cfg) for m in movers}):
@@ -2443,6 +2465,9 @@ def cmd_scan(cfg: dict, args) -> int:
     if cc.get("enabled", True) and not getattr(args, "symbols", None) and insiders_path().exists():
         clusters = insider_clusters(load_insiders()["buys"], cfg, now)
     copy_info = {k: v for k, v in clusters.items() if v["qualified"]}
+    for k, v in clusters.items():
+        if v.get("issuer"):
+            COMPANY_NAMES.setdefault(k.upper(), str(v["issuer"]))
     listed = {s for _, syms in watch for s in syms}
     copy_syms = sorted(k for k in copy_info if k not in listed)
     if copy_syms:
