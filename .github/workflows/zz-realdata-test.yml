@@ -15,29 +15,13 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Daily backtest, pullbacks sell on the bounce (current)
-        run: python -W ignore bot.py backtest 2>/dev/null | head -70
-      - name: Daily backtest, pullbacks let winners run
-        run: |
-          sed 's/^pullback_rsi2_entry = 10 .*/&\npullback_exit = "trail"/' config.toml > /tmp/trail.toml
-          python -W ignore bot.py backtest --config /tmp/trail.toml 2>/dev/null | head -45
-      - name: Intraday approaches on 60 days of real 5-minute bars
-        run: |
-          python -W ignore - 2>/dev/null <<'PY'
-          import bot, intraday as I
-          cfg = bot.load_config("config.toml")
-          for sym in cfg["pulse"]["markets"]:
-              try:
-                  ind, spec, meta = bot.intraday_frame(sym, "60d", cfg, None)
-              except Exception as e:
-                  print(sym, "ERROR", e); continue
-              cost = bot.market_cost(cfg, sym)
-              print(f"{sym}: {ind.session.nunique()} sessions, cost {cost}%/side, now {ind.direction.iat[-1]}/{ind.kind.iat[-1]}")
-              for mr in (0.5, 1.0, 1.5):
-                  rec = I.recent_record(ind, cost, mr)
-                  print(f"   min stop {mr} ATR: " + " | ".join(f"{a} {r['trades']}t {r['win_rate']:.0%} {r['avg_r']:+.2f}R" for a, r in rec.items()))
-              rec = I.recent_record(ind, 0.0, 1.0)
-              print("   no costs, 1.0 ATR: " + " | ".join(f"{a} {r['trades']}t {r['avg_r']:+.2f}R" for a, r in rec.items()))
-          PY
-      - name: Scalper, old rules vs new rules (1-minute bars, last ~30 days)
-        run: python -W ignore scalper.py backtest --no-telegram 2>/dev/null | grep -v "^1R here\|^ways\|^A month" | head -40
+      - name: Backtest with the new settings
+        run: python -W ignore bot.py backtest 2>/dev/null | grep -E "^==|All signals|Signals |would have" | head -30
+      - name: Market read
+        run: python -W ignore bot.py analyse 2>/dev/null | head -30
+      - name: Full nightly scan (printed, not sent, not saved)
+        run: python -W ignore bot.py scan --no-telegram 2>/dev/null | grep -E "SETUP|Exit plan|Risk check|Paper trad|Scan done|Checked|movers|Insider|Most volatile|Could not|Market read|Overall|^[A-Z^=-]+ (up|down)|WON|LOST" | head -60
+      - name: One pulse pass (printed, not sent)
+        run: python -W ignore bot.py pulse --no-telegram 2>/dev/null | head -80
+      - name: Watch pass
+        run: python -W ignore bot.py watch --no-telegram 2>/dev/null | head -30

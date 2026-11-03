@@ -285,10 +285,11 @@ def suits(direction: str, kind: str) -> list[str]:
     return []
 
 
-def best_approach(direction: str, kind: str, record: dict, min_trades: int = 15) -> str | None:
-    """The approach that fits today's kind of market AND has made money on this market lately."""
+def best_approach(direction: str, kind: str, record: dict, min_trades: int = 15, min_edge: float = 0.1) -> str | None:
+    """The approach that fits today's kind of market AND has made clearly more than its costs on this market
+    lately (at least min_edge R a trade, so a lucky streak around zero doesn't count)."""
     good = [(record[a]["avg_r"], a) for a in suits(direction, kind)
-            if a in record and record[a]["trades"] >= min_trades and record[a]["avg_r"] > 0]
+            if a in record and record[a]["trades"] >= min_trades and record[a]["avg_r"] >= min_edge]
     return max(good)[1] if good else None
 
 

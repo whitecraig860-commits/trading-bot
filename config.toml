@@ -4,16 +4,23 @@
 [account]
 size = 5000                 # account size; paper trading starts from this
 currency = "GBP"            # GBP, USD or EUR
-risk_per_trade_pct = 1.0    # % of the account lost if a stop is hit. Keep it at 1 or less.
-max_position_pct = 25       # never put more than this % of the account into one position
+risk_per_trade_pct = 2.0    # % of the account lost if a stop is hit: 2% of £5,000 = £100 a trade (paper).
+                            # Doubling this doubles every win AND every loss. Most professionals use 0.5-1% with real
+                            # money: ten losers in a row (it happens) costs about 18% at 2%, 10% at 1%.
+max_position_pct = 35       # never put more than this % of the account into one position
 fractional_units = true     # true if your broker sells fractions of a share (Trading 212 does)
 
 [scan]
 interval = "1d"             # "1d" = daily bars (recommended), "1h" = hourly
 history = "2y"              # how much price history each scan loads
 alert_min_score = 70        # only message you about setups scoring at least this
+# Per-setup minimum scores (for alerts AND paper trades). The 10-year test on the watchlist found breakouts
+# scoring 50-69 did as well as those scoring 70+ (+0.78R a trade vs about +0.4R), so they get a lower bar.
+setup_min_score = { breakout = 50 }
 strong_score = 80           # setups at or above this are labelled STRONG
-allow_shorts = "auto"       # "auto" = also go short, but only when the wider market is in a downtrend too;
+allow_shorts = false        # The 10-year test: daily SHORTS lost money (breakouts -0.27R, pullbacks -0.04R a trade) even
+                            # with "auto". Shorting still happens in the 5-minute pulse and the scalper's puts.
+                            # "auto" = also go short, but only when the wider market is in a downtrend too;
                             # true = shorts everywhere; false = longs only. Shorts need a spread bet, CFD or margin account.
 earnings_warning_days = 7   # flag shares that report earnings within this many days
 daily_summary = true        # send a short "scan done" message every run
@@ -24,6 +31,10 @@ breakout_exit_lookback = 20   # breakout trades trail their stop under the lowes
 breakout_stop_atr = 2.0       # first stop for breakouts, in ATRs below the entry
 pullback_rsi2_entry = 10      # pullback = RSI(2) closing under this while above the 200-day average
 pullback_stop_atr = 2.5       # stop for pullbacks, in ATRs below the entry
+pullback_exit = "trail"       # "trail" = when it bounces, stop to break-even and let it run under the 20-bar low
+                              # (10-year test: +0.12R a trade, best +13.7R); "bounce" = sell on the first bounce
+                              # (lots of small wins like +£2, and no edge after costs: -0.01R a trade)
+pullback_trail_max_bars = 63  # let-it-run pullbacks are sold after about 3 months at most
 pullback_max_hold_bars = 10   # pullback trades close after this many bars at most
 target_r = 2.0                # reference target shown in alerts, in multiples of the risk
 volume_surge = 1.5            # "heavy volume" = at least this many times the 20-bar average
@@ -129,9 +140,9 @@ seed = 19                   # same seed = same answer every time
 
 [risk]
 # Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
-daily_loss_limit_pct = 2    # no new trades once today's closed losses reach 2% of the account
-weekly_loss_limit_pct = 5   # ...or this week's reach 5%
-max_open_risk_pct = 5       # total at risk across all open trades
+daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% of the account (two full losses)
+weekly_loss_limit_pct = 10  # ...or this week's reach 10%
+max_open_risk_pct = 12      # total at risk across all open trades (6 trades at 2%)
 max_new_trades_per_day = 3
 min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
 
@@ -158,8 +169,11 @@ max_changes_per_market = 3  # ...and at most 3 change messages per market per da
 send_signals = true         # signals for the best approach (only if it has made money there lately)
 max_signals_per_market = 4  # per day
 min_trades = 15             # an approach needs this many recent trades before it can be called "working"
-cost_pct = 0.02             # spread + fees each way, in %
-# Each paper trade risks account.size x account.risk_per_trade_pct (£50 by default), so WON/LOST shows real-looking money.
+min_edge_r = 0.1            # ...and must have made at least +0.1R a trade after costs (in the real-data test,
+                            # almost none did: then the pulse says "sit out", which is the right answer)
+cost_pct = 0.02             # spread + fees each way, in %, for markets not listed below
+costs = { "SPY" = 0.005, "QQQ" = 0.005, "IWM" = 0.01, "GC=F" = 0.01, "^FTSE" = 0.01, "BTC-USD" = 0.05 }
+# Each paper trade risks account.size x account.risk_per_trade_pct (£100 now), so WON/LOST shows real-looking money.
 
 [copy]
 # Copy the insiders: company directors and bosses buying their own company's shares with their own money.
@@ -200,7 +214,7 @@ symbols = ["SPY", "QQQ", "IWM"]   # one "worker" each
 account_size = 5000         # sizes trades as if the account were this big (Alpaca paper starts at $100,000)
 risk_per_trade_pct = 1.0    # loss if an option's stop is hit
 max_premium_pct = 10        # never spend more than 10% of account_size on one trade
-triggers = ["vwap", "ema50", "orb"]
+triggers = ["vwap", "ema50"]   # "orb" (opening-range breakout) lost money in the real-data test with both old and new rules
 require_confluence = true   # calls only when price is above VWAP AND the 50 EMA; puts below both
 signal_minutes = 5          # judge the triggers on 5-minute bars (1 = the old 1-minute rules that kept whipsawing)
 trend_filter = true         # calls only when the trend is UP, puts only when it's DOWN, nothing when it's choppy
