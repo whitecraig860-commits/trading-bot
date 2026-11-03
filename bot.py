@@ -94,6 +94,8 @@ DEFAULTS: dict = {
         "pullback_rsi2_entry": 10.0,
         "pullback_stop_atr": 2.5,
         "pullback_max_hold_bars": 10,
+        "pullback_exit": "bounce",
+        "pullback_trail_max_bars": 63,
         "target_r": 2.0,
         "volume_surge": 1.5,
         "adx_trending": 20.0,
@@ -121,6 +123,7 @@ DEFAULTS: dict = {
         "uk": True,
         "per_list": 10,
         "min_price_usd": 5.0,
+        "max_daily_swing_pct": 15.0,
         "us_benchmark": "SPY",
         "uk_benchmark": "^FTSE",
     },
@@ -167,9 +170,14 @@ DEFAULTS: dict = {
         "send_signals": True,
         "max_signals_per_market": 4,
         "min_trades": 15,
+        "min_edge_r": 0.1,
         "record_every_minutes": 60,
         "cost_pct": 0.02,
+        "costs": {"SPY": 0.005, "QQQ": 0.005, "IWM": 0.01, "GC=F": 0.01, "^FTSE": 0.01, "BTC-USD": 0.05},
         "sessions": {},
+        "start_scalper": True,
+        "run_watch": True,
+        "watch_every_minutes": 30,
     },
     "copy": {
         "enabled": True,
@@ -1253,7 +1261,8 @@ def copy_signal(ind: pd.DataFrame, bench: pd.DataFrame | None, cl: dict, cfg: di
     trig.iloc[-1] = True
     use_bench = bench is not None and bench_symbol and bench_symbol.upper() != symbol.upper()
     checks = [
-        Check("cluster", f"{cl['insiders']} different insiders bought", const(cl["insiders"] >= 3), 15),
+        Check("cluster", "3 or more insiders bought" if cl["insiders"] >= 3 else
+              f"only {cl['insiders']} insider{'s' if cl['insiders'] != 1 else ''} bought (3+ is stronger)", const(cl["insiders"] >= 3), 15),
         Check("top", "the CEO, CFO, President or Chair bought", const(cl["top"]), 15),
         Check("size", f"they spent {fmt_money(cl['total_value'], 'USD')} of their own money",
               const(cl["total_value"] >= float(cc.get("big_total_usd", 250000))), 10),
@@ -1297,11 +1306,23 @@ def insiders_report(clusters: dict[str, dict], updated: str = "", n: int = 10) -
 def new_insider_alerts(st: dict, cfg: dict) -> list[str]:
     """Telegram messages for shares whose insider buying has just become strong enough to copy."""
     out = []
-    today = datetime.now(timezone.utc).date().isoformat()
-    for sym, c in insider_clusters(st["buys"], cfg).items():
+    now = datetime.now(timezone.utc)
+    today = now.date().isoformat()
+    fresh_from = (now - pd.Timedelta(days=2)).strftime("%Y-%m-%d")
+    clusters = insider_clusters(st["buys"], cfg)
+    if not st.get("alerts_seeded"):
+        # first run: everything already known has been in the nightly scan; only alert on new buying from now on
+        for sym, c in clusters.items():
+            if c["qualified"]:
+                st["alerted"][sym] = today
+        st["alerts_seeded"] = True
+        return out
+    for sym, c in clusters.items():
         if not c["qualified"] or sym in st["alerted"]:
             continue
         st["alerted"][sym] = today
+        if c["first_qualified"] < fresh_from:
+            continue  # old news
         lines = [f"<b>INSIDERS BUYING: {esc(sym)}</b> · {esc(str(c['issuer'])[:40])}",
                  f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''} bought {fmt_money(c['total_value'], 'USD')} "
                  f"of their own shares at about {fmt_price(c['avg_price'], 'USD')}:"]
@@ -1339,13 +1360,20 @@ def read_market(sym: str, cfg: dict, csv_dir) -> dict | None:
     usual = float(atr_pct.tail(252).median())
     vol_word = "jumpier than usual" if now_vol > 1.3 * usual else ("calmer than usual" if now_vol < 0.8 * usual else "normal")
     r2 = float(last["rsi2"]) if pd.notna(last["rsi2"]) else 50.0
+    if trend == "uptrend" and c < s50:
+        trend_note = "uptrend, but pulling back under its 50-day"
+    elif trend == "downtrend" and c > s50:
+        trend_note = "downtrend, but bouncing above its 50-day"
+    else:
+        trend_note = trend
     short_term = ""
     if r2 < 10:
         short_term = "sharp dip in the last two days" + (": the kind the pullback setup buys" if trend == "uptrend" else "")
     elif r2 > 90:
         short_term = "sharp jump in the last two days" + (": the kind the pullback setup shorts" if trend == "downtrend" else "")
     return {
-        "symbol": sym, "currency": meta.get("currency", "USD"), "price": c, "trend": trend, "rising200": rising,
+        "symbol": sym, "currency": meta.get("currency", "USD"), "price": c, "trend": trend, "trend_note": trend_note,
+        "rising200": rising,
         "r1m": float(c / ind["Close"].iloc[-22] - 1.0), "r3m": float(last["ret63"]) if pd.notna(last["ret63"]) else float("nan"),
         "atr_pct": now_vol, "vol_word": vol_word, "short_term": short_term,
         "above20": bool(c > float(last["ema20"])),
@@ -1376,7 +1404,7 @@ def market_read_text(cfg: dict, args, breadth: list[tuple[str, bool, bool]] | No
         return ""
     for r in rows:
         mom = f"{r['r1m']:+.1%} this month, {r['r3m']:+.1%} in 3 months" if r["r3m"] == r["r3m"] else f"{r['r1m']:+.1%} this month"
-        line = (f"<b>{esc(r['symbol'])}</b> {r['trend']} · {mom} · moves ~{r['atr_pct']:.1f}% a day ({r['vol_word']})"
+        line = (f"<b>{esc(r['symbol'])}</b> {r['trend_note']} · {mom} · moves ~{r['atr_pct']:.1f}% a day ({r['vol_word']})"
                 f" → {stance_for(r['trend'], cfg)}")
         if r["short_term"] and not compact:
             line += f". Short term: {r['short_term']}"
@@ -1535,6 +1563,15 @@ def _score(base: int, checks: list[Check], index) -> pd.Series:
     return (100.0 * earned / available).clip(0, 100).round()
 
 
+def min_score_for(setup: str, cfg: dict, which: str = "alert") -> int:
+    """The score a setup needs to alert ("alert") or be paper-traded ("paper"). Per-setup values in
+    [scan] setup_min_score override both, e.g. breakouts, where the 10-year test found the score didn't help."""
+    per = cfg["scan"].get("setup_min_score", {}) or {}
+    if setup in per:
+        return int(per[setup])
+    return int(cfg["scan"]["alert_min_score"] if which == "alert" else cfg["paper"]["min_score"])
+
+
 def shorts_mode(cfg: dict) -> str:
     """"off", "on" (look for shorts everywhere) or "auto" (only where the wider market is falling)."""
     v = cfg["scan"].get("allow_shorts", False)
@@ -1672,6 +1709,7 @@ class Position:
     risk_amount: float = 0.0
     bars_held: int = 0
     best_price: float = 0.0
+    trailing: bool = False
     last_bar: str = ""
     exit_next_open: bool = False
     exit_reason: str = ""
@@ -1762,10 +1800,26 @@ def step_bar(pos: Position, date: str, row, cfg: dict, cost: float) -> bool:
             pos.stop = trail
         if pos.bars_held >= int(s.get("copy_max_hold_bars", 63)):
             pos.exit_next_open, pos.exit_reason = True, "time stop (about 3 months)"
+    elif pos.trailing:
+        # "let it run" pullbacks: once the bounce has come, the stop goes to break-even and then
+        # trails under the 20-bar low (high for shorts), like a breakout, for up to ~3 months
+        trail = float(row["exit_lo"] if long else row["exit_hi"])
+        if np.isfinite(trail):
+            if long and trail > pos.stop:
+                pos.stop = trail
+            elif (not long) and trail < pos.stop:
+                pos.stop = trail
+        if pos.bars_held >= int(s.get("pullback_trail_max_bars", 63)):
+            pos.exit_next_open, pos.exit_reason = True, "time stop (about 3 months)"
     else:
         sma5 = float(row["sma5"])
         if np.isfinite(sma5) and ((long and c > sma5) or ((not long) and c < sma5)):
-            pos.exit_next_open, pos.exit_reason = True, "bounce done: closed past the 5-day average"
+            if str(s.get("pullback_exit", "bounce")).lower() == "trail":
+                pos.trailing = True
+                if (long and pos.entry_price > pos.stop) or ((not long) and pos.entry_price < pos.stop):
+                    pos.stop = pos.entry_price  # break-even: this trade can no longer lose (bar gaps aside)
+            else:
+                pos.exit_next_open, pos.exit_reason = True, "bounce done: closed past the 5-day average"
         elif pos.bars_held >= int(s["pullback_max_hold_bars"]):
             pos.exit_next_open, pos.exit_reason = True, "time stop"
     return False
@@ -1891,6 +1945,12 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
             f"Exit plan: trail the stop {plan['k']:g} x ATR under the best close since you bought; sell after "
             f"{int(s.get('copy_max_hold_bars', 63))} bars (about 3 months) at most; {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
         )
+    elif str(s.get("pullback_exit", "bounce")).lower() == "trail":
+        lines.append(
+            f"Exit plan: when it bounces back past the 5-day average, move the stop to break-even, then trail it under the "
+            f"{int(s['breakout_exit_lookback'])}-bar {'low' if direction == 'long' else 'high'} to let it run "
+            f"(up to {int(s.get('pullback_trail_max_bars', 63))} bars); {s['target_r']:g}R is {fmt_price(plan['target'], ccy)}"
+        )
     else:
         lines.append(
             f"Exit plan: close it when price closes back past the 5-day average, or after "
@@ -2001,6 +2061,8 @@ def summarise_r(rs: list[float]) -> dict:
         "profit_factor": float(wins.sum() / gross_loss) if gross_loss > 0 else float("inf"),
         "total_r": float(r.sum()),
         "max_dd_r": float((peak - eq).max()) if len(eq) else 0.0,
+        "best_r": float(r.max()),
+        "big_wins": int((r >= 3).sum()),
     }
 
 
@@ -2120,7 +2182,6 @@ def cmd_scan(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["scan"]["history"]
     st = load_state(cfg)
-    alert_min = int(cfg["scan"]["alert_min_score"])
     paper_on = bool(cfg["paper"]["enabled"])
     acct_ccy = cfg["account"]["currency"]
     news_on = bool(cfg["news"].get("enabled", True))
@@ -2192,8 +2253,11 @@ def cmd_scan(cfg: dict, args) -> int:
                 movers_checked += int(is_mover)
                 ind = add_indicators(df, cfg)
                 lr = ind.iloc[-1]
-                if pd.notna(lr["atr"]) and lr["Close"] > 0:
-                    vol_rows.append((sym, float(lr["atr"]) / float(lr["Close"]) * 100.0))
+                swing = float(lr["atr"]) / float(lr["Close"]) * 100.0 if pd.notna(lr["atr"]) and lr["Close"] > 0 else float("nan")
+                if quiet and swing > float(cfg["movers"].get("max_daily_swing_pct", 15)):
+                    continue  # a movers-list share swinging 15%+ a day: usually a penny share or bad data
+                if swing == swing:
+                    vol_rows.append((sym, swing))
                 if sym in on_list and pd.notna(lr["sma200"]):
                     breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
@@ -2210,7 +2274,8 @@ def cmd_scan(cfg: dict, args) -> int:
                         continue
                     score = int(frame["score"].iloc[i])
                     warnings = []
-                    days = next_earnings_days(sym, meta) if score >= alert_min - 10 else None
+                    need = min_score_for(setup, cfg)
+                    days = next_earnings_days(sym, meta) if score >= need - 10 else None
                     if days is not None and days <= int(cfg["scan"]["earnings_warning_days"]):
                         score = max(0, score - 10)
                         warnings.append(f"Earnings in {days} day{'s' if days != 1 else ''}: prices can jump past any stop")
@@ -2219,7 +2284,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         warnings.append(f"Big event soon, {event_text(ev)}: prices can jump on the day")
                     key = f"{sym}|{setup}|{direction}|{bar}"
                     alerted = False
-                    if score >= alert_min and key not in st["sent"]:
+                    if score >= need and key not in st["sent"]:
                         last = ind.iloc[i]
                         price, a = float(last["Close"]), float(last["atr"])
                         k = stop_multiple(setup, cfg)
@@ -2254,7 +2319,7 @@ def cmd_scan(cfg: dict, args) -> int:
                         if ok and tm and min_r > -1 and tm["avg_r"] < min_r:
                             ok, why = False, f"time machine average {tm['avg_r']:+.2f}R is below your minimum {min_r:+.2f}R"
                         warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
-                        if paper_on and score >= int(cfg["paper"]["min_score"]):
+                        if paper_on and score >= min_score_for(setup, cfg, "paper"):
                             if sym in open_syms:
                                 paper_note = "Paper trading: already holding this one, so no new paper trade."
                             elif not ok:
@@ -2500,6 +2565,8 @@ def time_machine(ind: pd.DataFrame, setup: str, direction: str, cfg: dict, repla
     init_stop = stop.copy()
     alive = np.ones(n, bool)
     flag = np.zeros(n, bool)
+    trailing = np.zeros(n, bool)
+    trail_mode = setup == "pullback" and str(s.get("pullback_exit", "bounce")).lower() == "trail"
     exit_px = np.full(n, np.nan)
     stopped = np.zeros(n, bool)
     bars = np.zeros(n, int)
@@ -2526,6 +2593,12 @@ def time_machine(ind: pd.DataFrame, setup: str, direction: str, cfg: dict, repla
         closes = np.column_stack([closes[:, 1:], c])
         if setup == "breakout":
             stop = np.where(alive, np.maximum(stop, lows.min(axis=1)), stop)
+        elif trail_mode:
+            bounced = alive & ~trailing & (c > closes.mean(axis=1))
+            trailing |= bounced
+            stop = np.where(bounced, np.maximum(stop, entry), stop)
+            stop = np.where(alive & trailing, np.maximum(stop, lows.min(axis=1)), stop)
+            flag |= alive & ~trailing & (bars >= int(s["pullback_max_hold_bars"]))
         else:
             flag |= alive & ((c > closes.mean(axis=1)) | (bars >= int(s["pullback_max_hold_bars"])))
         prev = c
@@ -2629,7 +2702,7 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 
 def _stats_row(label: str, st: dict) -> list[str]:
     if not st.get("trades"):
-        return [label, "0", "-", "-", "-", "-", "-", "-"]
+        return [label, "0", "-", "-", "-", "-", "-", "-", "-", "-"]
     pf = st["profit_factor"]
     return [
         label,
@@ -2640,6 +2713,8 @@ def _stats_row(label: str, st: dict) -> list[str]:
         f"{st['expectancy']:+.3f}",
         "inf" if pf == float("inf") else f"{pf:.2f}",
         f"{st['max_dd_r']:.1f}",
+        f"{st['best_r']:+.1f}",
+        str(st["big_wins"]),
     ]
 
 
@@ -2687,7 +2762,8 @@ def cmd_backtest(cfg: dict, args) -> int:
         t0, t1 = min(first_dates), max(last_dates)
         cut = t0 + (t1 - t0) * float(cfg["backtest"]["in_sample_share"])
     risk_pct = float(cfg["account"]["risk_per_trade_pct"])
-    headers = ["Group", "Trades", "Won", "Avg win R", "Avg loss R", "Expectancy R", "Profit factor", "Worst run R"]
+    headers = ["Group", "Trades", "Won", "Avg win R", "Avg loss R", "Expectancy R", "Profit factor", "Worst run R",
+               "Best R", "3R+ wins"]
     print(f"\nBacktest: {len(bh_rows)} markets, {interval} bars, costs {cost * 100:.2f}% each way, "
           f"entries at the next open after the signal.\n")
     for (setup, direction) in sorted({(t.setup, t.direction) for t in all_trades}):
@@ -2765,7 +2841,6 @@ def watch_once(cfg: dict, args) -> int:
     ws = load_watch_state()
     wc = cfg["watch"]
     news_on = bool(cfg["news"].get("enabled", True))
-    alert_min = int(cfg["scan"]["alert_min_score"])
     now = datetime.now(timezone.utc)
     stamp, day = now.isoformat(), now.strftime("%Y-%m-%d")
     held = {p["symbol"]: p for p in st["positions"] if p["status"] == "open"}
@@ -2830,7 +2905,7 @@ def watch_once(cfg: dict, args) -> int:
                         continue
                     score = int(frame["score"].iloc[i])
                     key = f"bo|{sym}|{direction}|{day}"
-                    if score >= alert_min and key not in ws["sent"]:
+                    if score >= min_score_for(setup, cfg) and key not in ws["sent"]:
                         side = "high" if direction == "long" else "low"
                         msgs.append(
                             f"<b>Breakout in progress: {esc(sym)}</b> is through its "
@@ -2863,6 +2938,19 @@ def watch_once(cfg: dict, args) -> int:
                     msgs.append("\n".join([f"<b>News on {esc(sym)}</b> (in your paper account):"] + headline_lines(fresh[:3])))
                     for p in fresh:
                         ws["sent"][f"news|{p['id']}"] = stamp
+
+            # 5) Earnings coming up on something the paper account holds: the share can gap past the stop
+            if sym in held:
+                days = next_earnings_days(sym, meta)
+                key = f"earn|{sym}|{(pd.Timestamp(day) + pd.Timedelta(days=days or 0)):%Y-%m-%d}"
+                if days is not None and days <= int(wc.get("earnings_days", 3)) and key not in ws["sent"]:
+                    pos = held[sym]
+                    msgs.append(
+                        f"<b>Earnings soon: {esc(sym)}</b> reports in {days} day{'s' if days != 1 else ''}. You hold it in the paper "
+                        f"account ({pos['direction']}, stop {fmt_price(float(pos['stop']), ccy)}). Results can make a share jump "
+                        "straight past a stop. With real money, many traders take some or all of the profit off first."
+                    )
+                    ws["sent"][key] = stamp
     for m in msgs:
         send_telegram(cfg, m, args)
     if not msgs:
@@ -2954,7 +3042,8 @@ def won_lost(r: float, cfg: dict) -> str:
 def pulse_market_text(sym, spec, ind, m, ccy, cfg, head: str) -> str:
     row = ind.iloc[-1]
     d, k = row["direction"], row["kind"]
-    best = intraday.best_approach(d, k, m.get("record", {}), int(cfg["pulse"].get("min_trades", 15)))
+    best = intraday.best_approach(d, k, m.get("record", {}), int(cfg["pulse"].get("min_trades", 15)),
+                                  float(cfg["pulse"].get("min_edge_r", 0.1)))
     tz = cfg["news"].get("timezone", "Europe/London")
     when = ind.index[-1].tz_convert(tz) + pd.Timedelta(minutes=5)
     vw_dir = "rising" if row["vwap_slope"] > 0 else "falling"
@@ -2974,7 +3063,7 @@ def pulse_market_text(sym, spec, ind, m, ccy, cfg, head: str) -> str:
 
 def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
     msgs, keep = [], []
-    cost = float(cfg["pulse"].get("cost_pct", 0.02))
+    cost = market_cost(cfg, sym)
     pos = {str(t): i for i, t in enumerate(ind.index)}
     for t in ps["trades"]:
         if t["symbol"] != sym:
@@ -3010,11 +3099,16 @@ def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
     return msgs
 
 
+def market_cost(cfg: dict, sym: str) -> float:
+    """Spread + slippage each way for this market, in %."""
+    pc = cfg["pulse"]
+    return float(pc.get("costs", {}).get(sym, pc.get("cost_pct", 0.02)))
+
+
 def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
     pc = cfg["pulse"]
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
-    cost = float(pc.get("cost_pct", 0.02))
     msgs = []
     for sym in pc.get("markets", []):
         m = ps["markets"].setdefault(sym, {})
@@ -3027,6 +3121,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         if len(ind) < 80:
             continue
         ccy = meta.get("currency", "USD")
+        cost = market_cost(cfg, sym)
         if stale:
             m["record"] = intraday.recent_record(ind, cost)
             m["record_at"] = now.isoformat()
@@ -3038,7 +3133,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         m["last_bar"] = str(last_ts)
         row = ind.iloc[-1]
         d, k = row["direction"], row["kind"]
-        best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)))
+        best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)), float(pc.get("min_edge_r", 0.1)))
         key = f"{d}|{k}|{best}"
         if m.get("brief_day") != today:
             if pc.get("send_open_brief", True):
@@ -3064,18 +3159,26 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                 m["alerts"] = {today: n_today + 1}
                 price = float(row["Close"])
                 stop = float(row[f"{best}_{'l' if side == 'long' else 's'}stop"])
-                risk = abs(price - stop)
-                target = float(row["vwap"]) if best == "fade" else (price + 2 * risk if side == "long" else price - 2 * risk)
+                risk = max(abs(price - stop), intraday.MIN_RISK_ATR * float(row["atr"]))  # same rules as the record
+                stop = price - risk if side == "long" else price + risk
+                if best == "fade":
+                    target = float(row["vwap"])
+                elif best == "late":
+                    target = float("nan")  # held to the close
+                else:
+                    target = price + 2 * risk if side == "long" else price - 2 * risk
                 rec = m.get("record", {}).get(best, {})
                 msgs.append(
                     f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
                     f"{intraday.APPROACHES[best]} · 5-min chart\n"
-                    f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · target {fmt_price(target, ccy)}\n"
+                    f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · "
+                    f"{'sell at the close' if best == 'late' else 'target ' + fmt_price(target, ccy)}\n"
                     f"Why: {esc(intraday.describe(d, k).lower())}; {esc(intraday.HOW[(best, side)])}\n"
                     f"This approach has made {rec.get('avg_r', 0):+.2f}R a trade on this market lately "
                     f"({rec.get('trades', 0)} trades). At {fmt_money(pulse_risk(cfg), cfg['account']['currency'])} risk, "
                     f"the stop costs {fmt_money(-pulse_risk(cfg), cfg['account']['currency'])} and the target makes about "
-                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk else 2), cfg['account']['currency'])}.\n"
+                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk and target == target else 2), cfg['account']['currency'])}"
+                    f"{' (if it runs 2R by the close)' if best == 'late' else ''}.\n"
                     "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
                 )
                 ps["trades"].append({"symbol": sym, "approach": best, "side": side, "signal_time": str(last_ts), "signal_price": price})
@@ -3100,15 +3203,74 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
     return msgs
 
 
+def dispatch_workflow(name: str) -> bool:
+    """Starts another GitHub workflow now (GitHub's own schedules can start hours late)."""
+    import subprocess
+
+    if not (os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_ACTIONS")):
+        return False
+    try:
+        r = subprocess.run(["gh", "workflow", "run", name, "--ref", os.environ.get("GITHUB_REF_NAME", "main")],
+                           capture_output=True, text=True, timeout=60)
+        print(f"Started {name}: {r.returncode} {r.stdout.strip()} {r.stderr.strip()}")
+        return r.returncode == 0
+    except Exception as exc:
+        print(f"Couldn't start {name}: {exc}")
+        return False
+
+
+def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
+    """Jobs the all-day pulse does so they don't depend on GitHub's unreliable schedules."""
+    pc, cc = cfg["pulse"], cfg.get("copy", {})
+    msgs: list[str] = []
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    ny = pd.Timestamp.now(tz="America/New_York")
+    # 1) Start the 0DTE scalper just before the US open (once a day, weekdays)
+    if pc.get("start_scalper", True) and ny.weekday() < 5 and ps.get("scalper_day") != today:
+        mins = ny.hour * 60 + ny.minute
+        if 9 * 60 <= mins <= 9 * 60 + 40:
+            if dispatch_workflow("scalper.yml") or not os.environ.get("GITHUB_ACTIONS"):
+                ps["scalper_day"] = today
+    # 2) The daily insider catch-up (every filing from the previous days), once a day
+    if cc.get("enabled", True) and not OFFLINE and ps.get("insiders_day") != today:
+        try:
+            update_insiders(cfg, log=print)
+            ps["insiders_day"] = today
+        except Exception as exc:
+            print(f"Insider catch-up: {exc}")
+    # 3) EDGAR's live insider feed every few minutes
+    if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
+            and time.time() - state.get("insider_poll", 0) >= 60 * float(cc.get("live_every_minutes", 10))):
+        state["insider_poll"] = time.time()
+        try:
+            ist = load_insiders()
+            poll_live_insiders(cfg, ist, log=print)
+            msgs += new_insider_alerts(ist, cfg)
+            save_insiders(ist)
+        except Exception as exc:
+            print(f"Insider feed: {exc}")
+    # 4) The watchlist check (big moves, breakouts in progress, paper stops, news) every 30 minutes
+    if pc.get("run_watch", True) and time.time() - state.get("watch", 0) >= 60 * float(pc.get("watch_every_minutes", 30)):
+        state["watch"] = time.time()
+        try:
+            watch_once(cfg, args)
+        except Exception as exc:
+            print(f"Watch check failed: {exc}")
+    return msgs
+
+
 def cmd_pulse(cfg: dict, args) -> int:
     """Reads each market every few minutes. --every 5 keeps going; --until 21:35 (UTC) or --for 340 (minutes) stops it."""
     every = float(getattr(args, "every", 0) or 0)
     started = time.time()
     until = getattr(args, "until", "") or ""
     for_min = float(getattr(args, "for_minutes", 0) or 0)
+    if every > 0 and until and datetime.now(timezone.utc).strftime("%H:%M") >= until:
+        print(f"After {until} UTC: nothing to do until tomorrow.")
+        return 0
     ps = load_pulse()
-    cc = cfg.get("copy", {})
-    last_insider_poll = 0.0
+    state: dict = {}
     while True:
         _DATA_CACHE.clear()
         try:
@@ -3116,17 +3278,10 @@ def cmd_pulse(cfg: dict, args) -> int:
         except Exception as exc:
             msgs = []
             print(f"Pulse check failed: {exc}")
-        # Copy the insiders, quickly: EDGAR's live feed every few minutes
-        if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
-                and time.time() - last_insider_poll >= 60 * float(cc.get("live_every_minutes", 10))):
-            last_insider_poll = time.time()
-            try:
-                ist = load_insiders()
-                poll_live_insiders(cfg, ist, log=print)
-                msgs += new_insider_alerts(ist, cfg)
-                save_insiders(ist)
-            except Exception as exc:
-                print(f"Insider feed: {exc}")
+        try:
+            msgs += pulse_chores(cfg, args, ps, state)
+        except Exception as exc:
+            print(f"Pulse chores failed: {exc}")
         for text in msgs:
             send_telegram(cfg, text, args)
         save_pulse(ps)
