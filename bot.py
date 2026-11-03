@@ -47,6 +47,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import charts
 import intraday
 
 try:
@@ -154,6 +155,7 @@ DEFAULTS: dict = {
         "max_new_trades_per_day": 3,
         "min_replay_avg_r": -1.0,
     },
+    "charts": {"enabled": True},
     "sizing": {"enabled": True, "low_mult": 0.5, "high_mult": 1.5, "high_points": 3, "low_points": 0, "max_risk_pct": 3.0},
     "analysis": {
         "enabled": True,
@@ -697,13 +699,18 @@ def get_headlines(symbol: str, n: int = 3, max_age_hours: float = 72) -> list[di
             if p:
                 raw.append(p)
     except Exception as exc:
-        _news_note("Yahoo (yfinance)", exc)
-    if len(raw) < n:
-        raw += _rss_items(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={quote_plus(symbol)}&region=US&lang=en-US",
-                          "Yahoo RSS")
+        _news_note("Yahoo (yfinance)", exc)  # Yahoo often blocks cloud servers like GitHub's
     if len(raw) < n:
         raw += _rss_items(f"https://news.google.com/rss/search?q={quote_plus(news_query(symbol))}+when:3d"
                           "&hl=en-GB&gl=GB&ceid=GB:en", "Google News")
+    if len(raw) < n:
+        # Yahoo's RSS feed mixes in general market stories: for a share, keep only headlines that name it
+        root = symbol.split(".")[0].split("-")[0].upper()
+        general = symbol.startswith("^") or "=" in symbol or symbol in {"SPY", "QQQ", "IWM"} or "-USD" in symbol
+        for p in _rss_items(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={quote_plus(symbol)}&region=US&lang=en-US",
+                            "Yahoo RSS"):
+            if general or re.search(rf"\b{re.escape(root)}\b", p["title"]):
+                raw.append(p)
     now = pd.Timestamp.now(tz="UTC")
     items, seen = [], set()
     for p in raw:
@@ -2048,6 +2055,46 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
     return ok
 
 
+def send_photo(cfg: dict, png: bytes | None, caption: str, args=None) -> bool:
+    """Sends a chart picture to Telegram. Without Telegram (or with --no-telegram) it saves the picture to a
+    temporary folder and prints where. A missing picture never stops the text alert."""
+    if not png:
+        return False
+    token, chat = cfg["telegram"].get("token"), cfg["telegram"].get("chat_id")
+    if (args is not None and getattr(args, "no_telegram", False)) or not token or not chat:
+        import tempfile
+
+        folder = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / "bot-charts"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / (re.sub(r"[^A-Za-z0-9]+", "_", to_plain(caption))[:60] + ".png")
+        path.write_bytes(png)
+        print(f"[chart saved: {path}]")
+        return False
+    import requests
+
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto",
+                          data={"chat_id": chat, "caption": caption[:1000], "parse_mode": "HTML"},
+                          files={"photo": ("chart.png", png, "image/png")}, timeout=30)
+        if r.status_code != 200:
+            print(f"Telegram photo error {r.status_code}: {r.text[:200]}")
+        return r.status_code == 200
+    except Exception as exc:
+        print(f"Telegram photo error: {exc}")
+        return False
+
+
+def deliver(cfg: dict, item, args=None) -> None:
+    """A message is either text, or (text, chart picture): the picture goes first, then the text."""
+    if isinstance(item, tuple):
+        text, png = item
+        if png:
+            send_photo(cfg, png, text.split("\n")[0], args)
+        send_telegram(cfg, text, args)
+    else:
+        send_telegram(cfg, item, args)
+
+
 def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval, warnings, paper_note,
                  origin: str | None = None, volatility: str | None = None, history: str | None = None,
                  news: list[str] | None = None, insiders: list[str] | None = None) -> str:
@@ -2216,7 +2263,8 @@ def summarise_r(rs: list[float]) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, interval: str, msgs: list[str]) -> None:
+def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, interval: str, msgs: list[str],
+                 photos: list | None = None) -> None:
     cost = float(cfg["backtest"]["cost_per_side_pct"]) / 100.0
     acct_ccy = cfg["account"]["currency"]
     keep = []
@@ -2259,6 +2307,15 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                     f"({esc(pos.exit_reason)}) {held}. "
                     f"Paper account {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}%)."
                 )
+                if photos is not None and cfg.get("charts", {}).get("enabled", True):
+                    png = charts.daily_chart(
+                        ind[ind.index <= ts], f"{sym} {pos.direction} {pos.setup}: {'WON' if pos.pnl > 0 else 'LOST'} "
+                        f"{fmt_money(pos.pnl, acct_ccy)} ({pos.r_multiple:+.2f}R)",
+                        entry=pos.entry_price, stop=pos.initial_stop, exit_=pos.exit_price, mark_from=pos.entry_date,
+                    )
+                    if png:
+                        photos.append((f"<b>{esc(sym)}</b>: how the paper trade went, from {pos.entry_date} (shaded) "
+                                       f"to {pos.exit_date}", png))
                 break
             pos.last_bar = date
         if pos.status in {"pending", "open"}:
@@ -2361,7 +2418,7 @@ def cmd_scan(cfg: dict, args) -> int:
     news_on = bool(cfg["news"].get("enabled", True))
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
-    alerts, msgs, errors, log_rows, regimes, vol_rows = [], [], [], [], [], []
+    alerts, msgs, errors, log_rows, regimes, vol_rows, photos = [], [], [], [], [], [], []
     checked = movers_checked = movers_passed = 0
     seen = set()
     watch = iter_watchlist(cfg, args)
@@ -2436,7 +2493,7 @@ def cmd_scan(cfg: dict, args) -> int:
                 if sym in on_list and pd.notna(lr["sma200"]):
                     breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
-                manage_paper(st, sym, ind, meta, cfg, interval, msgs)
+                manage_paper(st, sym, ind, meta, cfg, interval, msgs, photos)
                 sigs = compute_signals(ind, bench, cfg, sym, bench_sym)
                 if sym in copy_info:
                     cs = copy_signal(ind, bench, copy_info[sym], cfg, sym, bench_sym, st, now)
@@ -2537,11 +2594,16 @@ def cmd_scan(cfg: dict, args) -> int:
                             hist = f"{hist}\n{tml}" if hist else tml
                         heads = headline_lines(head_items) if news_on else None
                         desc = describe_checks(checks, i, ind, bench_sym)
-                        alerts.append(format_alert(
+                        text = format_alert(
                             sym, setup, direction, score, desc, plan, cfg, interval, warnings, paper_note,
                             origin=mover_info.get(sym) if is_mover else None, volatility=vol_line, history=hist, news=heads,
                             insiders=insider_lines(copy_info[sym]) if setup == "copy" else None,
-                        ))
+                        )
+                        png = charts.daily_chart(
+                            ind.iloc[: i + 1], f"{sym} · {SETUP_TITLES[setup]} · {'BUY' if long else 'SELL SHORT'} · score {score}",
+                            entry=price, stop=plan["stop"], target=plan["target"],
+                        ) if cfg.get("charts", {}).get("enabled", True) else None
+                        alerts.append((text, png))
                         st["sent"][key] = now_iso
                         alerted = True
                         movers_passed += int(is_mover)
@@ -2568,8 +2630,10 @@ def cmd_scan(cfg: dict, args) -> int:
                 send_telegram(cfg, read, args)
         except Exception as exc:
             errors.append(f"market read ({exc})")
-    for text in alerts:
-        send_telegram(cfg, text, args)
+    for item in alerts:
+        deliver(cfg, item, args)
+    for caption, png in photos:
+        send_photo(cfg, png, caption, args)
     if msgs:
         send_telegram(cfg, "\n".join(msgs), args)
     if news_on and cfg["news"].get("crypto_news", True) and not getattr(args, "symbols", None):
@@ -3281,12 +3345,16 @@ def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
         ps["closed"].append(t)
         today = [c for c in ps["closed"] if str(c.get("exit_time", ""))[:10] == str(res["exit_time"])[:10]]
         day_r = sum(c["r"] for c in today)
-        msgs.append(
+        text = (
             f"<b>{esc(spec['name'])} {intraday.APPROACHES[t['approach']]} {t['side'].upper()}: {won_lost(t['r'], cfg)}</b>\n"
             f"{'Bought' if t['side'] == 'long' else 'Sold'} at {fmt_price(res['entry'], ccy)}, out at {fmt_price(res['exit'], ccy)} "
             f"({esc(res['reason'])}). Paper only.\n"
             f"Today's intraday paper trades: {len(today)}, {won_lost(day_r, cfg)}"
         )
+        png = charts.intraday_chart(ind, f"{spec['name']} {t['side']}: {won_lost(t['r'], cfg)}", entry=res["entry"],
+                                    stop=res["stop"], target=None if t["approach"] == "late" else res["target"],
+                                    exit_=res["exit"]) if cfg.get("charts", {}).get("enabled", True) else None
+        msgs.append((text, png) if png else text)
     ps["trades"] = keep
     return msgs
 
@@ -3360,7 +3428,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                 else:
                     target = price + 2 * risk if side == "long" else price - 2 * risk
                 rec = m.get("record", {}).get(best, {})
-                msgs.append(
+                text = (
                     f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
                     f"{intraday.APPROACHES[best]} · 5-min chart\n"
                     f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · "
@@ -3373,6 +3441,9 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                     f"{' (if it runs 2R by the close)' if best == 'late' else ''}.\n"
                     "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
                 )
+                png = charts.intraday_chart(ind, f"{spec['name']} · {'BUY' if side == 'long' else 'SELL'} · {intraday.APPROACHES[best]}",
+                                            entry=price, stop=stop, target=target) if cfg.get("charts", {}).get("enabled", True) else None
+                msgs.append((text, png) if png else text)
                 ps["trades"].append({"symbol": sym, "approach": best, "side": side, "signal_time": str(last_ts), "signal_price": price})
     # End-of-day results, once, after the US close
     if now.hour >= 21 and ps.get("summary_day") != today:
@@ -3474,8 +3545,8 @@ def cmd_pulse(cfg: dict, args) -> int:
             msgs += pulse_chores(cfg, args, ps, state)
         except Exception as exc:
             print(f"Pulse chores failed: {exc}")
-        for text in msgs:
-            send_telegram(cfg, text, args)
+        for item in msgs:
+            deliver(cfg, item, args)
         save_pulse(ps)
         if not msgs:
             print(f"Pulse {datetime.now(timezone.utc):%H:%M} UTC: nothing new.")
