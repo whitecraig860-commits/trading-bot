@@ -1,0 +1,115 @@
+{
+ "date": "2026-11-04",
+ "trades": [
+  {
+   "worker": "SPY",
+   "side": "call",
+   "contract": "SPY261104C00767000",
+   "qty": 1,
+   "entry_price": 1.49,
+   "entry_time": "2026-11-04 10:30:07.365031-05:00",
+   "why": "closed above VWAP; trend up",
+   "order_id": "6b2a51f3-5671-4d43-a5cb-9d8ffab25ce2",
+   "best": 1.58,
+   "exit_price": 1.36,
+   "exit_time": "2026-11-04 10:35:07.521073-05:00",
+   "exit_reason": "price closed back across VWAP",
+   "pnl": -12.99999999999999,
+   "status": "closed"
+  },
+  {
+   "worker": "SPY",
+   "side": "call",
+   "contract": "SPY261104C00767000",
+   "qty": 1,
+   "entry_price": 1.59,
+   "entry_time": "2026-11-04 11:45:11.468221-05:00",
+   "why": "closed above VWAP; trend up",
+   "order_id": "95e6bf85-63b1-425f-b9a9-d144e2e1515e",
+   "best": 2.4,
+   "exit_price": 2.47,
+   "exit_time": "2026-11-04 11:54:18.577425-05:00",
+   "exit_reason": "profit target (+51%)",
+   "pnl": 88.00000000000001,
+   "status": "closed"
+  },
+  {
+   "worker": "IWM",
+   "side": "call",
+   "contract": "IWM261104C00284000",
+   "qty": 3,
+   "entry_price": 0.54,
+   "entry_time": "2026-11-04 11:50:05.896619-05:00",
+   "why": "closed above VWAP; trend up",
+   "order_id": "d416a717-2449-458d-af87-e06040be2898",
+   "best": 0.89,
+   "exit_price": 0.86,
+   "exit_time": "2026-11-04 11:54:18.577425-05:00",
+   "exit_reason": "profit target (+65%)",
+   "pnl": 95.99999999999999,
+   "status": "closed"
+  },
+  {
+   "worker": "IWM",
+   "side": "call",
+   "contract": "IWM261104C00284000",
+   "qty": 2,
+   "entry_price": 0.79,
+   "entry_time": "2026-11-04 12:25:09.340572-05:00",
+   "why": "closed above VWAP; trend up",
+   "order_id": "164e332f-3b43-4140-9d85-a1c291f59a78",
+   "best": 0.84,
+   "exit_price": 0.53,
+   "exit_time": "2026-11-04 12:46:05.233224-05:00",
+   "exit_reason": "stop loss (-34%)",
+   "pnl": -52.0,
+   "status": "closed"
+  },
+  {
+   "worker": "IWM",
+   "side": "call",
+   "contract": "IWM261104C00284000",
+   "qty": 4,
+   "entry_price": 0.39,
+   "entry_time": "2026-11-04 13:45:01.801100-05:00",
+   "why": "closed above VWAP; closed above the 20 EMA; trend up",
+   "order_id": "9b6e2476-8c26-410f-bc74-d3160c09c07e",
+   "best": 0.4,
+   "exit_price": 0.27,
+   "exit_time": "2026-11-04 13:55:12.436280-05:00",
+   "exit_reason": "price closed back across VWAP",
+   "pnl": -48.0,
+   "status": "closed"
+  },
+  {
+   "worker": "SPY",
+   "side": "call",
+   "contract": "SPY261104C00768000",
+   "qty": 2,
+   "entry_price": 0.77,
+   "entry_time": "2026-11-04 14:05:03.585863-05:00",
+   "why": "closed above the 20 EMA; trend up",
+   "order_id": "32bb7abc-b694-41e7-8792-fa12be78585e",
+   "best": 1.16,
+   "exit_price": 1.14,
+   "exit_time": "2026-11-04 14:08:45.188191-05:00",
+   "exit_reason": "profit target (+51%)",
+   "pnl": 73.99999999999997,
+   "status": "closed"
+  }
+ ],
+ "orb_used": {
+  "_done": [
+   "yes"
+  ]
+ },
+ "last_exit": {
+  "SPY": "2026-11-04 14:08:45.188191-05:00",
+  "IWM": "2026-11-04 13:55:12.436280-05:00"
+ },
+ "seen_bar": {
+  "SPY": "2026-11-04 14:00:00-05:00",
+  "QQQ": "2026-11-04 14:00:00-05:00",
+  "IWM": "2026-11-04 13:40:00-05:00"
+ }
+}
