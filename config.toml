@@ -239,6 +239,11 @@ triggers = ["vwap", "ema50"]   # "orb" (opening-range breakout) lost money in th
 require_confluence = true   # calls only when price is above VWAP AND the 50 EMA; puts below both
 signal_minutes = 5          # judge the triggers on 5-minute bars (1 = the old 1-minute rules that kept whipsawing)
 trend_filter = true         # calls only when the trend is UP, puts only when it's DOWN, nothing when it's choppy
+candle_filter = true        # read the candle: only strong candles in the trade's direction (real body, closing near
+                            # the high for a call / low for a put), and never chase a move already stretched from VWAP
+min_body_pct = 50           # the candle's body must be at least half its full range
+close_zone_pct = 30         # ...and close in the top 30% (calls) or bottom 30% (puts) of it
+max_chase_atr = 1.5         # skip if price is more than 1.5 normal bars away from VWAP already
 max_losses_per_worker = 2   # a symbol stops for the day after 2 losing trades
 loss_cooldown_minutes = 30  # and waits 30 minutes after any loss
 first_entry = "09:45"       # New York time (14:45 UK most of the year)
