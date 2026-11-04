@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write         # lets the bot save its paper-trading state back to the repo
+  actions: write          # lets it start the day's market pulse
 
 concurrency:
   group: setup-scanner
@@ -45,4 +46,13 @@ jobs:
             git commit -m "Bot state $(date -u +%F)"
             git pull --rebase
             git push
+          fi
+
+      - name: Start the day's market pulse (weekdays)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%u)" -le 5 ] && [ "$(date -u +%H%M)" -lt 2100 ]; then
+            gh workflow run pulse.yml --ref main && echo "Pulse requested."
           fi
