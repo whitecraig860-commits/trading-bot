@@ -2081,17 +2081,20 @@ TV_SYMBOLS = {"SPY": "AMEX:SPY", "IWM": "AMEX:IWM", "QQQ": "NASDAQ:QQQ", "GC=F":
               "GBPUSD=X": "FX:GBPUSD", "EURUSD=X": "FX:EURUSD", "RR.L": "LSE:RR."}
 
 
-def chart_link(symbol: str, minutes: int | None = None) -> str:
-    """A clickable live chart on TradingView (opens the app if you have it). minutes=5 opens the 5-minute chart."""
+def chart_url(symbol: str, minutes: int | None = None) -> str:
     from urllib.parse import quote
 
     s = symbol.upper()
     tv = TV_SYMBOLS.get(s) or (f"LSE:{s[:-2].replace('.', '_')}" if s.endswith(".L") else s.replace("-", "."))
-    url = f"https://www.tradingview.com/chart/?symbol={quote(tv, safe=':!')}" + (f"&interval={minutes}" if minutes else "")
-    return f'<a href="{url}">📈 Live chart</a>'
+    return f"https://www.tradingview.com/chart/?symbol={quote(tv, safe=':!.')}" + (f"&interval={minutes}" if minutes else "")
 
 
-def send_photo(cfg: dict, png: bytes | None, caption: str, args=None) -> bool:
+def chart_link(symbol: str, minutes: int | None = None) -> str:
+    """A clickable live chart on TradingView (opens the app if you have it). minutes=5 opens the 5-minute chart."""
+    return f'<a href="{chart_url(symbol, minutes)}">📈 Live chart</a>'
+
+
+def send_photo(cfg: dict, png: bytes | None, caption: str, args=None, url: str | None = None) -> bool:
     """Sends a chart picture to Telegram. Without Telegram (or with --no-telegram) it saves the picture to a
     temporary folder and prints where. A missing picture never stops the text alert."""
     if not png:
@@ -2109,8 +2112,10 @@ def send_photo(cfg: dict, png: bytes | None, caption: str, args=None) -> bool:
     import requests
 
     try:
-        r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto",
-                          data={"chat_id": chat, "caption": caption[:1000], "parse_mode": "HTML"},
+        data = {"chat_id": chat, "caption": caption[:1000], "parse_mode": "HTML"}
+        if url:  # a tappable button under the picture
+            data["reply_markup"] = json.dumps({"inline_keyboard": [[{"text": "📈 Live chart", "url": url}]]})
+        r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto", data=data,
                           files={"photo": ("chart.png", png, "image/png")}, timeout=30)
         if r.status_code != 200:
             print(f"Telegram photo error {r.status_code}: {r.text[:200]}")
@@ -2125,7 +2130,8 @@ def deliver(cfg: dict, item, args=None) -> None:
     if isinstance(item, tuple):
         text, png = item
         if png:
-            send_photo(cfg, png, text.split("\n")[0], args)
+            m = re.search(r'href="(https://www\.tradingview\.com/[^"]+)"', text)
+            send_photo(cfg, png, text.split("\n")[0], args, html.unescape(m.group(1)) if m else None)
         send_telegram(cfg, text, args)
     else:
         send_telegram(cfg, item, args)
@@ -2675,7 +2681,8 @@ def cmd_scan(cfg: dict, args) -> int:
     for item in alerts:
         deliver(cfg, item, args)
     for caption, png in photos:
-        send_photo(cfg, png, caption, args)
+        m = re.search(r"<b>([^<]+)</b>", caption)
+        send_photo(cfg, png, caption, args, chart_url(html.unescape(m.group(1))) if m else None)
     if msgs:
         send_telegram(cfg, "\n".join(msgs), args)
     if news_on and cfg["news"].get("crypto_news", True) and not getattr(args, "symbols", None):
