@@ -2075,6 +2075,22 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
     return ok
 
 
+TV_SYMBOLS = {"SPY": "AMEX:SPY", "IWM": "AMEX:IWM", "QQQ": "NASDAQ:QQQ", "GC=F": "COMEX:GC1!", "SI=F": "COMEX:SI1!",
+              "BZ=F": "ICEEUR:BRN1!", "^FTSE": "TVC:UKX", "^GSPC": "SP:SPX", "^NDX": "NASDAQ:NDX", "^VIX": "TVC:VIX",
+              "BTC-USD": "BITSTAMP:BTCUSD", "ETH-USD": "BITSTAMP:ETHUSD", "SOL-USD": "COINBASE:SOLUSD",
+              "GBPUSD=X": "FX:GBPUSD", "EURUSD=X": "FX:EURUSD", "RR.L": "LSE:RR."}
+
+
+def chart_link(symbol: str, minutes: int | None = None) -> str:
+    """A clickable live chart on TradingView (opens the app if you have it). minutes=5 opens the 5-minute chart."""
+    from urllib.parse import quote
+
+    s = symbol.upper()
+    tv = TV_SYMBOLS.get(s) or (f"LSE:{s[:-2].replace('.', '_')}" if s.endswith(".L") else s.replace("-", "."))
+    url = f"https://www.tradingview.com/chart/?symbol={quote(tv, safe=':!')}" + (f"&interval={minutes}" if minutes else "")
+    return f'<a href="{url}">📈 Live chart</a>'
+
+
 def send_photo(cfg: dict, png: bytes | None, caption: str, args=None) -> bool:
     """Sends a chart picture to Telegram. Without Telegram (or with --no-telegram) it saves the picture to a
     temporary folder and prints where. A missing picture never stops the text alert."""
@@ -2128,6 +2144,7 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
         f"<b>{head}: {esc(sym)}</b> · score {score}/100",
         f"{SETUP_TITLES[setup]} · {'buy (long)' if direction == 'long' else 'sell short'} · {tf}",
     ]
+    lines.append(chart_link(sym) + " (follow it in real time)")
     if origin:
         lines.append(f"Found on today's movers: {esc(origin)}")
     if insiders:
@@ -3455,7 +3472,7 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                 rec = m.get("record", {}).get(best, {})
                 text = (
                     f"<b>SIGNAL: {esc(spec['name'])} {'BUY (long)' if side == 'long' else 'SELL (short)'}</b> · "
-                    f"{intraday.APPROACHES[best]} · 5-min chart\n"
+                    f"{intraday.APPROACHES[best]} · 5-min chart · {chart_link(sym, 5)}\n"
                     f"Entry about {fmt_price(price, ccy)} now · stop {fmt_price(stop, ccy)} · "
                     f"{'sell at the close' if best == 'late' else 'target ' + fmt_price(target, ccy)}\n"
                     f"Why: {esc(intraday.describe(d, k).lower())}; {esc(intraday.HOW[(best, side)])}\n"
