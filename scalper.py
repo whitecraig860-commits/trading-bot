@@ -113,7 +113,7 @@ def picture(full: dict, bars: dict, sym: str, caption: str, args, level: float |
             return
         ind = session_indicators(df, {**DEFAULTS, "signal_minutes": 5})
         png = charts.intraday_chart(ind.rename(columns={"ema": "ema21"}), bot.to_plain(caption)[:90], entry=level)
-        bot.send_photo(full, png, caption, args)
+        bot.send_photo(full, png, caption, args, bot.chart_url(sym, 1))
     except Exception as exc:
         print(f"chart: {exc}")
 
