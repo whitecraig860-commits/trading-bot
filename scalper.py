@@ -75,7 +75,11 @@ DEFAULTS = {
     "event_blackout_minutes": 30,     # no entries 30 min either side of a big scheduled event
     "signal_minutes": 5,              # judge the triggers on 5-minute bars (1 = the old, twitchy 1-minute version)
     "ema_length_5m": 20,              # the EMA trigger's length on 5-minute bars (20 x 5 min = 100 minutes)
-    "trend_filter": True,             # calls only when the 5-min/1-hour trend is UP, puts only when it's DOWN, nothing when choppy
+    "trend_filter": True,
+    "candle_filter": True,            # only strong candles in the trade's direction, and no chasing stretched moves
+    "min_body_pct": 50,
+    "close_zone_pct": 30,
+    "max_chase_atr": 1.5,             # calls only when the 5-min/1-hour trend is UP, puts only when it's DOWN, nothing when choppy
     "max_losses_per_worker": 2,       # a worker stops for the day after this many losing trades
     "loss_cooldown_minutes": 30,      # and waits this long after any loss (the normal cooldown applies after a win)
     "entry_offset_pct": 25,           # buy at mid + 25% of the way to the ask (0 = mid, 100 = the ask)
@@ -168,6 +172,9 @@ def session_indicators(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     cum_v = vol.cumsum()
     out["vwap"] = np.where(cum_v > 0, (tp * vol).cumsum() / cum_v.replace(0, np.nan), tp.expanding().mean())
     out["ema"] = out["Close"].ewm(span=ema_len(cfg), adjust=False).mean()
+    pc = out["Close"].shift(1)
+    tr = pd.concat([out["High"] - out["Low"], (out["High"] - pc).abs(), (out["Low"] - pc).abs()], axis=1).max(axis=1)
+    out["atr"] = tr.ewm(alpha=1 / 14, adjust=False, min_periods=3).mean()
     n = int(cfg["opening_range_minutes"])
     start = out.index[0].normalize() + pd.Timedelta(hours=9, minutes=30)
     in_or = (out.index >= start) & (out.index < start + pd.Timedelta(minutes=n))
@@ -213,8 +220,32 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set) -> tuple[str,
             ok = (c > vw and c > em) if side == "call" else (c < vw and c < em)
             if not ok:
                 continue
+        if cfg.get("candle_filter", False) and not candle_ok(ind, i, side, cfg):
+            continue
         return side, fired[side]
     return None
+
+
+def candle_ok(ind: pd.DataFrame, i: int, side: str, cfg: dict) -> bool:
+    """Reads the candle itself, like a trader would. The signal candle must be a strong one in the trade's
+    direction (a real body, closing near its high for a call or its low for a put: no long wick against it),
+    and price must not already be stretched far from VWAP (no chasing a move that's already happened)."""
+    o, h, l, c = (float(ind[k].iloc[i]) for k in ("Open", "High", "Low", "Close"))
+    rng = h - l
+    if rng <= 0:
+        return False
+    body = abs(c - o) / rng * 100
+    if body < float(cfg.get("min_body_pct", 50)):
+        return False  # a doji or spinning top: indecision, not a breakout
+    zone = float(cfg.get("close_zone_pct", 30)) / 100
+    if side == "call" and (c <= o or c < h - zone * rng):
+        return False  # red candle, or a long upper wick: sellers pushed it back down
+    if side == "put" and (c >= o or c > l + zone * rng):
+        return False
+    atr = float(ind["atr"].iloc[i]) if "atr" in ind and np.isfinite(ind["atr"].iloc[i]) else 0.0
+    if atr > 0 and abs(c - float(ind["vwap"].iloc[i])) > float(cfg.get("max_chase_atr", 1.5)) * atr:
+        return False  # already stretched far from VWAP: the move has mostly happened
+    return True
 
 
 def ny_time(s: str) -> tuple[int, int]:
@@ -258,10 +289,14 @@ def cmd_backtest(cfg: dict, full: dict, args) -> int:
     if not frames_by_sym:
         print("No 1-minute data could be downloaded.")
         return 1
-    old = dict(cfg, signal_minutes=1, trend_filter=False)
+    old = dict(cfg, signal_minutes=1, trend_filter=False, candle_filter=False)
     print("\n=== OLD RULES: 1-minute triggers, no trend filter ===")
     report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, old)], old, save=False)
-    print(f"\n=== NEW RULES: {cfg['signal_minutes']}-minute triggers, trend filter {'on' if cfg['trend_filter'] else 'off'} ===")
+    mid = dict(cfg, candle_filter=False)
+    print(f"\n=== {cfg['signal_minutes']}-minute triggers + trend filter, NO candle check ===")
+    report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, mid)], mid, save=False)
+    print(f"\n=== CURRENT RULES: {cfg['signal_minutes']}-minute triggers, trend filter {'on' if cfg['trend_filter'] else 'off'}, "
+          f"candle check {'on' if cfg.get('candle_filter') else 'off'} ===")
     return report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, cfg)], cfg)
 
 
@@ -623,7 +658,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 t.best = t.entry_price
                 t.status = "open"
                 say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> {t.contract} at ${t.entry_price:.2f} "
-                          f"(${t.entry_price * 100 * t.qty:,.0f}) · {t.why}", args)
+                          f"(${t.entry_price * 100 * t.qty:,.0f}) · {t.why}\n{bot.chart_link(t.worker, 1)} · "
+                          f'<a href="https://app.alpaca.markets/paper/dashboard/overview">Alpaca paper account</a>', args)
                 if t.worker in bars:
                     picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper bought the {t.side}", args,
                             float(bars[t.worker]["Close"].iloc[-1]))
