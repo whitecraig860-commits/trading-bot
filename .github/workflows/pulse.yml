@@ -35,6 +35,9 @@ jobs:
       - name: Get the latest saved state (this run may have waited behind the previous shift)
         run: git pull --rebase origin main
 
+      - name: Note when this shift started
+        run: echo "SHIFT_START=$(date -u +%s)" >> "$GITHUB_ENV"
+
       - name: Read the markets every 5 minutes (also starts the scalper, runs the watch and reads insider filings)
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -52,4 +55,17 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Pulse $(date -u +%F-%H%M)"
             for i in 1 2 3; do git pull --rebase -X theirs origin main && git push && break; sleep 5; done
+          fi
+
+      - name: Start the next shift (GitHub's own schedule can skip hours, so each shift hands over to the next)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ran=$(( $(date -u +%s) - SHIFT_START ))
+          # only hand over on a weekday before 21:30 UTC, and only after a real shift (never loop on a crash)
+          if [ "$(date -u +%u)" -le 5 ] && [ "$(date -u +%H%M)" -lt 2130 ] && [ "$ran" -ge 1800 ]; then
+            gh workflow run pulse.yml --ref main && echo "Next shift requested."
+          else
+            echo "No hand-over (day $(date -u +%u), time $(date -u +%H%M), ran ${ran}s)."
           fi
