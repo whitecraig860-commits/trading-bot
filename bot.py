@@ -2472,10 +2472,39 @@ def event_relevant(ev: dict, sym: str) -> bool:
     return s.endswith(".L") or "GBP" in s or s.startswith("^FT")
 
 
+def save_to_github(message: str) -> None:
+    """On GitHub, saves the state folder straight away (used after the nightly scan inside the pulse, so the
+    backup schedule sees it has run and doesn't send the same alerts twice)."""
+    import subprocess
+
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    cmds = [["git", "config", "user.name", "setup-scanner-bot"],
+            ["git", "config", "user.email", "setup-scanner-bot@users.noreply.github.com"],
+            ["git", "add", "state"], ["git", "commit", "-q", "-m", message]]
+    try:
+        for c in cmds:
+            subprocess.run(c, capture_output=True, text=True, timeout=60)
+        for _ in range(3):
+            a = subprocess.run(["git", "pull", "-q", "--rebase", "-X", "theirs", "origin", "main"], capture_output=True, text=True, timeout=120)
+            b = subprocess.run(["git", "push", "-q"], capture_output=True, text=True, timeout=120)
+            if a.returncode == 0 and b.returncode == 0:
+                print(f"Saved: {message}")
+                return
+            time.sleep(5)
+        print("Couldn't save the state yet (it will be saved at the end of the shift).")
+    except Exception as exc:
+        print(f"Save failed: {exc}")
+
+
 def cmd_scan(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["scan"]["history"]
     st = load_state(cfg)
+    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if st.get("last_scan") == today_utc and not getattr(args, "symbols", None) and not getattr(args, "force", False):
+        print(f"Tonight's scan already ran ({today_utc}). Add --force to run it again.")
+        return 0
     paper_on = bool(cfg["paper"]["enabled"])
     acct_ccy = cfg["account"]["currency"]
     news_on = bool(cfg["news"].get("enabled", True))
@@ -2772,6 +2801,8 @@ def cmd_scan(cfg: dict, args) -> int:
         send_telegram(cfg, "\n".join(lines), args)
 
     append_log(log_rows)
+    if not getattr(args, "symbols", None):
+        st["last_scan"] = today_utc
     save_state(st)
     return 0
 
@@ -3558,22 +3589,28 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         row = ind.iloc[-1]
         d, k = row["direction"], row["kind"]
         best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)), float(pc.get("min_edge_r", 0.1)))
-        key = f"{d}|{k}|{best}"
+        # what you'd do differently: up, down, choppy (range) or nothing clear. "Trending up" vs "leaning up"
+        # isn't a change worth a message; that's what made gold flip-flop three times in an hour.
+        coarse = "range" if k == "range" else d
+        key = f"{coarse}|{best}"
         if m.get("brief_day") != today:
             if pc.get("send_open_brief", True):
                 msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "OPEN: "))
-            m.update(brief_day=today, stance=key, pending=None, pending_n=0, alerts={})
+            m.update(brief_day=today, stance=key, stance_desc=intraday.describe(d, k), pending=None, pending_n=0, alerts={})
         elif key != m.get("stance"):
             m["pending_n"] = m.get("pending_n", 0) + 1 if m.get("pending") == key else 1
             m["pending"] = key
             if m["pending_n"] >= int(pc.get("confirm_bars", 3)):
-                old = m.get("stance", "none|mixed|None").split("|")
+                was = m.get("stance_desc") or "mixed: no clear direction"
                 n_ch = m.setdefault("changes", {}).get(today, 0)
-                if pc.get("send_changes", True) and n_ch < int(pc.get("max_changes_per_market", 3)):
+                last_msg = m.get("last_change_at")
+                gap_ok = not last_msg or (now - pd.Timestamp(last_msg)).total_seconds() >= 60 * float(pc.get("min_minutes_between_changes", 60))
+                if pc.get("send_changes", True) and n_ch < int(pc.get("max_changes_per_market", 3)) and gap_ok:
+                    m["last_change_at"] = now.isoformat()
                     msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "CHANGE: ") +
-                                f"\n(was {intraday.describe(old[0], old[1]).lower()})")
+                                f"\n(was {was.lower()})")
                     m["changes"] = {today: n_ch + 1}
-                m.update(stance=key, pending=None, pending_n=0)
+                m.update(stance=key, stance_desc=intraday.describe(d, k), pending=None, pending_n=0)
         else:
             m.update(pending=None, pending_n=0)
         if best and pc.get("send_signals", True):
@@ -3791,6 +3828,17 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             save_insiders(ist)
         except Exception as exc:
             print(f"Insider feed: {exc}")
+    # 0) The nightly scan, on time (GitHub's own schedule for it has run up to 6.5 hours late)
+    utc = datetime.now(timezone.utc)
+    if cfg.get("pulse", {}).get("run_scan", True) and not OFFLINE and ps.get("scan_day") != today and \
+            utc.hour * 60 + utc.minute >= 25 and utc.hour < 12:
+        ps["scan_day"] = today
+        try:
+            _DATA_CACHE.clear()
+            cmd_scan(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "force": False}))
+            save_to_github(f"Bot state {today}")
+        except Exception as exc:
+            print(f"Nightly scan failed: {exc}")
     # 5) Trump's posts, every few minutes
     if cfg.get("trump", {}).get("enabled", True) and not OFFLINE and \
             time.time() - state.get("trump", 0) >= 60 * float(cfg.get("trump", {}).get("every_minutes", 5)):
@@ -4090,6 +4138,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--until", default="", help="pulse: stop at this UTC time, e.g. 21:35")
     parser.add_argument("--for", dest="for_minutes", type=float, default=0, help="pulse: stop after this many minutes")
     parser.add_argument("--days", type=int, default=0, help="insiders: how many days of SEC filings to read")
+    parser.add_argument("--force", action="store_true", help="scan: run again even if tonight's scan already ran")
     parser.add_argument("--portfolio", action="store_true", help="backtest: also simulate the whole account at different risk caps")
     parser.add_argument("--no-fetch", action="store_true", help="insiders: list what's already saved, without downloading")
     args = parser.parse_args(argv)

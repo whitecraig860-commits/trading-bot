@@ -16,8 +16,9 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Scalper on 4 Nov, old vs new rules (share price)
+        continue-on-error: true
         run: |
-          python -W ignore - 2>/dev/null <<'PY'
+          python -W ignore - <<'PY'
           import yfinance as yf, pandas as pd, scalper
           cfg, full = scalper.load_cfg("config.toml")
           for label, c in (("OLD (what traded live: 5-min, trend filter, no candle check)", dict(cfg, candle_filter=False)),
@@ -25,7 +26,7 @@ jobs:
               print("==", label)
               tot = []
               for sym in cfg["symbols"]:
-                  df = yf.Ticker(sym).history(start="2026-10-27", end="2026-11-06", interval="1m", prepost=False, auto_adjust=False)
+                  df = yf.Ticker(sym).history(start="2026-10-29", end="2026-11-06", interval="1m", prepost=False, auto_adjust=False)
                   df.index = df.index.tz_convert("America/New_York")
                   for t in scalper.backtest_frame(sym, df, c):
                       if t["day"] in ("2026-11-04", "2026-11-05"):
