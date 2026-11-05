@@ -7,7 +7,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -15,17 +15,19 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Where can Trump's posts be read from here?
+      - name: Trump feed, last posts and how the bot reads them
         run: |
-          for u in "https://trumpstruth.org/feed" "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses?limit=3" "https://rss.app/feeds/truthsocial-realDonaldTrump.xml" "https://www.trumpstruth.org/" ; do
-            code=$(curl -s -o /tmp/out -w "%{http_code}" -A "Mozilla/5.0" --max-time 20 "$u"); echo "$code $u $(wc -c </tmp/out) bytes"; head -c 600 /tmp/out | tr '\n' ' '; echo; echo; done
-      - name: Backtest, no filter
-        run: python -W ignore bot.py backtest 2>/dev/null | grep -E "^==|All signals|Signals "
-      - name: Backtest, skip signals made by a 3-ATR day
-        run: |
-          sed 's/^overextended_atr = 3.0 .*/&\nmax_signal_day_atr = 3/' config.toml > /tmp/f3.toml
-          python -W ignore bot.py backtest --config /tmp/f3.toml 2>/dev/null | grep -E "^==|All signals|Signals "
-      - name: Backtest, skip signals made by a 2-ATR day
-        run: |
-          sed 's/^overextended_atr = 3.0 .*/&\nmax_signal_day_atr = 2/' config.toml > /tmp/f2.toml
-          python -W ignore bot.py backtest --config /tmp/f2.toml 2>/dev/null | grep -E "^==|All signals|Signals "
+          python -W ignore - <<'PY'
+          import requests, trump
+          r = requests.get(trump.FEED, timeout=20, headers={"User-Agent": "Mozilla/5.0 (setup-scanner-bot)"})
+          print(r.status_code, r.headers.get("content-type"), len(r.text))
+          posts = trump.parse_feed(r.text)
+          print(len(posts), "posts")
+          for p in posts[:15]:
+              print(p["when"], "|", p["text"][:140].replace("\n", " "))
+              print("    ->", [(h["market"], h["direction"], h["topic"]) for h in trump.read_post(p["text"])])
+          PY
+      - name: Morning briefing
+        run: python -W ignore -c "import bot,argparse;c=bot.load_config('config.toml');print(bot.to_plain(bot.morning_briefing(c,argparse.Namespace(csv_dir=None))))" 2>/dev/null
+      - name: Trump chores twice (first seeds, second would alert)
+        run: python -W ignore -c "import bot,argparse;c=bot.load_config('config.toml');a=argparse.Namespace(csv_dir=None,no_telegram=True);ps={};print(bot.trump_chores(c,a,ps));print(len(ps['trump_seen']),'seen');print(bot.trump_chores(c,a,ps))" 2>/dev/null
