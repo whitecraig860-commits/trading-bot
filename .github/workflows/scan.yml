@@ -4,7 +4,9 @@ on:
   schedule:
     # 00:23 UTC every day: yesterday's UK, US and crypto bars are all finished,
     # and alerts are waiting before the London open.
-    - cron: "23 0 * * *"
+    # Backup only: on weekdays the market pulse runs the scan at 00:25 UTC and saves it, and this run then sees
+    # tonight's scan has already happened and stops. Set after the pulse's scan so they can never overlap.
+    - cron: "43 2 * * *"
   workflow_dispatch: {}   # adds a "Run workflow" button on the Actions tab
 
 permissions:
