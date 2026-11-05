@@ -181,6 +181,10 @@ daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% 
 weekly_loss_limit_pct = 10  # ...or this week's reach 10%
 max_open_risk_pct = 12      # total at risk across all open trades (6 trades at 2%)
 max_new_trades_per_day = 3
+low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
+                                # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
+                                # copy trades, then pullbacks; within each, HIGH confidence first), and open trades count
+                                # only what they can still lose to their current stop.
 min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
 
 [analysis]
