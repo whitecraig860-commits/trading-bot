@@ -244,6 +244,8 @@ costs = { "SPY" = 0.005, "QQQ" = 0.005, "IWM" = 0.01, "GC=F" = 0.01, "^FTSE" = 0
 # US shares only. Insider SALES are ignored: people sell for many reasons that say nothing about the company.
 enabled = true
 live = true                 # also read EDGAR's live feed every 10 minutes while the pulse runs (alerts within minutes)
+trade_now = true            # score a fresh insider cluster on the chart at once and copy it on paper straight away
+                            # (at the live price while the US market is open, otherwise at the next open)
 live_every_minutes = 10
 skip_routine = true         # skip insiders who trade in the same month every year (their trades carry no information)
 sec_user_agent = ""         # the SEC asks for your name and email, e.g. "Jane Smith jane@example.com".

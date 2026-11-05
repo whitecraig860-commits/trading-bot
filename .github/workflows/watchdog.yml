@@ -1,0 +1,54 @@
+name: Watchdog (keeps the market pulse running)
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub can delay or skip some of these too, but with this many chances a stopped pulse is
+    # noticed and restarted within minutes, and you hear about it on Telegram.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  actions: write   # see whether the pulse is running, and start it
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Is the market pulse running? If not, restart it and say so
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          day=$(date -u +%u); hm=$((10#$(date -u +%H%M)))
+          # the pulse runs Monday 00:00 to Saturday 01:00 UTC
+          if ! { [ "$day" -le 5 ] || { [ "$day" -eq 6 ] && [ "$hm" -lt 100 ]; }; }; then echo "Weekend: the pulse is off."; exit 0; fi
+          tg() { if [ -n "$TELEGRAM_TOKEN" ]; then curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" -d chat_id="$TELEGRAM_CHAT_ID" --data-urlencode text="$1" || true; fi; }
+          active() { gh run list -R "$REPO" --workflow pulse.yml --limit 10 --json status --jq '[.[] | select(.status=="in_progress" or .status=="queued" or .status=="pending" or .status=="waiting" or .status=="requested")] | length'; }
+          n=$(active) || { echo "Couldn't ask GitHub about the pulse; trying again in 10 minutes."; exit 0; }
+          if [ "$n" -gt 0 ]; then echo "The pulse is running ($n active run)."; exit 0; fi
+          short=$(gh run list -R "$REPO" --workflow pulse.yml --limit 15 --json createdAt,updatedAt --jq '[.[] | select((now - (.createdAt|fromdateiso8601)) < 5400) | select(((.updatedAt|fromdateiso8601) - (.createdAt|fromdateiso8601)) < 900)] | length') || short=0
+          for try in 1 2 3; do
+            if gh workflow run pulse.yml -R "$REPO" --ref main; then
+              sleep 45
+              n=$(active) || n=0
+              if [ "$n" -gt 0 ]; then
+                echo "Restarted the pulse."
+                tg "⚙️ Watchdog: the market pulse had stopped, so I restarted it at $(date -u +%H:%M) UTC. Alerts carry on from now."
+                if [ "$short" -ge 3 ] && [ "$((10#$(date -u +%M)))" -lt 10 ]; then
+                  tg "⚠️ Watchdog: the market pulse has stopped $short times in the last 90 minutes. It keeps being restarted, but something is wrong: ask Claude to look at it."
+                fi
+                exit 0
+              fi
+            fi
+            sleep $((30 * try))
+          done
+          tg "❌ Watchdog: the market pulse is down and GitHub would not start it after 3 tries ($(date -u +%H:%M) UTC). I'll keep trying every 10 minutes."
+          exit 1
