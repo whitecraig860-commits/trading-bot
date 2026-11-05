@@ -155,6 +155,7 @@ DEFAULTS: dict = {
         "max_open_risk_pct": 5.0,
         "max_new_trades_per_day": 3,
         "min_replay_avg_r": -1.0,
+        "low_confidence_budget_pct": 50.0,
     },
     "charts": {"enabled": True},
     "trump": {"enabled": True, "every_minutes": 5, "max_markets": 4},
@@ -2471,16 +2472,45 @@ def event_relevant(ev: dict, sym: str) -> bool:
     return s.endswith(".L") or "GBP" in s or s.startswith("^FT")
 
 
+def save_to_github(message: str) -> None:
+    """On GitHub, saves the state folder straight away (used after the nightly scan inside the pulse, so the
+    backup schedule sees it has run and doesn't send the same alerts twice)."""
+    import subprocess
+
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    cmds = [["git", "config", "user.name", "setup-scanner-bot"],
+            ["git", "config", "user.email", "setup-scanner-bot@users.noreply.github.com"],
+            ["git", "add", "state"], ["git", "commit", "-q", "-m", message]]
+    try:
+        for c in cmds:
+            subprocess.run(c, capture_output=True, text=True, timeout=60)
+        for _ in range(3):
+            a = subprocess.run(["git", "pull", "-q", "--rebase", "-X", "theirs", "origin", "main"], capture_output=True, text=True, timeout=120)
+            b = subprocess.run(["git", "push", "-q"], capture_output=True, text=True, timeout=120)
+            if a.returncode == 0 and b.returncode == 0:
+                print(f"Saved: {message}")
+                return
+            time.sleep(5)
+        print("Couldn't save the state yet (it will be saved at the end of the shift).")
+    except Exception as exc:
+        print(f"Save failed: {exc}")
+
+
 def cmd_scan(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["scan"]["history"]
     st = load_state(cfg)
+    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if st.get("last_scan") == today_utc and not getattr(args, "symbols", None) and not getattr(args, "force", False):
+        print(f"Tonight's scan already ran ({today_utc}). Add --force to run it again.")
+        return 0
     paper_on = bool(cfg["paper"]["enabled"])
     acct_ccy = cfg["account"]["currency"]
     news_on = bool(cfg["news"].get("enabled", True))
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
-    alerts, msgs, errors, log_rows, regimes, vol_rows, photos = [], [], [], [], [], [], []
+    alerts, msgs, errors, log_rows, regimes, vol_rows, photos, candidates = [], [], [], [], [], [], [], []
     checked = movers_checked = movers_passed = 0
     seen = set()
     watch = iter_watchlist(cfg, args)
@@ -2632,20 +2662,22 @@ def cmd_scan(cfg: dict, args) -> int:
                         min_r = float(cfg["risk"].get("min_replay_avg_r", -1))
                         if ok and tm and min_r > -1 and tm["avg_r"] < min_r:
                             ok, why = False, f"time machine average {tm['avg_r']:+.2f}R is below your minimum {min_r:+.2f}R"
-                        warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
-                        if paper_on and score >= min_score_for(setup, cfg, "paper"):
-                            if sym in open_syms:
-                                paper_note = "Paper trading: already holding this one, so no new paper trade."
-                            elif not ok:
-                                paper_note = "Paper trading: blocked by the risk check, so no paper trade."
-                            else:
-                                pos = Position(
-                                    symbol=sym, setup=setup, direction=direction, signal_date=bar,
-                                    signal_price=price, atr_at_signal=a, score=score, currency=meta["currency"],
-                                    risk_mult=mult, confidence=tier,
-                                )
-                                st["positions"].append(asdict(pos))
-                                paper_note = "Paper trading: the bot will open this at the next open and manage it for you."
+                        tm_blocked = bool(tm and min_r > -1 and tm["avg_r"] < min_r)
+                        if paper_on and score >= min_score_for(setup, cfg, "paper") and sym not in open_syms and not tm_blocked:
+                            # decided after the whole scan, so the best signals get the risk budget first
+                            warnings.append("Risk check: §RISK§")
+                            paper_note = "§PAPER§"
+                            candidates.append({
+                                "idx": len(alerts), "risk": risk_amt, "tier": tier, "setup": setup, "score": score,
+                                "pos": Position(symbol=sym, setup=setup, direction=direction, signal_date=bar,
+                                                signal_price=price, atr_at_signal=a, score=score,
+                                                currency=meta["currency"], risk_mult=mult, confidence=tier),
+                            })
+                        else:
+                            warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
+                            if paper_on and score >= min_score_for(setup, cfg, "paper"):
+                                paper_note = ("Paper trading: already holding this one, so no new paper trade." if sym in open_syms
+                                              else "Paper trading: blocked by the risk check, so no paper trade.")
                         vol_line = f"Moves about {atr_pct:.1f}% a day" + (
                             ": very volatile, so expect big swings both ways. The size is smaller to keep the risk the same."
                             if atr_pct >= 5.0 else "."
@@ -2697,6 +2729,20 @@ def cmd_scan(cfg: dict, args) -> int:
                 send_telegram(cfg, read, args)
         except Exception as exc:
             errors.append(f"market read ({exc})")
+    # Hand out the risk budget: best setups first (breakouts had the strongest 10-year record), then the most
+    # confident, then the highest score. Each accepted trade counts against the budget for the next one.
+    setup_rank = {"breakout": 0, "copy": 1, "pullback": 2}
+    tier_rank = {"HIGH": 0, "NORMAL": 1, "LOW": 2}
+    for c in sorted(candidates, key=lambda c: (setup_rank.get(c["setup"], 3), tier_rank.get(c["tier"], 1), -c["score"])):
+        ok, why = risk_check(st, cfg, c["risk"], c["tier"])
+        if ok:
+            st["positions"].append(asdict(c["pos"]))
+            note = "Paper trading: the bot will open this at the next open and manage it for you."
+        else:
+            note = "Paper trading: blocked by the risk check, so no paper trade."
+        text, png = alerts[c["idx"]]
+        text = text.replace("§RISK§", esc(("PASS, " if ok else "BLOCK, ") + why)).replace("§PAPER§", esc(note))
+        alerts[c["idx"]] = (text, png)
     for item in alerts:
         deliver(cfg, item, args)
     for caption, png in photos:
@@ -2755,6 +2801,8 @@ def cmd_scan(cfg: dict, args) -> int:
         send_telegram(cfg, "\n".join(lines), args)
 
     append_log(log_rows)
+    if not getattr(args, "symbols", None):
+        st["last_scan"] = today_utc
     save_state(st)
     return 0
 
@@ -2945,7 +2993,20 @@ def time_machine_line(tm: dict | None) -> str | None:
             f"worst 10% {tm['p10']:+.1f}R or less, best 10% {tm['p90']:+.1f}R or more. A simulation, not a promise.")
 
 
-def risk_check(st: dict, cfg: dict, new_risk: float) -> tuple[bool, str]:
+def position_risk(p: dict, st: dict, cfg: dict) -> float:
+    """What a trade can still lose: from where it is held to its CURRENT stop (a trade whose stop has moved up to
+    break-even or beyond risks nothing more). Trades waiting to open count at their planned risk."""
+    eq = float(st["equity"])
+    if p.get("status") == "open" and float(p.get("units") or 0) > 0:
+        long = p.get("direction", "long") == "long"
+        gap = (float(p["entry_price"]) - float(p["stop"])) if long else (float(p["stop"]) - float(p["entry_price"]))
+        return max(0.0, gap) * float(p["units"]) * float(p.get("fx_to_account") or 1.0)
+    pct = min(float(cfg["account"]["risk_per_trade_pct"]) * float(p.get("risk_mult") or 1.0),
+              float(cfg.get("sizing", {}).get("max_risk_pct", 3.0)))
+    return eq * pct / 100
+
+
+def risk_check(st: dict, cfg: dict, new_risk: float, tier: str | None = None) -> tuple[bool, str]:
     """PASS or BLOCK for a new trade, against your limits. Uses the paper account."""
     rc = cfg.get("risk", {})
     eq = float(st["equity"])
@@ -2959,10 +3020,15 @@ def risk_check(st: dict, cfg: dict, new_risk: float) -> tuple[bool, str]:
         return False, f"daily loss limit reached ({fmt_money(day_pnl, cfg['account']['currency'])} today)"
     if week_pnl <= -eq * float(rc.get("weekly_loss_limit_pct", 5)) / 100:
         return False, f"weekly loss limit reached ({fmt_money(week_pnl, cfg['account']['currency'])} this week)"
-    pend_risk = eq * float(cfg["account"]["risk_per_trade_pct"]) / 100
-    open_risk = sum(float(p.get("risk_amount") or pend_risk) for p in st["positions"])
-    if open_risk + new_risk > eq * float(rc.get("max_open_risk_pct", 5)) / 100 + 1e-9:
-        return False, f"too much already at risk ({fmt_money(open_risk, cfg['account']['currency'])} in open trades)"
+    open_risk = sum(position_risk(p, st, cfg) for p in st["positions"])
+    cap = eq * float(rc.get("max_open_risk_pct", 5)) / 100
+    if open_risk + new_risk > cap + 1e-9:
+        return False, (f"too much already at risk ({fmt_money(open_risk, cfg['account']['currency'])} in open trades, "
+                       f"limit {fmt_money(cap, cfg['account']['currency'])})")
+    low_share = float(rc.get("low_confidence_budget_pct", 50))
+    if tier == "LOW" and open_risk + new_risk > cap * low_share / 100 + 1e-9:
+        return False, (f"LOW confidence trades only use the first {low_share:g}% of the risk budget, "
+                       "keeping room for stronger ones")
     new_today = sum(1 for p in st["positions"] if p.get("status") == "pending")
     if new_today >= int(rc.get("max_new_trades_per_day", 3)):
         return False, "already at the maximum new trades for today"
@@ -3042,6 +3108,64 @@ def _stats_row(label: str, st: dict) -> list[str]:
     ]
 
 
+def portfolio_sim(trades: list, cfg: dict, risk_pct: float, heat_pct: float, max_open: int,
+                  start_equity: float = 5000.0) -> dict:
+    """Runs the whole paper account through history: each day's new signals are ranked (breakouts first,
+    then higher score), taken while total open risk stays under heat_pct, sized at risk_pct of the account
+    at the time, and paid out in R when they close. Open risk counts from the entry stop (no credit for
+    trailed stops), so this is on the cautious side."""
+    setup_rank = {"breakout": 0, "copy": 1, "pullback": 2}
+    ts = [t for t in trades if t.entry_date and t.exit_date and t.exit_reason != "still open at the end of the data"]
+    ts.sort(key=lambda t: (t.entry_date, setup_rank.get(t.setup, 3), -t.score))
+    eq, peak, max_dd = start_equity, start_equity, 0.0
+    open_: list = []  # (exit_date, risk_amount, r)
+    taken = skipped = 0
+    curve = []
+    for t in ts:
+        still = []
+        for ex, risk, r in sorted(open_):
+            if ex <= t.entry_date:
+                eq += risk * r
+                peak = max(peak, eq)
+                max_dd = max(max_dd, 1 - eq / peak)
+            else:
+                still.append((ex, risk, r))
+        open_ = still
+        risk_amt = eq * risk_pct / 100
+        heat = sum(r for _, r, _ in open_)
+        if heat + risk_amt > eq * heat_pct / 100 + 1e-9 or len(open_) >= max_open or eq <= 0:
+            skipped += 1
+            continue
+        taken += 1
+        open_.append((t.exit_date, risk_amt, t.r_multiple))
+        curve.append((t.entry_date, eq))
+    for ex, risk, r in sorted(open_):
+        eq += risk * r
+        peak = max(peak, eq)
+        max_dd = max(max_dd, 1 - eq / peak)
+    years = 1.0
+    if ts:
+        years = max(0.5, (pd.Timestamp(ts[-1].exit_date) - pd.Timestamp(ts[0].entry_date)).days / 365.25)
+    cagr = (eq / start_equity) ** (1 / years) - 1 if eq > 0 else -1.0
+    return {"risk": risk_pct, "heat": heat_pct, "taken": taken, "skipped": skipped, "final": eq,
+            "cagr": cagr, "max_dd": max_dd, "years": years}
+
+
+def portfolio_report(trades: list, cfg: dict) -> None:
+    max_open = int(cfg["paper"]["max_open_positions"])
+    print("\nWhole-account simulation (every signal that passes your paper rules, ranked each day, £5,000 start,")
+    print(f"at most {max_open} trades open, open risk counted from the entry stop):\n")
+    rows = []
+    for risk in (1.0, 2.0):
+        for heat in (6, 12, 18, 24, 36):
+            r = portfolio_sim(trades, cfg, risk, heat, max_open)
+            rows.append([f"{risk:g}%", f"{heat}%", f"{r['taken']}/{r['taken'] + r['skipped']}",
+                         f"£{r['final']:,.0f}", f"{r['cagr']:+.1%}", f"{r['max_dd']:.0%}",
+                         f"{r['cagr'] / r['max_dd']:.2f}" if r["max_dd"] > 0 else "-"])
+    print(_table(["Risk/trade", "Risk cap", "Trades taken", "End balance", "A year", "Worst fall", "Year/fall"], rows))
+    print("Year/fall = yearly growth divided by the worst fall: higher means more growth for each bit of pain.")
+
+
 def cmd_backtest(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["backtest"]["history"]
@@ -3111,6 +3235,9 @@ def cmd_backtest(cfg: dict, args) -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     out = STATE_DIR / "backtest_trades.csv"
     pd.DataFrame([asdict(t) for t in all_trades]).to_csv(out, index=False)
+    if getattr(args, "portfolio", False):
+        paper_trades = [t for t in all_trades if t.score >= min_score_for(t.setup, cfg, "paper")]
+        portfolio_report(paper_trades, cfg)
     print(f"\nEvery trade is saved in {out.relative_to(BASE_DIR) if out.is_relative_to(BASE_DIR) else out}")
     print("How to read this: look for positive expectancy after costs in BOTH periods, from at least 100 trades,")
     print("and higher scores doing better than lower ones. If you change settings to improve these numbers,")
@@ -3462,22 +3589,28 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
         row = ind.iloc[-1]
         d, k = row["direction"], row["kind"]
         best = intraday.best_approach(d, k, m.get("record", {}), int(pc.get("min_trades", 15)), float(pc.get("min_edge_r", 0.1)))
-        key = f"{d}|{k}|{best}"
+        # what you'd do differently: up, down, choppy (range) or nothing clear. "Trending up" vs "leaning up"
+        # isn't a change worth a message; that's what made gold flip-flop three times in an hour.
+        coarse = "range" if k == "range" else d
+        key = f"{coarse}|{best}"
         if m.get("brief_day") != today:
             if pc.get("send_open_brief", True):
                 msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "OPEN: "))
-            m.update(brief_day=today, stance=key, pending=None, pending_n=0, alerts={})
+            m.update(brief_day=today, stance=key, stance_desc=intraday.describe(d, k), pending=None, pending_n=0, alerts={})
         elif key != m.get("stance"):
             m["pending_n"] = m.get("pending_n", 0) + 1 if m.get("pending") == key else 1
             m["pending"] = key
             if m["pending_n"] >= int(pc.get("confirm_bars", 3)):
-                old = m.get("stance", "none|mixed|None").split("|")
+                was = m.get("stance_desc") or "mixed: no clear direction"
                 n_ch = m.setdefault("changes", {}).get(today, 0)
-                if pc.get("send_changes", True) and n_ch < int(pc.get("max_changes_per_market", 3)):
+                last_msg = m.get("last_change_at")
+                gap_ok = not last_msg or (now - pd.Timestamp(last_msg)).total_seconds() >= 60 * float(pc.get("min_minutes_between_changes", 60))
+                if pc.get("send_changes", True) and n_ch < int(pc.get("max_changes_per_market", 3)) and gap_ok:
+                    m["last_change_at"] = now.isoformat()
                     msgs.append(pulse_market_text(sym, spec, ind, m, ccy, cfg, "CHANGE: ") +
-                                f"\n(was {intraday.describe(old[0], old[1]).lower()})")
+                                f"\n(was {was.lower()})")
                     m["changes"] = {today: n_ch + 1}
-                m.update(stance=key, pending=None, pending_n=0)
+                m.update(stance=key, stance_desc=intraday.describe(d, k), pending=None, pending_n=0)
         else:
             m.update(pending=None, pending_n=0)
         if best and pc.get("send_signals", True):
@@ -3695,6 +3828,17 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             save_insiders(ist)
         except Exception as exc:
             print(f"Insider feed: {exc}")
+    # 0) The nightly scan, on time (GitHub's own schedule for it has run up to 6.5 hours late)
+    utc = datetime.now(timezone.utc)
+    if cfg.get("pulse", {}).get("run_scan", True) and not OFFLINE and ps.get("scan_day") != today and \
+            utc.hour * 60 + utc.minute >= 25 and utc.hour < 12:
+        ps["scan_day"] = today
+        try:
+            _DATA_CACHE.clear()
+            cmd_scan(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "force": False}))
+            save_to_github(f"Bot state {today}")
+        except Exception as exc:
+            print(f"Nightly scan failed: {exc}")
     # 5) Trump's posts, every few minutes
     if cfg.get("trump", {}).get("enabled", True) and not OFFLINE and \
             time.time() - state.get("trump", 0) >= 60 * float(cfg.get("trump", {}).get("every_minutes", 5)):
@@ -3994,6 +4138,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--until", default="", help="pulse: stop at this UTC time, e.g. 21:35")
     parser.add_argument("--for", dest="for_minutes", type=float, default=0, help="pulse: stop after this many minutes")
     parser.add_argument("--days", type=int, default=0, help="insiders: how many days of SEC filings to read")
+    parser.add_argument("--force", action="store_true", help="scan: run again even if tonight's scan already ran")
+    parser.add_argument("--portfolio", action="store_true", help="backtest: also simulate the whole account at different risk caps")
     parser.add_argument("--no-fetch", action="store_true", help="insiders: list what's already saved, without downloading")
     args = parser.parse_args(argv)
     global OFFLINE
