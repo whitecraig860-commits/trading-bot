@@ -49,6 +49,7 @@ import pandas as pd
 
 import charts
 import intraday
+import lessons
 import trump
 
 try:
@@ -159,6 +160,7 @@ DEFAULTS: dict = {
     },
     "charts": {"enabled": True},
     "trump": {"enabled": True, "every_minutes": 5, "max_markets": 4},
+    "lessons": {"enabled": True, "min_trades": 30, "min_t": 2.0, "relearn_days": 7},
     "briefing": {"enabled": True},
     "sizing": {"enabled": True, "low_mult": 0.5, "high_mult": 1.5, "high_points": 3, "low_points": 0, "max_risk_pct": 3.0},
     "analysis": {
@@ -1811,6 +1813,8 @@ class Position:
     risk_amount: float = 0.0
     risk_mult: float = 1.0
     confidence: str = ""
+    factors: str = ""      # JSON: the confidence points when the trade was taken
+    conds: str = ""        # JSON: the conditions when the trade was taken (for the journal)
     bars_held: int = 0
     best_price: float = 0.0
     trailing: bool = False
@@ -1951,7 +1955,8 @@ def news_tone(items: list[dict]) -> tuple[int, str]:
 
 
 def assess_confidence(cfg: dict, direction: str, score: int, regime_ok: bool | None, hist: dict | None,
-                      tm: dict | None, tone: int, tone_text: str, warned: bool, insiders: bool, atr_pct: float):
+                      tm: dict | None, tone: int, tone_text: str, warned: bool, insiders: bool, atr_pct: float,
+                      learned: list | None = None):
     """How strongly everything agrees, as points, a tier and a risk multiplier.
     Returns (multiplier, tier, [(points, reason), ...])."""
     sz = cfg.get("sizing", {})
@@ -1986,6 +1991,8 @@ def assess_confidence(cfg: dict, direction: str, score: int, regime_ok: bool | N
         pts.append((1, "company insiders are buying"))
     if atr_pct >= 5:
         pts.append((-1, f"very volatile ({atr_pct:.0f}% a day)"))
+    for p_, why_ in (learned or [])[:2]:  # the journal's proven lessons: at most two points
+        pts.append((p_, why_))
     total = sum(p for p, _ in pts)
     if not sz.get("enabled", True):
         return 1.0, "NORMAL", pts
@@ -2370,6 +2377,7 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                     f"({esc(pos.exit_reason)}) {held}. "
                     f"Paper account {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}%)."
                 )
+                journal_close(pos, ind, ts, msgs, acct_ccy)
                 if photos is not None and cfg.get("charts", {}).get("enabled", True):
                     png = charts.daily_chart(
                         ind[ind.index <= ts], f"{sym} {pos.direction} {pos.setup}: {'WON' if pos.pnl > 0 else 'LOST'} "
@@ -2386,6 +2394,110 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
         elif pos.status == "closed":
             st["closed"].append(asdict(pos))
     st["positions"] = keep
+
+
+_JOURNAL: dict | None = None
+
+
+def journal() -> dict:
+    global _JOURNAL
+    if _JOURNAL is None:
+        _JOURNAL = lessons.load(STATE_DIR)
+        # the scalper keeps its own paper records (it runs as a separate job); read them in for its lessons
+        _JOURNAL["paper_tables"] = lessons.build_tables(
+            list(_JOURNAL.get("paper", [])) + list(lessons.load(STATE_DIR, "lessons_scalper.json").get("paper", [])))
+    return _JOURNAL
+
+
+def save_journal() -> None:
+    if _JOURNAL is not None:
+        _JOURNAL["paper_tables"] = lessons.build_tables(_JOURNAL.get("paper", []))
+        lessons.save(STATE_DIR, _JOURNAL)
+
+
+def daily_raw(ind: pd.DataFrame, i: int, direction: str, score: int, regime_ok: bool | None = None, tone: int = 0,
+              insiders: bool = False) -> dict:
+    """The measurable conditions on the signal bar (the journal turns them into readable labels)."""
+    row = ind.iloc[i]
+    a, c = float(row["atr"]), float(row["Close"])
+    sign = 1 if direction == "long" else -1
+    raw = {"stretch": sign * (c - float(row["ema20"])) / a if a > 0 else float("nan"),
+           "day": abs(float(row["move_atr"])) if pd.notna(row["move_atr"]) else float("nan"),
+           "volume": float(row["vol_ratio"]) if pd.notna(row["vol_ratio"]) else float("nan"),
+           "adx": float(row["adx"]) if pd.notna(row["adx"]) else float("nan"),
+           "swing": a / c * 100 if c > 0 else float("nan"), "score": score}
+    if regime_ok is not None:
+        raw["regime"] = "market agrees" if regime_ok else "market against"
+    if tone:
+        raw["news"] = "good" if tone * sign > 0 else "bad"
+    if insiders:
+        raw["insiders"] = "buying"
+    return raw
+
+
+def postmortem_text(pos: "Position", diag: dict, factors: list, acct_ccy: str) -> str:
+    pts = sum(p for p, _ in factors)
+    lines = [f"📘 <b>Post-mortem: {esc(pos.symbol)} {SETUP_TITLES.get(pos.setup, pos.setup).lower()}</b> · "
+             f"{esc(lessons.verdict(pos.r_multiple, pts, diag['findings']))}",
+             f"Best it got: {diag['mfe']:+.1f}R · worst: {-diag['mae']:+.1f}R · result {pos.r_multiple:+.2f}R "
+             f"({fmt_money(pos.pnl, acct_ccy)})"]
+    if factors:
+        lines.append("What it had going for it (or against it) when it was taken:")
+        lines += [f"   {'➕' if p > 0 else '➖'} {esc(w)}" for p, w in factors]
+    for _, text in diag["findings"]:
+        lines.append(f"• {esc(text)}")
+    lines.append("Saved to the journal. The bot checks the next 10 days too: was the stop shaken out, or did it sell too early?")
+    return "\n".join(lines)
+
+
+def journal_close(pos: "Position", ind: pd.DataFrame, ts, msgs: list[str], acct_ccy: str) -> None:
+    """Writes a closed daily trade into the journal, sends its post-mortem and books the 10-day follow-up."""
+    try:
+        path = ind[(ind.index >= pd.Timestamp(pos.entry_date)) & (ind.index <= ts)]
+        if path.empty:
+            return
+        diag = lessons.diagnose(pos.entry_price, pos.initial_stop, pos.exit_price, pos.direction == "long", path, pos.exit_reason)
+        factors = [tuple(x) for x in json.loads(pos.factors or "[]")]
+        conds = json.loads(pos.conds or "[]")
+        j = journal()
+        rid = f"{pos.symbol}|{pos.setup}|{pos.entry_date}"
+        j.setdefault("paper", []).append({"id": rid, "kind": "daily", "setup": pos.setup, "symbol": pos.symbol,
+                                          "r": pos.r_multiple, "conditions": conds, "date": pos.exit_date,
+                                          "findings": [f[0] for f in diag["findings"]]})
+        j.setdefault("pending", []).append({"id": rid, "symbol": pos.symbol, "exit_date": pos.exit_date,
+                                            "entry": pos.entry_price, "stop": pos.initial_stop, "exit": pos.exit_price,
+                                            "long": pos.direction == "long", "reason": pos.exit_reason,
+                                            "r": pos.r_multiple, "setup": pos.setup})
+        msgs.append(postmortem_text(pos, diag, factors, acct_ccy))
+    except Exception as exc:
+        print(f"Journal: {exc}")
+
+
+def journal_followups(sym: str, ind: pd.DataFrame, msgs: list[str]) -> None:
+    """10 trading days after a trade closed: what happened next, and what that teaches."""
+    j = journal()
+    keep = []
+    for f in j.get("pending", []):
+        if f["symbol"] != sym:
+            keep.append(f)
+            continue
+        after = ind[ind.index > pd.Timestamp(f["exit_date"])].head(lessons.AFTER_BARS)
+        old = (pd.Timestamp.now() - pd.Timestamp(f["exit_date"])).days > 30
+        if len(after) < lessons.AFTER_BARS and not old:
+            keep.append(f)
+            continue
+        if after.empty:
+            continue
+        diag = lessons.diagnose(f["entry"], f["stop"], f["exit"], f["long"], after.head(1), f["reason"], after)
+        new = [x for x in diag["findings"] if x[0] in {"shaken out", "stop saved you", "sold too early"}]
+        for rec in j.get("paper", []):
+            if rec["id"] == f["id"]:
+                rec["findings"] = sorted(set(rec.get("findings", [])) | {x[0] for x in new})
+        if new:
+            msgs.append(f"📘 <b>Follow-up on {esc(sym)}</b> ({SETUP_TITLES.get(f['setup'], f['setup']).lower()}, "
+                        f"closed {f['exit_date']} at {f['r']:+.2f}R), 10 days later:\n" +
+                        "\n".join(f"• {esc(t)}" for _, t in new))
+    j["pending"] = keep
 
 
 def rescale_open_positions(st: dict, cfg: dict) -> list[str]:
@@ -2545,7 +2657,8 @@ def cmd_scan(cfg: dict, args) -> int:
     if copy_syms:
         watch.append((cc.get("benchmark", "SPY"), copy_syms))
     breadth = []
-    extra = sorted({p["symbol"] for p in st["positions"]} - {s for _, syms in watch for s in syms})
+    extra = sorted(({p["symbol"] for p in st["positions"]} | {f["symbol"] for f in journal().get("pending", [])})
+                   - {s for _, syms in watch for s in syms})
     if extra:
         watch.append(("", extra))  # keep managing paper trades for symbols no longer listed
 
@@ -2591,6 +2704,7 @@ def cmd_scan(cfg: dict, args) -> int:
                     breadth.append((sym, bool(lr["Close"] > lr["sma200"]), bool(lr["Close"] > lr["sma50"])))
                 bench = align_benchmark(ind, bench_df)
                 manage_paper(st, sym, ind, meta, cfg, interval, msgs, photos)
+                journal_followups(sym, ind, msgs)
                 sigs = compute_signals(ind, bench, cfg, sym, bench_sym)
                 if sym in copy_info:
                     cs = copy_signal(ind, bench, copy_info[sym], cfg, sym, bench_sym, st, now)
@@ -2632,8 +2746,14 @@ def cmd_scan(cfg: dict, args) -> int:
                             regime_ok = bool(bench["up"].iloc[i]) if long else bool(bench["down"].iloc[i])
                         warned = any(w.startswith(("Earnings in", "Big event soon")) for w in warnings)
                         atr_pct = a / price * 100.0 if price > 0 else 0.0
+                        raw = daily_raw(ind, i, direction, score, regime_ok, tone, sym in copy_info)
+                        conds = lessons.conditions(setup, raw)
+                        learned = lessons.lessons_for(journal(), "daily", setup, sym, conds,
+                                                      int(cfg.get("lessons", {}).get("min_trades", 30)),
+                                                      float(cfg.get("lessons", {}).get("min_t", 2.0)))
                         mult, tier, conf_pts = assess_confidence(cfg, direction, score, regime_ok, hist_stats, tm, tone, tone_text,
-                                                                 warned, sym in copy_info, atr_pct)
+                                                                 warned, sym in copy_info, atr_pct, learned)
+                        conds.append(f"confidence: {tier}")
                         units, risk_amt, value = size_position(float(st["equity"]), cfg, price, risk_unit, fx or 1.0, crypto, mult)
                         plan = {
                             "price": price,
@@ -2671,7 +2791,8 @@ def cmd_scan(cfg: dict, args) -> int:
                                 "idx": len(alerts), "risk": risk_amt, "tier": tier, "setup": setup, "score": score,
                                 "pos": Position(symbol=sym, setup=setup, direction=direction, signal_date=bar,
                                                 signal_price=price, atr_at_signal=a, score=score,
-                                                currency=meta["currency"], risk_mult=mult, confidence=tier),
+                                                currency=meta["currency"], risk_mult=mult, confidence=tier,
+                                                factors=json.dumps(conf_pts), conds=json.dumps(conds)),
                             })
                         else:
                             warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
@@ -2801,6 +2922,7 @@ def cmd_scan(cfg: dict, args) -> int:
         send_telegram(cfg, "\n".join(lines), args)
 
     append_log(log_rows)
+    save_journal()
     if not getattr(args, "symbols", None):
         st["last_scan"] = today_utc
     save_state(st)
@@ -3242,6 +3364,101 @@ def cmd_backtest(cfg: dict, args) -> int:
     print("How to read this: look for positive expectancy after costs in BOTH periods, from at least 100 trades,")
     print("and higher scores doing better than lower ones. If you change settings to improve these numbers,")
     print("judge the change on the later period only. Past results do not guarantee future ones.")
+    return 0
+
+
+def learn_history(cfg: dict, args, log=print) -> list[dict]:
+    """Every trade the daily setups would have taken over the backtest period, with its conditions and post-mortem."""
+    interval, history = cfg["scan"]["interval"], cfg["backtest"]["history"]
+    cost = float(cfg["backtest"]["cost_per_side_pct"]) / 100.0
+    records = []
+    for bench_sym, symbols in iter_watchlist(cfg, args):
+        bench_df = None
+        if bench_sym:
+            try:
+                bench_df, _ = get_data(bench_sym, interval, history, args.csv_dir)
+            except Exception:
+                bench_df = None
+        for sym in symbols:
+            try:
+                df, _ = get_data(sym, interval, history, args.csv_dir)
+            except Exception as exc:
+                log(f"{sym}: {exc}")
+                continue
+            if len(df) < 260:
+                continue
+            ind = add_indicators(df, cfg)
+            bench = align_benchmark(ind, bench_df)
+            sigs = compute_signals(ind, bench, cfg, sym, bench_sym)
+            pos_of = {bar_label(t, interval): k for k, t in enumerate(ind.index)}
+            for t in run_backtest_symbol(ind, sigs, cfg, sym, interval, cost, 0):
+                if t.exit_reason == "still open at the end of the data" or t.score < min_score_for(t.setup, cfg, "paper"):
+                    continue
+                i, e, x = pos_of.get(t.signal_date), pos_of.get(t.entry_date), pos_of.get(t.exit_date)
+                if i is None or e is None or x is None:
+                    continue
+                regime_ok = None
+                if bench is not None and bench_sym and bench_sym.upper() != sym.upper():
+                    regime_ok = bool(bench["up"].iloc[i]) if t.direction == "long" else bool(bench["down"].iloc[i])
+                conds = lessons.conditions(t.setup, daily_raw(ind, i, t.direction, t.score, regime_ok))
+                diag = lessons.diagnose(t.entry_price, t.initial_stop, t.exit_price, t.direction == "long",
+                                        ind.iloc[e: x + 1], t.exit_reason, ind.iloc[x + 1: x + 1 + lessons.AFTER_BARS])
+                records.append({"kind": "daily", "setup": t.setup, "symbol": sym, "r": t.r_multiple,
+                                "conditions": conds, "findings": [f[0] for f in diag["findings"]], "date": t.exit_date})
+    return records
+
+
+def lessons_summary(tables: dict, title: str, min_trades: int = 30, min_t: float = 2.0, n: int = 4) -> list[str]:
+    lines = [f"<b>{title}</b>"]
+    for key, g in sorted(tables.items()):
+        kind, setup = key.split("|", 1)
+        base = g["all"]
+        if base["n"] < min_trades:
+            continue
+        name = SETUP_TITLES.get(setup, setup) if kind == "daily" else "0DTE scalper"
+        lines.append(f"\n<b>{esc(name)}</b>: {base['n']} trades, {base['win']:.0%} won, {base['avg']:+.2f}R a trade")
+        found = []
+        for c, sub in g["cond"].items():
+            if sub["n"] >= min_trades and sub["sd"] > 0:
+                t = (sub["avg"] - base["avg"]) / (sub["sd"] / math.sqrt(sub["n"]))
+                if abs(t) >= min_t and abs(sub["avg"] - base["avg"]) >= 0.15:
+                    found.append((t, c, sub))
+        found.sort(key=lambda x: -x[0])
+        for t, c, sub in [f for f in found if f[0] > 0][:n]:
+            lines.append(f"   ➕ {esc(c)}: {sub['avg']:+.2f}R a trade, {sub['win']:.0%} won ({sub['n']} trades)")
+        for t, c, sub in sorted([f for f in found if f[0] < 0])[:n]:
+            lines.append(f"   ➖ {esc(c)}: {sub['avg']:+.2f}R a trade, {sub['win']:.0%} won ({sub['n']} trades)")
+        if not found:
+            lines.append("   no condition stands out from luck yet")
+        fl = sorted(g.get("finding", {}).items(), key=lambda x: -x[1])[:3]
+        if fl:
+            lines.append("   most common post-mortems: " + ", ".join(f"{esc(k)} ({v / base['n']:.0%})" for k, v in fl))
+    return lines
+
+
+def cmd_learn(cfg: dict, args) -> int:
+    """Builds the journal's lessons from 10 years of simulated trades (and the scalper's last month), and reports
+    which conditions really made a difference. The nightly scan and the scalper then use the proven ones."""
+    j = journal()
+    records = learn_history(cfg, args)
+    try:
+        import scalper
+
+        records += scalper.learn_records(cfg)
+    except Exception as exc:
+        print(f"Scalper history: {exc}")
+    j["history"] = lessons.build_tables(records)
+    j["history_built"] = datetime.now(timezone.utc).isoformat()
+    save_journal()
+    lc = cfg.get("lessons", {})
+    lines = lessons_summary(j["history"], "📘 What the bot has learned from history",
+                            int(lc.get("min_trades", 30)), float(lc.get("min_t", 2.0)))
+    paper = list(j.get("paper", [])) + list(lessons.load(STATE_DIR, "lessons_scalper.json").get("paper", []))
+    if paper:
+        lines += [""] + lessons_summary(lessons.build_tables(paper), "📘 ...and from its own paper trades", 15,
+                                        float(lc.get("min_t", 2.0)))
+    lines.append("\n<i>Only conditions that beat luck (t-statistic 2+, 30+ trades) are used to size future trades.</i>")
+    output(cfg, "\n".join(lines), args)
     return 0
 
 
@@ -3839,6 +4056,17 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             save_to_github(f"Bot state {today}")
         except Exception as exc:
             print(f"Nightly scan failed: {exc}")
+    # 0b) Rebuild the lessons from history once a week (a few minutes), early in the morning
+    lc = cfg.get("lessons", {})
+    built = journal().get("history_built")
+    if lc.get("enabled", True) and not OFFLINE and utc.hour < 6 and ps.get("scan_day") == today and (
+            not built or (utc - pd.Timestamp(built).to_pydatetime()).days >= int(lc.get("relearn_days", 7))):
+        try:
+            _DATA_CACHE.clear()
+            cmd_learn(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "telegram": True}))
+            save_to_github(f"Lessons {today}")
+        except Exception as exc:
+            print(f"Learning failed: {exc}")
     # 5) Trump's posts, every few minutes
     if cfg.get("trump", {}).get("enabled", True) and not OFFLINE and \
             time.time() - state.get("trump", 0) >= 60 * float(cfg.get("trump", {}).get("every_minutes", 5)):
@@ -4126,7 +4354,7 @@ def cmd_timemachine(cfg: dict, args) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan for trading setups, send alerts, paper-trade, backtest.")
     parser.add_argument("command", choices=["scan", "watch", "movers", "volatile", "news", "events", "analyse", "analyze",
-                                            "market", "insiders", "pulse", "timemachine", "resend", "backtest", "status",
+                                            "market", "insiders", "pulse", "learn", "timemachine", "resend", "backtest", "status",
                                             "leaders", "test-telegram"])
     parser.add_argument("--config", default=str(BASE_DIR / "config.toml"), help="settings file (default: config.toml)")
     parser.add_argument("--symbols", help="comma-separated symbols to use instead of the watchlist")
@@ -4157,6 +4385,7 @@ def main(argv: list[str] | None = None) -> int:
         "market": cmd_analyse,
         "insiders": cmd_insiders,
         "pulse": cmd_pulse,
+        "learn": cmd_learn,
         "timemachine": cmd_timemachine,
         "resend": cmd_resend,
         "backtest": cmd_backtest,

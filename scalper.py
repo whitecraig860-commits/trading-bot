@@ -43,6 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover
 import bot  # reuses Telegram, settings loading and the event calendar
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
+import lessons  # the trade journal that learns
 
 BASE = Path(__file__).resolve().parent
 STATE = BASE / "state"
@@ -357,7 +358,12 @@ def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
                 orb_used.add(side)
             entry = float(ind["Open"].iloc[i + 1])
             risk = max(abs(entry - float(ind["vwap"].iloc[i])), entry * 0.0015)
-            pos = {"sym": sym, "day": str(day), "t": ts, "side": side, "entry": entry, "risk": risk, "why": "; ".join(why)}
+            tk = ("up" if side == "call" else "down", "trend")
+            if trend is not None:
+                known = trend[trend.index <= ts + pd.Timedelta(minutes=mins)]
+                tk = (known["direction"].iat[-1], known["kind"].iat[-1])
+            pos = {"sym": sym, "day": str(day), "t": ts, "side": side, "entry": entry, "risk": risk, "why": "; ".join(why),
+                   "conds": scalp_conditions(ind, i, why, *tk)}
             n_today += 1
     return trades
 
@@ -414,6 +420,10 @@ class Trade:
     exit_reason: str = ""
     pnl: float = 0.0
     status: str = "open"
+    u_entry: float = 0.0     # the share's price when the option was bought (for the post-mortem)
+    u_stop: float = 0.0      # VWAP then: where the setup is wrong
+    conds: str = ""          # JSON: the conditions when it was taken
+    reviewed: bool = False   # the 20-minutes-later follow-up has been done
 
 
 @dataclass
@@ -591,6 +601,113 @@ def blackout(full: dict, cfg: dict, now_ny: pd.Timestamp) -> str | None:
     return None
 
 
+JOURNAL_FILE = "lessons_scalper.json"
+
+
+def scalp_conditions(ind: pd.DataFrame, i: int, why: list[str], direction: str, kind: str) -> list[str]:
+    ts = ind.index[i]
+    o, h, l, c = (float(ind[k].iloc[i]) for k in ("Open", "High", "Low", "Close"))
+    body = abs(c - o) / (h - l) * 100 if h > l else 0.0
+    trig = "VWAP" if any("VWAP" in w for w in why) else ("EMA" if any("EMA" in w for w in why) else "other")
+    return [x for x in (lessons.bucket("hour", ts.hour + ts.minute / 60), f"trigger: {trig}",
+                        f"trend: {direction}/{kind}", lessons.bucket("body", body)) if x]
+
+
+def scalp_record(t: "Trade", cfg: dict) -> dict:
+    risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
+    return {"id": f"{t.worker}|{t.entry_time}", "kind": "scalper", "setup": "scalper", "symbol": t.worker,
+            "r": t.pnl / risk_cash if risk_cash else 0.0, "conditions": json.loads(t.conds or "[]"),
+            "findings": [], "date": t.exit_time[:10]}
+
+
+def _u_levels(t: "Trade") -> tuple[float, float, bool]:
+    long = t.side == "call"
+    risk = max(abs(t.u_entry - t.u_stop), t.u_entry * 0.0015)
+    return t.u_entry, (t.u_entry - risk if long else t.u_entry + risk), long
+
+
+def post_mortem(t: "Trade", bars: dict, full: dict, cfg: dict, args, now) -> None:
+    """Why this scalper trade won or lost, sent to Telegram and saved to its journal."""
+    if not t.u_entry or t.worker not in bars:
+        return
+    df = bars[t.worker]
+    path = df[(df.index >= pd.Timestamp(t.entry_time).floor("min")) & (df.index <= now)]
+    if path.empty:
+        return
+    entry, stop0, long = _u_levels(t)
+    diag = lessons.diagnose(entry, stop0, float(path["Close"].iloc[-1]), long, path, t.exit_reason)
+    rec = scalp_record(t, cfg)
+    if rec["r"] <= 0 and diag["mfe"] >= 1.0:
+        diag["findings"].append(("option lagged", f"the share went {diag['mfe']:.1f}R your way but the option still lost: "
+                                                  f"time decay, the spread, or the exit ({t.exit_reason}) came too soon"))
+    rec["findings"] = [f[0] for f in diag["findings"]]
+    j = lessons.load(STATE, JOURNAL_FILE)
+    j.setdefault("paper", []).append(rec)
+    lessons.save(STATE, j, JOURNAL_FILE)
+    conds = json.loads(t.conds or "[]")
+    lines = [f"📘 <b>Post-mortem: {t.worker} {t.side}</b> · {bot.esc(lessons.verdict(rec['r'], 1, diag['findings']))}",
+             f"The share went {diag['mfe']:+.1f}R your way at best and {-diag['mae']:+.1f}R against you at worst "
+             f"(1R = the distance to VWAP when you bought).", "When it was taken: " + bot.esc(", ".join(conds))]
+    lines += [f"• {bot.esc(x)}" for _, x in diag["findings"]]
+    lines.append("Saved to the journal. 20 minutes from now the bot checks what the share did next.")
+    say(full, "\n".join(lines), args)
+
+
+def follow_up(t: "Trade", bars: dict, full: dict, args, now) -> bool:
+    """20 minutes after a scalper trade closed: shaken out? sold too early? Returns True once done."""
+    if t.reviewed or not t.u_entry or t.worker not in bars or not t.exit_time:
+        return t.reviewed
+    ex = pd.Timestamp(t.exit_time)
+    if (now - ex).total_seconds() < 20 * 60:
+        return False
+    df = bars[t.worker]
+    at_exit = df[df.index <= ex]
+    after = df[df.index > ex].head(20)
+    if at_exit.empty or after.empty:
+        return True
+    entry, stop0, long = _u_levels(t)
+    reason = "stop" if "stop" in t.exit_reason or "VWAP" in t.exit_reason else t.exit_reason
+    diag = lessons.diagnose(entry, stop0, float(at_exit["Close"].iloc[-1]), long, after.head(1), reason, after)
+    new = [x for x in diag["findings"] if x[0] in {"shaken out", "stop saved you", "sold too early"}]
+    if new:
+        j = lessons.load(STATE, JOURNAL_FILE)
+        for rec in j.get("paper", []):
+            if rec.get("id") == f"{t.worker}|{t.entry_time}":
+                rec["findings"] = sorted(set(rec.get("findings", [])) | {x[0] for x in new})
+        lessons.save(STATE, j, JOURNAL_FILE)
+        say(full, f"📘 <b>Follow-up: {t.worker} {t.side}</b> ({money(t.pnl)}), 20 minutes after selling:\n" +
+            "\n".join(f"• {bot.esc(x)}" for _, x in new), args)
+    return True
+
+
+def learn_records(full: dict) -> list[dict]:
+    """The last month of 1-minute prices through the current rules, with each trade's conditions (for bot.py learn)."""
+    import yfinance as yf
+
+    cfg, _ = load_cfg(str(BASE / "config.toml"))
+    out = []
+    for sym in cfg["symbols"]:
+        frames = []
+        end = pd.Timestamp.now(tz="UTC")
+        for k in range(4):
+            s0, e0 = end - pd.Timedelta(days=7 * (k + 1)), end - pd.Timedelta(days=7 * k)
+            try:
+                d = yf.Ticker(sym).history(start=s0, end=e0, interval="1m", prepost=False, auto_adjust=False)
+                if d is not None and len(d):
+                    frames.append(d)
+            except Exception:
+                continue
+        if not frames:
+            continue
+        df = pd.concat(frames).sort_index()
+        df = df[~df.index.duplicated()]
+        df.index = df.index.tz_convert(NY)
+        for t in backtest_frame(sym, df, cfg):
+            out.append({"kind": "scalper", "setup": "scalper", "symbol": sym, "r": float(t["r"]),
+                        "conditions": t.get("conds", []), "findings": [], "date": t["day"]})
+    return out
+
+
 def money(x: float) -> str:
     return f"-${abs(x):,.0f}" if x < 0 else f"${x:,.0f}"
 
@@ -709,6 +826,17 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if t.worker in bars:
                 picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper sold: {'WON' if t.pnl > 0 else 'LOST'} "
                         f"{money(t.pnl)}", args)
+            try:
+                post_mortem(t, bars, full, cfg, args, now)
+            except Exception as exc:
+                print(f"post-mortem: {exc}")
+    for t in trades:
+        if t.status == "closed" and not t.reviewed:
+            try:
+                t.reviewed = follow_up(t, bars, full, args, now)
+            except Exception as exc:
+                print(f"follow-up: {exc}")
+                t.reviewed = True
     day.trades = [asdict(t) for t in trades]
     if force_exit:
         return
@@ -757,6 +885,16 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
                 continue
             why = why + [f"trend {direction}"]
+        else:
+            direction, kind = ("up" if side == "call" else "down"), "trend"
+        conds = scalp_conditions(ind, len(ind) - 1, why, direction, kind)
+        if cfg.get("learn_from_journal", True):
+            proven = [w for p_, w in lessons.lessons_for(bot.journal(), "scalper", "scalper", sym, conds,
+                                                          int(cfg.get("lesson_min_trades", 30)), 2.0) if p_ < 0]
+            if proven:
+                print(f"{now:%H:%M} {sym}: {side} signal skipped, the journal says: {proven[0]}")
+                say(full, f"📘 <b>{sym} {side} skipped</b>: the journal has a proven lesson against it.\n{bot.esc(proven[0])}", args)
+                continue
         price = float(ind["Close"].iloc[-1])
         con = api.pick_contract(sym, side, price)
         if not con:
@@ -784,7 +922,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             day.orb_used[sym] = sorted(used | {side})
         o = api.buy(con.symbol, qty, limit)
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
-                  why="; ".join(why), order_id=str(o.id), status="pending")
+                  why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
+                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds))
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):

@@ -1,0 +1,21 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Learn from 10 years + the scalper's last month (printed, not sent)
+        run: python -W ignore bot.py learn --no-telegram 2>/dev/null
+      - name: Nightly scan using the lessons (printed, not sent, not saved)
+        run: python -W ignore bot.py scan --no-telegram --force 2>/dev/null | grep -E "SETUP|Confidence:|   [➕➖]|Post-mortem|Best it got|^• |Follow-up|Paper trad" | cut -c1-190 | head -70
