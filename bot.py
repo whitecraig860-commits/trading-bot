@@ -2904,8 +2904,8 @@ def cmd_scan(cfg: dict, args) -> int:
                         else:
                             warnings.append(("Risk check: PASS, " if ok else "Risk check: BLOCK, ") + why)
                             if paper_on and score >= min_score_for(setup, cfg, "paper"):
-                                paper_note = ("Paper trading: already holding this one, so no new paper trade." if sym in open_syms
-                                              else "Paper trading: blocked by the risk check, so no paper trade.")
+                                paper_note = ("Swing trader (paper): already holding this one, so no new trade." if sym in open_syms
+                                              else "Swing trader (paper): blocked by the risk check, so no trade.")
                         vol_line = f"Moves about {atr_pct:.1f}% a day" + (
                             ": very volatile, so expect big swings both ways. The size is smaller to keep the risk the same."
                             if atr_pct >= 5.0 else "."
@@ -2967,7 +2967,7 @@ def cmd_scan(cfg: dict, args) -> int:
             st["positions"].append(asdict(c["pos"]))
             note = "Swing trader (paper): it buys this at the next open and manages it for you."
         else:
-            note = "Paper trading: blocked by the risk check, so no paper trade."
+            note = "Swing trader (paper): blocked by the risk check, so no trade."
         text, png = alerts[c["idx"]]
         text = text.replace("§RISK§", esc(("PASS, " if ok else "BLOCK, ") + why)).replace("§PAPER§", esc(note))
         alerts[c["idx"]] = (text, png)
