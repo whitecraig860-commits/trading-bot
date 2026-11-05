@@ -1708,6 +1708,9 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         # 1) Trend breakout: a fresh close beyond the N-day high (low for shorts) in the trend's direction
         beyond = (c > ind["don_hi"]) if up else (c < ind["don_lo"])
         trig_bo = above200 & beyond & ~beyond.shift(1, fill_value=False)
+        max_day = float(s.get("max_signal_day_atr", 0) or 0)
+        if max_day > 0:  # skip signals made by one huge day (earnings gaps, news shocks)
+            trig_bo = trig_bo & ~(ind["move_atr"].abs() > max_day)
         if gate is not None:
             trig_bo = trig_bo & gate
         vol_ok = (ind["vol_ratio"] >= float(s["volume_surge"])) if has_vol else None
@@ -1728,6 +1731,8 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         entry = float(s["pullback_rsi2_entry"])
         dipped = (ind["rsi2"] < entry) if up else (ind["rsi2"] > 100.0 - entry)
         trig_pb = above200 & dipped & ~dipped.shift(1, fill_value=False)
+        if max_day > 0:
+            trig_pb = trig_pb & ~(ind["move_atr"].abs() > max_day)
         if gate is not None:
             trig_pb = trig_pb & gate
         deep = (ind["rsi2"] < 5) if up else (ind["rsi2"] > 95)
