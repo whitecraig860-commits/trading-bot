@@ -2049,6 +2049,17 @@ def output(cfg: dict, text: str, args) -> None:
     send_telegram(cfg, text, args if getattr(args, "telegram", False) else argparse.Namespace(no_telegram=True))
 
 
+def redact(text, cfg: dict) -> str:
+    """Error messages from web requests can contain the address they called, which has your Telegram key in it.
+    This blanks out every secret before anything is printed (GitHub also hides them, but your own computer won't)."""
+    out = str(text)
+    for secret in (cfg.get("telegram", {}).get("token"), cfg.get("telegram", {}).get("chat_id"),
+                   os.environ.get("ALPACA_KEY"), os.environ.get("ALPACA_SECRET"), os.environ.get("SEC_USER_AGENT")):
+        if secret and len(str(secret)) >= 6:
+            out = out.replace(str(secret), "***")
+    return out
+
+
 def send_telegram(cfg: dict, text: str, args=None) -> bool:
     token, chat = cfg["telegram"].get("token"), cfg["telegram"].get("chat_id")
     plain = to_plain(text)
@@ -2075,10 +2086,10 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
             )
             if r.status_code != 200:
                 ok = False
-                print(f"Telegram error {r.status_code}: {r.text[:200]}")
+                print(redact(f"Telegram error {r.status_code}: {r.text[:200]}", cfg))
         except Exception as exc:
             ok = False
-            print(f"Telegram error: {exc}")
+            print(redact(f"Telegram error: {exc}", cfg))
     print("\n" + plain + "\n")
     return ok
 
@@ -2126,10 +2137,10 @@ def send_photo(cfg: dict, png: bytes | None, caption: str, args=None, url: str |
         r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto", data=data,
                           files={"photo": ("chart.png", png, "image/png")}, timeout=30)
         if r.status_code != 200:
-            print(f"Telegram photo error {r.status_code}: {r.text[:200]}")
+            print(redact(f"Telegram photo error {r.status_code}: {r.text[:200]}", cfg))
         return r.status_code == 200
     except Exception as exc:
-        print(f"Telegram photo error: {exc}")
+        print(redact(f"Telegram photo error: {exc}", cfg))
         return False
 
 
@@ -3663,7 +3674,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     # 1) Start the 0DTE scalper just before the US open (once a day, weekdays)
     if pc.get("start_scalper", True) and ny.weekday() < 5 and ps.get("scalper_day") != today:
         mins = ny.hour * 60 + ny.minute
-        if 9 * 60 <= mins <= 9 * 60 + 40:
+        if 9 * 60 + 15 <= mins <= 9 * 60 + 40:
             if dispatch_workflow("scalper.yml") or not os.environ.get("GITHUB_ACTIONS"):
                 ps["scalper_day"] = today
     # 2) The daily insider catch-up (every filing from the previous days), once a day
