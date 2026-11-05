@@ -214,17 +214,6 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set) -> tuple[str,
             fired["call"].append("broke out above the opening range")
         if c < lo and pc >= lo and "put" not in orb_used:
             fired["put"].append("broke down below the opening range")
-    if "retest" in trig and "atr" in ind and np.isfinite(ind["atr"].iloc[i]) and ind["atr"].iloc[i] > 0:
-        # Continuation: in a trend, price pulls back to VWAP / the EMA, is rejected there, and the trend resumes.
-        # (A steady waterfall never crosses VWAP, so the cross triggers see almost nothing on a trend day.)
-        o, h, l = ind["Open"].iloc[i], ind["High"].iloc[i], ind["Low"].iloc[i]
-        a = float(ind["atr"].iloc[i])
-        slack = float(cfg.get("retest_slack_atr", 0.15)) * a
-        down_zone, up_zone = min(vw, em), max(vw, em)
-        if c < vw and c < em and pc < down_zone and h >= down_zone - slack and c < down_zone and c < o:
-            fired["put"].append("bounce rejected at VWAP/EMA, trend resumed down")
-        if c > vw and c > em and pc > up_zone and l <= up_zone + slack and c > up_zone and c > o:
-            fired["call"].append("dip held at VWAP/EMA, trend resumed up")
     for side in ("call", "put"):
         if not fired[side]:
             continue
