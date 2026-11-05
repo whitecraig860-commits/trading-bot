@@ -4075,6 +4075,27 @@ def morning_briefing(cfg: dict, args) -> str:
     return "\n".join(lines)
 
 
+def daily_job(ps: dict, name: str, today: str, fn, max_tries: int = 3, gap_minutes: float = 15) -> object:
+    """Runs fn() once a day with retries: it only counts as done if it finishes without an error (so one hiccup,
+    like Yahoo failing at that moment, gets another try), at most max_tries times and gap_minutes apart (so a
+    persistent fault can't hammer a service). Returns fn's result, or None if it wasn't run or failed."""
+    j = ps.setdefault("jobs", {}).setdefault(name, {})
+    if j.get("day") != today:
+        j.clear()
+        j.update(day=today, tries=0, done=False, last=0.0)
+    if j["done"] or j["tries"] >= max_tries or time.time() - j["last"] < gap_minutes * 60:
+        return None
+    j["tries"] += 1
+    j["last"] = time.time()
+    try:
+        res = fn()
+        j["done"] = True
+        return res if res is not None else True
+    except Exception as exc:
+        print(f"{name} failed (try {j['tries']} of {max_tries}): {exc}")
+        return None
+
+
 def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     """Jobs the all-day pulse does so they don't depend on GitHub's unreliable schedules."""
     pc, cc = cfg["pulse"], cfg.get("copy", {})
@@ -4088,12 +4109,8 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
         except Exception as exc:
             print(f"Scalper supervisor: {exc}")
     # 2) The daily insider catch-up (every filing from the previous days), once a day
-    if cc.get("enabled", True) and not OFFLINE and ps.get("insiders_day") != today:
-        try:
-            update_insiders(cfg, log=print)
-            ps["insiders_day"] = today
-        except Exception as exc:
-            print(f"Insider catch-up: {exc}")
+    if cc.get("enabled", True) and not OFFLINE:
+        daily_job(ps, "insider catch-up", today, lambda: update_insiders(cfg, log=print), max_tries=4, gap_minutes=30)
     # 3) EDGAR's live insider feed every few minutes
     if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
             and time.time() - state.get("insider_poll", 0) >= 60 * float(cc.get("live_every_minutes", 10))):
@@ -4107,26 +4124,23 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             print(f"Insider feed: {exc}")
     # 0) The nightly scan, on time (GitHub's own schedule for it has run up to 6.5 hours late)
     utc = datetime.now(timezone.utc)
-    if cfg.get("pulse", {}).get("run_scan", True) and not OFFLINE and ps.get("scan_day") != today and \
-            utc.hour * 60 + utc.minute >= 25 and utc.hour < 12:
-        ps["scan_day"] = today
-        try:
+    if cfg.get("pulse", {}).get("run_scan", True) and not OFFLINE and utc.hour * 60 + utc.minute >= 25 and utc.hour < 12:
+        def _scan():
             _DATA_CACHE.clear()
             cmd_scan(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "force": False}))
             save_to_github(f"Bot state {today}")
-        except Exception as exc:
-            print(f"Nightly scan failed: {exc}")
+        if daily_job(ps, "nightly scan", today, _scan, max_tries=3, gap_minutes=20):
+            ps["scan_day"] = today
     # 0b) Rebuild the lessons from history once a week (a few minutes), early in the morning
     lc = cfg.get("lessons", {})
     built = journal().get("history_built")
     if lc.get("enabled", True) and not OFFLINE and utc.hour < 6 and ps.get("scan_day") == today and (
             not built or (utc - pd.Timestamp(built).to_pydatetime()).days >= int(lc.get("relearn_days", 7))):
-        try:
+        def _learn():
             _DATA_CACHE.clear()
             cmd_learn(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "telegram": True}))
             save_to_github(f"Lessons {today}")
-        except Exception as exc:
-            print(f"Learning failed: {exc}")
+        daily_job(ps, "weekly learning", today, _learn, max_tries=2, gap_minutes=60)
     # 5) Trump's posts, every few minutes
     if cfg.get("trump", {}).get("enabled", True) and not OFFLINE and \
             time.time() - state.get("trump", 0) >= 60 * float(cfg.get("trump", {}).get("every_minutes", 5)):
@@ -4137,13 +4151,11 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             print(f"Trump posts: {exc}")
     # 6) The morning briefing, once a day from 06:30 UK time
     uk = pd.Timestamp.now(tz=cfg["news"].get("timezone", "Europe/London"))
-    if cfg.get("briefing", {}).get("enabled", True) and ps.get("briefing_day") != today and uk.weekday() < 5 and \
-            uk.hour * 60 + uk.minute >= 6 * 60 + 30:
-        ps["briefing_day"] = today
-        try:
-            msgs.append(morning_briefing(cfg, args))
-        except Exception as exc:
-            print(f"Morning briefing: {exc}")
+    if cfg.get("briefing", {}).get("enabled", True) and uk.weekday() < 5 and \
+            6 * 60 + 30 <= uk.hour * 60 + uk.minute < 11 * 60:
+        text = daily_job(ps, "morning briefing", today, lambda: morning_briefing(cfg, args), max_tries=3, gap_minutes=10)
+        if isinstance(text, str):
+            msgs.append(text)
     # 4) The watchlist check (big moves, breakouts in progress, paper stops, news) every 30 minutes
     if pc.get("run_watch", True) and time.time() - state.get("watch", 0) >= 60 * float(pc.get("watch_every_minutes", 30)):
         state["watch"] = time.time()
