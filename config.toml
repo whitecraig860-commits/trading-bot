@@ -78,6 +78,19 @@ max_markets = 4
 enabled = true              # a morning briefing on weekdays from 06:30 UK: top news, then indexes, commodities,
                             # crypto and currencies, green or red
 
+[lessons]
+# The trade journal that learns. Every closed trade, win or lose, gets a post-mortem on Telegram: what it had going
+# for it, how it played out (wrong from the start? winning then gave it back? nearly stopped out but got lucky?) and,
+# 10 days later (20 minutes for the scalper), whether the stop shook it out before the move or it sold too early.
+# Once a week the pulse also replays 10 years of history ("python bot.py learn") so the journal starts full.
+# A lesson is only USED when it beats luck: at least min_trades trades and a t-statistic of min_t or more. Then it
+# adds or removes a confidence point (changing the size of the next trade), and the scalper skips setups with a
+# proven losing record. Every alert shows the lessons it used.
+enabled = true
+min_trades = 30
+min_t = 2.0
+relearn_days = 7
+
 [charts]
 enabled = true              # send a chart picture with alerts, closed trades, pulse signals and scalper trades
 
@@ -271,6 +284,8 @@ min_body_pct = 50           # the candle's body must be at least half its full r
 close_zone_pct = 30         # ...and close in the top 30% (calls) or bottom 30% (puts) of it
 max_chase_atr = 1.5         # skip if price is more than 1.5 normal bars away from VWAP already
 max_losses_per_worker = 2   # a symbol stops for the day after 2 losing trades
+learn_from_journal = true   # skip setups the journal has proven lose (30+ trades, beats luck)
+lesson_min_trades = 30
 loss_cooldown_minutes = 30  # and waits 30 minutes after any loss
 first_entry = "09:45"       # New York time (14:45 UK most of the year)
 last_entry = "15:00"
