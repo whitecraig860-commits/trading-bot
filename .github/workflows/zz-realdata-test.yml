@@ -1,0 +1,31 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Where can Trump's posts be read from here?
+        run: |
+          for u in "https://trumpstruth.org/feed" "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses?limit=3" "https://rss.app/feeds/truthsocial-realDonaldTrump.xml" "https://www.trumpstruth.org/" ; do
+            code=$(curl -s -o /tmp/out -w "%{http_code}" -A "Mozilla/5.0" --max-time 20 "$u"); echo "$code $u $(wc -c </tmp/out) bytes"; head -c 600 /tmp/out | tr '\n' ' '; echo; echo; done
+      - name: Backtest, no filter
+        run: python -W ignore bot.py backtest 2>/dev/null | grep -E "^==|All signals|Signals "
+      - name: Backtest, skip signals made by a 3-ATR day
+        run: |
+          sed 's/^overextended_atr = 3.0 .*/&\nmax_signal_day_atr = 3/' config.toml > /tmp/f3.toml
+          python -W ignore bot.py backtest --config /tmp/f3.toml 2>/dev/null | grep -E "^==|All signals|Signals "
+      - name: Backtest, skip signals made by a 2-ATR day
+        run: |
+          sed 's/^overextended_atr = 3.0 .*/&\nmax_signal_day_atr = 2/' config.toml > /tmp/f2.toml
+          python -W ignore bot.py backtest --config /tmp/f2.toml 2>/dev/null | grep -E "^==|All signals|Signals "
