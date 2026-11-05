@@ -179,7 +179,11 @@ seed = 19                   # same seed = same answer every time
 # Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
 daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% of the account (two full losses)
 weekly_loss_limit_pct = 10  # ...or this week's reach 10%
-max_open_risk_pct = 12      # total at risk across all open trades (6 trades at 2%)
+max_open_risk_pct = 16      # total that can still be lost across all open trades (8 trades at 2%). The 10-year whole-
+                            # account test ("python bot.py backtest --portfolio"): at 2% a trade, a 12% cap blocked 202
+                            # of 759 good trades (+25.6% a year, worst fall 27%); 16-18% blocked none (+40.5% a year,
+                            # worst fall 35%). For real money, 1% a trade with a 12% cap blocked none either and fell
+                            # least (+23.2% a year, worst fall 19%).
 max_new_trades_per_day = 3
 low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
                                 # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
