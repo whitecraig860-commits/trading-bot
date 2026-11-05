@@ -203,9 +203,11 @@ fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 # approach that's working, and a WON/LOST message for every paper trade it follows.
 markets = ["GC=F", "SPY", "QQQ", "IWM", "^FTSE", "BTC-USD"]   # gold, S&P 500, Nasdaq, Russell 2000, FTSE 100, Bitcoin
 every_minutes = 5
+run_scan = true             # the pulse runs the nightly scan itself at 00:25 UTC (GitHub's schedule ran it up to 6.5 hours late)
 send_open_brief = true      # a summary when each market opens
 send_changes = true         # a message when a market switches between trending and choppy, or changes direction
 confirm_bars = 3            # ...only once the change has lasted 3 bars (15 minutes), to stop flip-flopping
+min_minutes_between_changes = 60  # ...and at least an hour after the last one for that market
 max_changes_per_market = 3  # ...and at most 3 change messages per market per day
 send_signals = true         # signals for the best approach (only if it has made money there lately)
 max_signals_per_market = 4  # per day

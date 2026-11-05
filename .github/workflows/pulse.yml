@@ -44,7 +44,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           GH_TOKEN: ${{ github.token }}
-        run: python bot.py pulse --every 5 --for 340 --until 21:35
+        run: python bot.py pulse --every 5 --for 340
 
       - name: Save the pulse, insider and watch state
         if: always()
@@ -63,8 +63,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ran=$(( $(date -u +%s) - SHIFT_START ))
-          # only hand over on a weekday before 21:30 UTC, and only after a real shift (never loop on a crash)
-          if [ "$(date -u +%u)" -le 5 ] && [ "$(date -u +%H%M)" -lt 2130 ] && [ "$ran" -ge 1800 ]; then
+          day=$(date -u +%u); hm=$((10#$(date -u +%H%M)))
+          # Monday to Friday round the clock (the night shift runs the nightly scan at 00:25 UTC), plus Saturday
+          # until 01:00 for Friday night's scan; and only after a real shift, so a crash can never loop
+          if { [ "$day" -le 5 ] || { [ "$day" -eq 6 ] && [ "$hm" -lt 100 ]; }; } && [ "$ran" -ge 1800 ]; then
             gh workflow run pulse.yml --ref main && echo "Next shift requested."
           else
             echo "No hand-over (day $(date -u +%u), time $(date -u +%H%M), ran ${ran}s)."
