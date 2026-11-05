@@ -3649,7 +3649,7 @@ def morning_briefing(cfg: dict, args) -> str:
             lines += ["", f"<b>{title}</b>"] + rows
     evs = upcoming_events(cfg, 1)
     if evs:
-        lines += ["", "<b>Today</b>"] + [esc(event_text(e)) for e in evs]
+        lines += ["", "<b>Coming up</b>"] + [esc(event_text(e)) for e in evs]
     return "\n".join(lines)
 
 
