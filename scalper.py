@@ -189,7 +189,7 @@ def session_indicators(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return out
 
 
-def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set) -> tuple[str, list[str]] | None:
+def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set, stats: dict | None = None) -> tuple[str, list[str]] | None:
     """Returns ('call'|'put', [triggers]) if bar i closes across a line, else None."""
     if i < 1:
         return None
@@ -222,6 +222,8 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set) -> tuple[str,
             if not ok:
                 continue
         if cfg.get("candle_filter", False) and not candle_ok(ind, i, side, cfg):
+            if stats is not None:
+                stats["candle"] = stats.get("candle", 0) + 1
             continue
         return side, fired[side]
     return None
@@ -433,6 +435,7 @@ class Day:
     orb_used: dict = field(default_factory=dict)
     last_exit: dict = field(default_factory=dict)
     seen_bar: dict = field(default_factory=dict)
+    stats: dict = field(default_factory=dict)   # signals seen and what stopped them (for the end-of-day summary)
 
 
 def day_path(d: str) -> Path:
@@ -444,7 +447,7 @@ def load_day(d: str) -> Day:
     if p.exists():
         raw = json.loads(p.read_text())
         return Day(date=raw["date"], trades=raw.get("trades", []), orb_used=raw.get("orb_used", {}),
-                   last_exit=raw.get("last_exit", {}), seen_bar=raw.get("seen_bar", {}))
+                   last_exit=raw.get("last_exit", {}), seen_bar=raw.get("seen_bar", {}), stats=raw.get("stats", {}))
     return Day(date=d)
 
 
@@ -715,25 +718,48 @@ def money(x: float) -> str:
 def run_session(cfg: dict, full: dict, args) -> int:
     api = Alpaca(cfg["key"], cfg["secret"])
     started = time.time()
-    clock = api.clock()
+
+    def clock_now():
+        for attempt in range(5):  # one failed check must not end the day's trading
+            try:
+                return api.clock()
+            except Exception as exc:
+                print(bot.redact(f"Alpaca clock check failed ({exc}), retrying", full))
+                time.sleep(10 * (attempt + 1))
+        return api.clock()
+
+    clock = clock_now()
     if not clock.is_open:
         nxt = pd.Timestamp(clock.next_open).tz_convert(NY)
         if (nxt - pd.Timestamp.now(tz=NY)).total_seconds() > 45 * 60:
             print(f"Market closed. Next open {nxt:%a %d %b %H:%M} New York time. Nothing to do.")
             return 0
         print(f"Waiting for the open at {nxt:%H:%M} New York time...")
-        while not api.clock().is_open:
+        while not clock_now().is_open:
             time.sleep(20)
     today = pd.Timestamp.now(tz=NY).strftime("%Y-%m-%d")
     day = load_day(today)
     if day.orb_used.get("_done"):
         print("Today's session already finished.")
         return 0
-    if not day.trades:
+    lh, lm = ny_time(cfg["last_entry"])
+    now0 = pd.Timestamp.now(tz=NY)
+    still_open = [t for t in day.trades if t.get("status") in {"open", "pending"}]
+    if now0.hour * 60 + now0.minute > lh * 60 + lm and not still_open:
+        # GitHub sometimes starts this hours late. Past the last entry time there's nothing to do, so say nothing
+        # (no "on shift" and no "0 trades" summary) and don't log a fake no-trade day.
+        print(f"Started at {now0:%H:%M} New York time, after the last entry time ({cfg['last_entry']}). Nothing to do.")
+        return 0
+    if not day.trades and not day.stats.get("announced"):
+        trig = {"vwap": "VWAP cross", "ema50": f"{ema_len(cfg)} EMA cross", "orb": "opening-range breakout"}
+        names = ", ".join(trig.get(t, t) for t in cfg["triggers"])
         say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
-                  f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: VWAP cross, {ema_len(cfg)} EMA cross, opening-range breakout"
-                  f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}. "
+                  f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: {names}"
+                  f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}"
+                  f"{', strong candles only' if cfg.get('candle_filter') else ''}. "
+                  f"Entries {cfg['first_entry']} to {cfg['last_entry']} New York time. "
                   f"Daily loss limit {money(cfg['account_size'] * cfg['daily_loss_limit_pct'] / 100)}.", args)
+        day.stats["announced"] = True
     history5: dict = {}
     if cfg.get("trend_filter"):
         try:
@@ -875,14 +901,16 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             continue
         ind = session_indicators(df, cfg)
         used = set(day.orb_used.get(sym, []))
-        sig = signal_at(ind, len(ind) - 1, cfg, used)
+        sig = signal_at(ind, len(ind) - 1, cfg, used, day.stats)
         if not sig:
             continue
         side, why = sig
+        day.stats["signals"] = day.stats.get("signals", 0) + 1
         if cfg.get("trend_filter"):
             direction, kind = trend_now((history5 or {}).get(sym), to_bars(df1, 5, now), sym)
             if not trend_allows(side, direction, kind):
                 print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
+                day.stats["trend"] = day.stats.get("trend", 0) + 1
                 continue
             why = why + [f"trend {direction}"]
         else:
@@ -892,6 +920,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             proven = [w for p_, w in lessons.lessons_for(bot.journal(), "scalper", "scalper", sym, conds,
                                                           int(cfg.get("lesson_min_trades", 30)), 2.0) if p_ < 0]
             if proven:
+                day.stats["journal"] = day.stats.get("journal", 0) + 1
                 print(f"{now:%H:%M} {sym}: {side} signal skipped, the journal says: {proven[0]}")
                 say(full, f"📘 <b>{sym} {side} skipped</b>: the journal has a proven lesson against it.\n{bot.esc(proven[0])}", args)
                 continue
@@ -907,6 +936,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         mid = (bid + ask) / 2 if bid > 0 else ask
         if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
             print(f"{sym}: {con.symbol} spread too wide ({bid}/{ask}), skipped")
+            day.stats["spread"] = day.stats.get("spread", 0) + 1
             continue
         # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
         # traders found most of their losses came from trading costs (the bid/ask spread).
@@ -936,6 +966,16 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
     total = sum(t.pnl for t in closed)
     wins = sum(1 for t in closed if t.pnl > 0)
     lines = [f"<b>0DTE scalper · {day.date} (paper)</b>", f"{len(closed)} trades · {wins} won · total {money(total)}"]
+    st = day.stats
+    if not closed:
+        cross = st.get("signals", 0) + st.get("candle", 0)
+        lines.append(
+            f"Why no trades: {cross} VWAP/EMA cross signal{'s' if cross != 1 else ''} all day"
+            + (f"; {st.get('candle', 0)} had a weak candle" if st.get("candle") else "")
+            + (f"; {st.get('trend', 0)} went against the trend" if st.get("trend") else "")
+            + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
+            + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
+            + ". It only trades when everything lines up: a quiet day is part of that.")
     for w in cfg["symbols"]:
         ws = [t for t in closed if t.worker == w]
         if ws:
@@ -949,9 +989,10 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             wr.writerow(["date", "trades", "won", "pnl"])
         wr.writerow([day.date, len(closed), wins, round(total, 2)])
     hist = pd.read_csv(log)
-    if len(hist) > 1:
-        lines.append(f"All paper days so far: {len(hist)} days, {money(hist['pnl'].sum())}, "
-                     f"{(hist['pnl'] > 0).sum()} winning days")
+    traded = hist[hist["trades"] > 0]
+    if len(traded) > 1:
+        lines.append(f"All paper days with trades so far: {len(traded)} days, {money(traded['pnl'].sum())}, "
+                     f"{(traded['pnl'] > 0).sum()} winning days")
     say(full, "\n".join(lines), args)
 
 

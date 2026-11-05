@@ -1402,8 +1402,106 @@ def insiders_report(clusters: dict[str, dict], updated: str = "", n: int = 10) -
     return "\n".join(lines)
 
 
-def new_insider_alerts(st: dict, cfg: dict) -> list[str]:
-    """Telegram messages for shares whose insider buying has just become strong enough to copy."""
+def copy_now(cfg: dict, args, sym: str, cl: dict) -> tuple[list[str], bytes | None]:
+    """Scores a fresh insider cluster on the chart straight away and, if it qualifies, takes the paper copy trade
+    now: at the live price while the US market is open, or at the next open when it's closed. Returns the lines
+    to add to the alert, and a chart picture."""
+    cc = cfg["copy"]
+    acct_ccy = cfg["account"]["currency"]
+    interval, history = cfg["scan"]["interval"], cfg["scan"]["history"]
+    csv_dir = getattr(args, "csv_dir", None)
+    now = datetime.now(timezone.utc)
+    try:
+        df, meta = get_data(sym, interval, history, csv_dir)
+    except Exception as exc:
+        return [f"Chart check: couldn't load {esc(sym)}'s prices ({esc(exc)}), so it isn't copied."], None
+    if len(df) < 210:
+        return ["Chart check: too little price history to judge (a recent listing), so it isn't copied."], None
+    ind = add_indicators(df, cfg)
+    i = len(ind) - 1
+    price, a = float(ind["Close"].iloc[i]), float(ind["atr"].iloc[i])
+    dollar_vol = float((ind["Close"] * ind["Volume"]).tail(20).mean())
+    paid = float(cl["avg_price"])
+    chase = (price / paid - 1.0) * 100.0 if paid > 0 else 0.0
+    if price < float(cc.get("min_price_usd", 5)):
+        return [f"Chart check: the share is under ${cc.get('min_price_usd', 5):g}, too risky to copy."], None
+    if not dollar_vol >= float(cc.get("min_dollar_volume", 1e6)):
+        return ["Chart check: too thinly traded to get in and out safely, so it isn't copied."], None
+    if chase > float(cc.get("block_chase_pct", 30)):
+        return [f"Chart check: already {chase:.0f}% above what the insiders paid, too late to copy."], None
+    bench_sym = cc.get("benchmark", "SPY")
+    try:
+        bench_df, _ = get_data(bench_sym, interval, history, csv_dir)
+    except Exception:
+        bench_df = None
+    bench = align_benchmark(ind, bench_df)
+    st = load_state(cfg)
+    res = copy_signal(ind, bench, cl, cfg, sym, bench_sym, st, now)
+    if res is None:
+        return ["Chart check: already sent or not fresh any more, so it isn't copied again."], None
+    frame, checks = res
+    score, need = int(frame["score"].iloc[i]), min_score_for("copy", cfg, "paper")
+    lines = [f"<b>Chart check</b>: score {score}/100 (copies at {need}+)"]
+    for passed, text, penalty in describe_checks(checks, i, ind, bench_sym):
+        lines.append(f"{'⚠️' if penalty else ('✅' if passed else '❌')} {esc(text)}")
+    png = charts.daily_chart(ind, f"{sym} · copy the insiders · score {score}", entry=price,
+                             stop=price - stop_multiple("copy", cfg) * a) if cfg.get("charts", {}).get("enabled", True) else None
+    if score < need:
+        lines.append(f"Not copied: the chart isn't strong enough yet (score {score}).")
+        return lines, png
+    if any(p["symbol"] == sym for p in st["positions"]):
+        lines.append("Not copied: already holding it.")
+        return lines, png
+    heads = get_headlines(sym, 3, 72) if cfg["news"].get("enabled", True) else []
+    tone, tone_text = news_tone(heads)
+    regime_ok = bool(bench["up"].iloc[i]) if bench is not None and bench_sym.upper() != sym.upper() else None
+    days = next_earnings_days(sym, meta)
+    warned = days is not None and days <= int(cfg["scan"]["earnings_warning_days"])
+    raw = daily_raw(ind, i, "long", score, regime_ok, tone, True)
+    conds = lessons.conditions("copy", raw)
+    learned = lessons.lessons_for(journal(), "daily", "copy", sym, conds, int(cfg.get("lessons", {}).get("min_trades", 30)),
+                                  float(cfg.get("lessons", {}).get("min_t", 2.0)))
+    mult, tier, pts = assess_confidence(cfg, "long", score, regime_ok, None, None, tone, tone_text, warned, True,
+                                        a / price * 100 if price > 0 else 0.0, learned)
+    conds.append(f"confidence: {tier}")
+    k = stop_multiple("copy", cfg)
+    risk_unit = k * a
+    fx = fx_rate(meta["currency"], acct_ccy) or 1.0
+    live_px, market_open = live_price(sym, args)
+    entry = live_px if (market_open and live_px) else price
+    units, risk_amt, value = size_position(float(st["equity"]), cfg, entry, risk_unit, fx, False, mult)
+    ok, why = risk_check(st, cfg, risk_amt, tier)
+    lines.append(f"Confidence: <b>{tier}</b>" + (f" ({mult:g}x the normal size)" if mult != 1 else ""))
+    lines += [f"   {'➕' if p_ > 0 else '➖'} {esc(w)}" for p_, w in pts]
+    if not ok or units <= 0:
+        lines.append(f"Not copied: {esc(why if not ok else 'position too small for the risk setting')}.")
+        return lines, png
+    bar = bar_label(ind.index[i], interval)
+    pos = Position(symbol=sym, setup="copy", direction="long", signal_date=bar, signal_price=price, atr_at_signal=a,
+                   score=score, currency=meta["currency"], risk_mult=mult, confidence=tier,
+                   factors=json.dumps(pts), conds=json.dumps(conds))
+    if market_open and live_px:
+        today_ny = pd.Timestamp.now(tz="America/New_York").strftime("%Y-%m-%d")
+        pos.status, pos.entry_live = "open", True
+        pos.entry_date, pos.entry_price, pos.last_bar = today_ny, live_px, today_ny
+        pos.risk_per_unit = risk_unit
+        pos.stop = pos.initial_stop = live_px - risk_unit
+        pos.units, pos.risk_amount, pos.fx_to_account = units, risk_amt, fx
+        lines.append(f"✅ <b>COPIED NOW (paper)</b>: bought {units:g} shares at {fmt_price(live_px, meta['currency'])} "
+                     f"(≈ {fmt_money(value, acct_ccy)}), stop {fmt_price(pos.stop, meta['currency'])}, "
+                     f"risking {fmt_money(risk_amt, acct_ccy)}. {chart_link(sym)}")
+    else:
+        lines.append(f"✅ <b>COPY TRADE QUEUED (paper)</b>: the US market is closed, so it buys at the next open, "
+                     f"stop {k:g} x ATR below, risking about {fmt_money(risk_amt, acct_ccy)}. {chart_link(sym)}")
+    st["positions"].append(asdict(pos))
+    st["sent"][f"{sym}|copy|long|{bar}"] = now.isoformat()
+    save_state(st)
+    return lines, png
+
+
+def new_insider_alerts(st: dict, cfg: dict, args=None) -> list:
+    """Telegram messages for shares whose insider buying has just become strong enough to copy. With args (from the
+    pulse) each one is scored on the chart straight away and copied on paper if it qualifies."""
     out = []
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
@@ -1426,9 +1524,17 @@ def new_insider_alerts(st: dict, cfg: dict) -> list[str]:
                  f"{c['insiders']} insider{'s' if c['insiders'] != 1 else ''} bought {fmt_money(c['total_value'], 'USD')} "
                  f"of their own shares at about {fmt_price(c['avg_price'], 'USD')}:"]
         lines += insider_lines(c)
-        lines.append("Tonight's scan checks the chart and scores it as a copy trade (paper first).")
+        png = None
+        if args is not None and cfg["copy"].get("trade_now", True) and cfg["paper"].get("enabled", True):
+            try:
+                extra, png = copy_now(cfg, args, sym, c)
+                lines += [""] + extra
+            except Exception as exc:
+                lines.append(f"Chart check failed ({esc(exc)}); tonight's scan will look at it.")
+        else:
+            lines.append("Tonight's scan checks the chart and scores it as a copy trade (paper first).")
         lines.append("<i>Not advice. Insiders are often early.</i>")
-        out.append("\n".join(lines))
+        out.append(("\n".join(lines), png) if png else "\n".join(lines))
     return out
 
 
@@ -1813,6 +1919,7 @@ class Position:
     risk_amount: float = 0.0
     risk_mult: float = 1.0
     confidence: str = ""
+    entry_live: bool = False  # bought during the session at the live price (insider copy trades), not at an open
     factors: str = ""      # JSON: the confidence points when the trade was taken
     conds: str = ""        # JSON: the conditions when the trade was taken (for the journal)
     bars_held: int = 0
@@ -2349,7 +2456,7 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
             date = bar_label(ts, interval)
             if pos.status == "pending":
                 if not try_fill(pos, date, row, cfg):
-                    msgs.append(f"Paper trade skipped: {esc(sym)} {pos.setup} ({pos.exit_reason}).")
+                    msgs.append(f"Swing trade skipped: {esc(sym)} {pos.setup} ({pos.exit_reason}).")
                     break
                 fx = fx_rate(pos.currency, acct_ccy)
                 pos.fx_to_account = fx if fx else 1.0
@@ -2363,7 +2470,7 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                     break
                 pos.units, pos.risk_amount = units, risk_amt
                 msgs.append(
-                    f"<b>Paper trade opened</b>: {esc(sym)} {pos.direction} at {fmt_price(pos.entry_price, pos.currency)}, "
+                    f"<b>Swing trade opened (paper)</b>: {esc(sym)} {SETUP_TITLES.get(pos.setup, pos.setup).lower()} {pos.direction} at {fmt_price(pos.entry_price, pos.currency)}, "
                     f"stop {fmt_price(pos.stop, pos.currency)}, {units:g} units, risking {fmt_money(risk_amt, acct_ccy)}."
                 )
             if pos.status == "open" and step_bar(pos, date, row, cfg, cost):
@@ -2371,7 +2478,7 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                 ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
                 held = "on its first bar" if pos.bars_held == 0 else f"after {pos.bars_held} bar{'s' if pos.bars_held != 1 else ''}"
                 msgs.append(
-                    f"<b>Paper trade closed: {esc(sym)} {pos.direction} {'WON' if pos.pnl > 0 else 'LOST'} "
+                    f"<b>Swing trade closed (paper): {esc(sym)} {pos.direction} {'WON' if pos.pnl > 0 else 'LOST'} "
                     f"{fmt_money(pos.pnl, acct_ccy)}</b> ({pos.r_multiple:+.2f}R). "
                     f"In at {fmt_price(pos.entry_price, pos.currency)}, out at {fmt_price(pos.exit_price, pos.currency)} "
                     f"({esc(pos.exit_reason)}) {held}. "
@@ -2858,7 +2965,7 @@ def cmd_scan(cfg: dict, args) -> int:
         ok, why = risk_check(st, cfg, c["risk"], c["tier"])
         if ok:
             st["positions"].append(asdict(c["pos"]))
-            note = "Paper trading: the bot will open this at the next open and manage it for you."
+            note = "Swing trader (paper): it buys this at the next open and manages it for you."
         else:
             note = "Paper trading: blocked by the risk check, so no paper trade."
         text, png = alerts[c["idx"]]
@@ -3512,6 +3619,7 @@ def watch_once(cfg: dict, args) -> int:
     now = datetime.now(timezone.utc)
     stamp, day = now.isoformat(), now.strftime("%Y-%m-%d")
     held = {p["symbol"]: p for p in st["positions"] if p["status"] == "open"}
+    changed = False
     watch = iter_watchlist(cfg, args)
     extra = sorted(set(held) - {s for _, syms in watch for s in syms})
     if extra:
@@ -3584,20 +3692,41 @@ def watch_once(cfg: dict, args) -> int:
                         )
                         ws["sent"][key] = stamp
 
-            # 3) A paper trade's stop hit during the day
+            # 3) A paper trade's stop hit during the day: close it now, like a real stop order would
             if wc.get("stop_warnings", True) and sym in held:
                 pos = held[sym]
                 long = pos["direction"] == "long"
-                extreme = float(last["Low"]) if long else float(last["High"])
+                bar_day = bar_label(ind.index[-1], "1d")
+                same_day_live = bool(pos.get("entry_live")) and pos.get("entry_date") == bar_day
+                # a trade bought during today's session only counts prices since it was bought
+                extreme = price if same_day_live else (float(last["Low"]) if long else float(last["High"]))
                 hit = extreme <= float(pos["stop"]) if long else extreme >= float(pos["stop"])
                 key = f"stop|{sym}|{day}"
                 if hit and key not in ws["sent"]:
-                    msgs.append(
-                        f"<b>Stop hit: {esc(sym)}</b> traded at {fmt_price(extreme, ccy)}, through the paper stop at "
-                        f"{fmt_price(float(pos['stop']), ccy)}. Tonight's scan records the exit. "
-                        f"With real money, this is where your stop order would have {'sold' if long else 'bought it back'}."
-                    )
                     ws["sent"][key] = stamp
+                    p_obj = Position.from_dict(pos)
+                    o_ = float(last["Open"])
+                    gapped = (not same_day_live and p_obj.entry_date != bar_day and
+                              ((long and o_ <= p_obj.stop) or ((not long) and o_ >= p_obj.stop)))
+                    exit_px = o_ if gapped else float(p_obj.stop)
+                    reason = "stop (gapped through)" if gapped else ("stop" if (long and p_obj.stop <= p_obj.initial_stop) or
+                                                                        ((not long) and p_obj.stop >= p_obj.initial_stop)
+                                                                        else "trailing stop")
+                    close_position(p_obj, bar_day, exit_px, reason, float(cfg["backtest"]["cost_per_side_pct"]) / 100.0)
+                    acct_ccy = cfg["account"]["currency"]
+                    st["equity"] = float(st["equity"]) + p_obj.pnl
+                    st["positions"] = [x for x in st["positions"] if not (x["symbol"] == sym and x["status"] == "open")]
+                    st["closed"].append(asdict(p_obj))
+                    held.pop(sym, None)
+                    changed = True
+                    ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
+                    msgs.append(
+                        f"<b>Stop hit, swing trade closed: {esc(sym)} {p_obj.direction} "
+                        f"{'WON' if p_obj.pnl > 0 else 'LOST'} {fmt_money(p_obj.pnl, acct_ccy)}</b> ({p_obj.r_multiple:+.2f}R). "
+                        f"In at {fmt_price(p_obj.entry_price, ccy)} on {p_obj.entry_date}, out at {fmt_price(exit_px, ccy)} "
+                        f"({esc(reason)}). Paper account {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}%)."
+                    )
+                    journal_close(p_obj, ind, ind.index[-1], msgs, acct_ccy)
 
             # 4) Fresh headlines on anything the paper account holds
             if wc.get("held_news", True) and news_on and sym in held:
@@ -3623,6 +3752,9 @@ def watch_once(cfg: dict, args) -> int:
         send_telegram(cfg, m, args)
     if not msgs:
         print(f"Watch check {now:%H:%M} UTC: {checked} market{'s' if checked != 1 else ''} open today, nothing new.")
+    if changed:
+        save_state(st)
+        save_journal()
     save_watch_state(ws)
     return len(msgs)
 
@@ -4045,6 +4177,97 @@ def trump_chores(cfg: dict, args, ps: dict) -> list[str]:
     return msgs
 
 
+def swing_lines(cfg: dict, args) -> list[str]:
+    """The swing trader's open paper trades (it holds for days to months), with how each is doing right now."""
+    st = load_state(cfg)
+    acct = cfg["account"]["currency"]
+    ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
+    lines = [f"<b>Swing trades</b> (holds days to months) · paper account {fmt_money(float(st['equity']), acct)} ({ret:+.1f}%)"]
+    total = 0.0
+    for p in st["positions"]:
+        if p.get("status") == "pending":
+            lines.append(f"⏳ {esc(p['symbol'])} {SETUP_TITLES.get(p['setup'], p['setup']).lower()}: buys at the next open")
+            continue
+        if p.get("status") != "open":
+            continue
+        px, _ = live_price(p["symbol"], args)
+        if px is None:
+            try:
+                df, _ = get_data(p["symbol"], "1d", "1mo", getattr(args, "csv_dir", None))
+                px = float(df["Close"].iloc[-1])
+            except Exception:
+                px = None
+        if px is None:
+            lines.append(f"• {esc(p['symbol'])}: no price right now")
+            continue
+        long = p.get("direction", "long") == "long"
+        move = (px - float(p["entry_price"])) if long else (float(p["entry_price"]) - px)
+        money = move * float(p["units"]) * float(p.get("fx_to_account") or 1)
+        r = move / float(p["risk_per_unit"]) if float(p.get("risk_per_unit") or 0) else 0.0
+        total += money
+        lines.append(f"{'🟢' if money >= 0 else '🔴'} {esc(p['symbol'])} {SETUP_TITLES.get(p['setup'], p['setup']).lower()} "
+                     f"since {p['entry_date']}: {fmt_money(money, acct)} ({r:+.2f}R), stop {fmt_price(float(p['stop']), p['currency'])}")
+    if len(lines) == 1:
+        lines.append("No open trades right now.")
+    else:
+        lines.append(f"Open trades together: {fmt_money(total, acct)} (not counted until they close)")
+    log = STATE_DIR / "scalper_log.csv"
+    if log.exists():
+        try:
+            last = pd.read_csv(log).iloc[-1]
+            lines.append(f"<b>Scalper, last session</b> ({last['date']}): {int(last['trades'])} trades, {int(last['won'])} won, "
+                         f"{'+' if last['pnl'] >= 0 else '-'}${abs(float(last['pnl'])):,.0f}")
+        except Exception:
+            pass
+    return lines
+
+
+def health_lines() -> list[str]:
+    """Did every bot actually run? From GitHub's own record of the last 24 hours."""
+    import subprocess
+
+    if not (os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_ACTIONS")):
+        return []
+
+    def runs(wf: str, n: int = 30) -> list[dict]:
+        r = subprocess.run(["gh", "run", "list", "--workflow", wf, "--limit", str(n), "--json",
+                            "status,conclusion,createdAt,updatedAt"], capture_output=True, text=True, timeout=60)
+        return json.loads(r.stdout) if r.returncode == 0 else []
+
+    now = pd.Timestamp.now(tz="UTC")
+    since = now - pd.Timedelta(hours=24)
+    out = ["<b>Bot health</b> (last 24 hours)"]
+    try:
+        spans = sorted((max(pd.Timestamp(x["createdAt"]), since), now if x["status"] != "completed" else pd.Timestamp(x["updatedAt"]))
+                       for x in runs("pulse.yml") if pd.Timestamp(x["updatedAt"]) > since or x["status"] != "completed")
+        gaps, cursor = [], since
+        for a, b in spans:
+            if (a - cursor).total_seconds() > 15 * 60 and cursor.weekday() < 5:
+                gaps.append((cursor, a))
+            cursor = max(cursor, b)
+        if (now - cursor).total_seconds() > 15 * 60:
+            gaps.append((cursor, now))
+        out.append("✅ 5-minute pulse ran without a gap" if not gaps else
+                   "⚠️ 5-minute pulse was down: " + ", ".join(f"{a:%a %H:%M}-{b:%H:%M} UTC" for a, b in gaps[:4]))
+    except Exception as exc:
+        out.append(f"? couldn't check the pulse ({esc(exc)})")
+    try:
+        st = load_state({"account": {"size": 5000}})
+        out.append(f"✅ nightly scan ran for {st['last_scan']}" if st.get("last_scan") else "⚠️ no nightly scan recorded")
+    except Exception:
+        pass
+    try:
+        sc = [x for x in runs("scalper.yml", 10) if pd.Timestamp(x["createdAt"]) > since]
+        long_runs = [x for x in sc if (pd.Timestamp(x["updatedAt"]) - pd.Timestamp(x["createdAt"])).total_seconds() >= 1800
+                     or x["status"] != "completed"]
+        if pd.Timestamp.now(tz="America/New_York").weekday() in (1, 2, 3, 4) or long_runs:
+            out.append("✅ scalper ran through the last US session" if long_runs else
+                       "⚠️ the scalper did not run through the last US session")
+    except Exception:
+        pass
+    return out
+
+
 def morning_briefing(cfg: dict, args) -> str:
     """A daily global briefing: top headlines, then commodities, crypto, currencies and indexes, green or red."""
     groups = [("Indexes", ["^GSPC", "^NDX", "^FTSE", "^VIX"]), ("Commodities", ["GC=F", "SI=F", "BZ=F"]),
@@ -4053,7 +4276,17 @@ def morning_briefing(cfg: dict, args) -> str:
              "SI=F": "Silver", "BZ=F": "Brent oil", "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
              "GBPUSD=X": "£/$", "EURUSD=X": "€/$"}
     tz = cfg["news"].get("timezone", "Europe/London")
-    lines = [f"☀️ <b>Morning briefing</b> · {pd.Timestamp.now(tz=tz):%a %d %b}"]
+    lines = [f"☀️ <b>Morning briefing</b> · {pd.Timestamp.now(tz=tz):%a %d %b, %H:%M} UK time"]
+    try:
+        lines += [""] + swing_lines(cfg, args)
+    except Exception as exc:
+        print(f"Briefing swing trades: {exc}")
+    try:
+        h = health_lines()
+        if h:
+            lines += [""] + h
+    except Exception as exc:
+        print(f"Briefing health: {exc}")
     heads = market_headlines(5, 18)
     if heads:
         lines += ["", "<b>Top news</b>"] + headline_lines(heads)
@@ -4118,7 +4351,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
         try:
             ist = load_insiders()
             poll_live_insiders(cfg, ist, log=print)
-            msgs += new_insider_alerts(ist, cfg)
+            msgs += new_insider_alerts(ist, cfg, args)
             save_insiders(ist)
         except Exception as exc:
             print(f"Insider feed: {exc}")
@@ -4126,6 +4359,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     utc = datetime.now(timezone.utc)
     if cfg.get("pulse", {}).get("run_scan", True) and not OFFLINE and utc.hour * 60 + utc.minute >= 25 and utc.hour < 12:
         def _scan():
+            save_to_github(f"Pulse state {today}")  # get the latest saved state first (and save ours)
             _DATA_CACHE.clear()
             cmd_scan(cfg, argparse.Namespace(**{**vars(args), "symbols": None, "benchmark": "", "force": False}))
             save_to_github(f"Bot state {today}")
