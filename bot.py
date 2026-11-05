@@ -49,6 +49,7 @@ import pandas as pd
 
 import charts
 import intraday
+import trump
 
 try:
     import tomllib  # Python 3.11+
@@ -156,6 +157,8 @@ DEFAULTS: dict = {
         "min_replay_avg_r": -1.0,
     },
     "charts": {"enabled": True},
+    "trump": {"enabled": True, "every_minutes": 5, "max_markets": 4},
+    "briefing": {"enabled": True},
     "sizing": {"enabled": True, "low_mult": 0.5, "high_mult": 1.5, "high_points": 3, "low_points": 0, "max_risk_pct": 3.0},
     "analysis": {
         "enabled": True,
@@ -1708,6 +1711,9 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         # 1) Trend breakout: a fresh close beyond the N-day high (low for shorts) in the trend's direction
         beyond = (c > ind["don_hi"]) if up else (c < ind["don_lo"])
         trig_bo = above200 & beyond & ~beyond.shift(1, fill_value=False)
+        max_day = float(s.get("max_signal_day_atr", 0) or 0)
+        if max_day > 0:  # skip signals made by one huge day (earnings gaps, news shocks)
+            trig_bo = trig_bo & ~(ind["move_atr"].abs() > max_day)
         if gate is not None:
             trig_bo = trig_bo & gate
         vol_ok = (ind["vol_ratio"] >= float(s["volume_surge"])) if has_vol else None
@@ -1728,6 +1734,8 @@ def compute_signals(ind: pd.DataFrame, bench: pd.DataFrame | None, cfg: dict, sy
         entry = float(s["pullback_rsi2_entry"])
         dipped = (ind["rsi2"] < entry) if up else (ind["rsi2"] > 100.0 - entry)
         trig_pb = above200 & dipped & ~dipped.shift(1, fill_value=False)
+        if max_day > 0:
+            trig_pb = trig_pb & ~(ind["move_atr"].abs() > max_day)
         if gate is not None:
             trig_pb = trig_pb & gate
         deep = (ind["rsi2"] < 5) if up else (ind["rsi2"] > 95)
@@ -3531,6 +3539,120 @@ def dispatch_workflow(name: str) -> bool:
         return False
 
 
+def live_price(sym: str, args) -> tuple[float | None, bool]:
+    """(latest price, market open?) from 5-minute bars."""
+    try:
+        df, _ = get_data(sym, "5m", "5d", getattr(args, "csv_dir", None))
+        last = pd.Timestamp(df.index[-1]).tz_localize("UTC") if pd.Timestamp(df.index[-1]).tzinfo is None else pd.Timestamp(df.index[-1])
+        return float(df["Close"].iloc[-1]), OFFLINE or (pd.Timestamp.now(tz="UTC") - last).total_seconds() < 25 * 60
+    except Exception:
+        return None, False
+
+
+def trump_chores(cfg: dict, args, ps: dict) -> list[str]:
+    """New Trump posts that could move markets, and the 30/120-minute checks of what really happened."""
+    tc = cfg.get("trump", {})
+    msgs: list[str] = []
+    now = pd.Timestamp.now(tz="UTC")
+    seen = ps.setdefault("trump_seen", [])
+    checks = ps.setdefault("trump_checks", [])
+    try:
+        import requests
+
+        r = requests.get(trump.FEED, timeout=20, headers={"User-Agent": "Mozilla/5.0 (setup-scanner-bot)"})
+        r.raise_for_status()
+        posts = trump.parse_feed(r.text)
+    except Exception as exc:
+        _news_note("Trump posts", exc)
+        posts = []
+    first_run = not ps.get("trump_seeded")
+    ps["trump_seeded"] = True
+    for post in reversed(posts):  # oldest first
+        if post["id"] in seen:
+            continue
+        seen.append(post["id"])
+        if first_run or (post["when"] is not None and (now - post["when"]).total_seconds() > 90 * 60):
+            continue  # old posts aren't news any more
+        effects = trump.read_post(post["text"])
+        if not effects:
+            continue
+        lines = [f"🇺🇸 <b>TRUMP POST</b> · {ago(post['when'])}",
+                 f"“{esc(post['text'][:450])}{'…' if len(post['text']) > 450 else ''}”", "", "<b>Could move:</b>"]
+        markets = []
+        for h in effects[: int(tc.get("max_markets", 4))]:
+            px, open_ = live_price(h["market"], args)
+            arrow = "⬆ up" if h["direction"] > 0 else "⬇ down"
+            lines.append(f"{esc(h['market'])} {arrow}: {esc(h['why'])} (topic: {esc(h['topic'])}) · {chart_link(h['market'], 5)}"
+                         + ("" if open_ else " · market closed now"))
+            if px:
+                markets.append({"market": h["market"], "direction": h["direction"], "p0": px, "open": open_, "topic": h["topic"]})
+        lines += ["", "The bot checks what really happened 30 and 120 minutes from now (paper only).",
+                  "<i>A free feed is minutes late: fast traders move first. Not advice.</i>"]
+        if post["url"]:
+            lines.append(f'<a href="{html.escape(post["url"], quote=True)}">The post</a>')
+        msgs.append("\n".join(lines))
+        checks.append({"id": post["id"], "text": post["text"][:80], "at": now.isoformat(), "markets": markets, "done": []})
+    ps["trump_seen"] = seen[-400:]
+    # Follow-ups
+    keep = []
+    for c in checks:
+        age = (now - pd.Timestamp(c["at"])).total_seconds() / 60
+        for mins in (30, 120):
+            if age >= mins and mins not in c["done"]:
+                c["done"].append(mins)
+                res = []
+                for m in c["markets"]:
+                    if not m.get("open"):
+                        continue
+                    px, _ = live_price(m["market"], args)
+                    if not px:
+                        continue
+                    move = (px / m["p0"] - 1) * 100
+                    right = move * m["direction"] > 0.05
+                    wrong = move * m["direction"] < -0.05
+                    res.append(f"{esc(m['market'])} {move:+.2f}% {'✅ as expected' if right else ('❌ the other way' if wrong else '➖ barely moved')}")
+                    if mins == 120:
+                        rec = ps.setdefault("trump_record", {}).setdefault(m["topic"], [0, 0])
+                        rec[0] += int(right)
+                        rec[1] += 1
+                if res:
+                    msgs.append(f"🇺🇸 <b>{mins} minutes after Trump's post</b> “{esc(c['text'])}…”\n" + "\n".join(res))
+        if len(c["done"]) < 2 and age < 24 * 60:
+            keep.append(c)
+    ps["trump_checks"] = keep
+    return msgs
+
+
+def morning_briefing(cfg: dict, args) -> str:
+    """A daily global briefing: top headlines, then commodities, crypto, currencies and indexes, green or red."""
+    groups = [("Indexes", ["^GSPC", "^NDX", "^FTSE", "^VIX"]), ("Commodities", ["GC=F", "SI=F", "BZ=F"]),
+              ("Crypto", ["BTC-USD", "ETH-USD", "SOL-USD"]), ("Currencies", ["GBPUSD=X", "EURUSD=X"])]
+    names = {"^GSPC": "S&P 500", "^NDX": "Nasdaq 100", "^FTSE": "FTSE 100", "^VIX": "VIX (fear)", "GC=F": "Gold",
+             "SI=F": "Silver", "BZ=F": "Brent oil", "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
+             "GBPUSD=X": "£/$", "EURUSD=X": "€/$"}
+    tz = cfg["news"].get("timezone", "Europe/London")
+    lines = [f"☀️ <b>Morning briefing</b> · {pd.Timestamp.now(tz=tz):%a %d %b}"]
+    heads = market_headlines(5, 18)
+    if heads:
+        lines += ["", "<b>Top news</b>"] + headline_lines(heads)
+    for title, syms in groups:
+        rows = []
+        for sym in syms:
+            try:
+                df, meta = get_data(sym, "1d", "1mo", getattr(args, "csv_dir", None))
+                c, pc = float(df["Close"].iloc[-1]), float(df["Close"].iloc[-2])
+                chg = (c / pc - 1) * 100
+                rows.append(f"{'🟢' if chg >= 0 else '🔴'} {names.get(sym, sym)} {fmt_price(c, meta.get('currency', 'USD'))} ({chg:+.2f}%)")
+            except Exception:
+                continue
+        if rows:
+            lines += ["", f"<b>{title}</b>"] + rows
+    evs = upcoming_events(cfg, 1)
+    if evs:
+        lines += ["", "<b>Coming up</b>"] + [esc(event_text(e)) for e in evs]
+    return "\n".join(lines)
+
+
 def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     """Jobs the all-day pulse does so they don't depend on GitHub's unreliable schedules."""
     pc, cc = cfg["pulse"], cfg.get("copy", {})
@@ -3562,6 +3684,23 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             save_insiders(ist)
         except Exception as exc:
             print(f"Insider feed: {exc}")
+    # 5) Trump's posts, every few minutes
+    if cfg.get("trump", {}).get("enabled", True) and not OFFLINE and \
+            time.time() - state.get("trump", 0) >= 60 * float(cfg.get("trump", {}).get("every_minutes", 5)):
+        state["trump"] = time.time()
+        try:
+            msgs += trump_chores(cfg, args, ps)
+        except Exception as exc:
+            print(f"Trump posts: {exc}")
+    # 6) The morning briefing, once a day from 06:30 UK time
+    uk = pd.Timestamp.now(tz=cfg["news"].get("timezone", "Europe/London"))
+    if cfg.get("briefing", {}).get("enabled", True) and ps.get("briefing_day") != today and uk.weekday() < 5 and \
+            uk.hour * 60 + uk.minute >= 6 * 60 + 30:
+        ps["briefing_day"] = today
+        try:
+            msgs.append(morning_briefing(cfg, args))
+        except Exception as exc:
+            print(f"Morning briefing: {exc}")
     # 4) The watchlist check (big moves, breakouts in progress, paper stops, news) every 30 minutes
     if pc.get("run_watch", True) and time.time() - state.get("watch", 0) >= 60 * float(pc.get("watch_every_minutes", 30)):
         state["watch"] = time.time()
