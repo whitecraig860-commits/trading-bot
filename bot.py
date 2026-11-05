@@ -3077,6 +3077,64 @@ def _stats_row(label: str, st: dict) -> list[str]:
     ]
 
 
+def portfolio_sim(trades: list, cfg: dict, risk_pct: float, heat_pct: float, max_open: int,
+                  start_equity: float = 5000.0) -> dict:
+    """Runs the whole paper account through history: each day's new signals are ranked (breakouts first,
+    then higher score), taken while total open risk stays under heat_pct, sized at risk_pct of the account
+    at the time, and paid out in R when they close. Open risk counts from the entry stop (no credit for
+    trailed stops), so this is on the cautious side."""
+    setup_rank = {"breakout": 0, "copy": 1, "pullback": 2}
+    ts = [t for t in trades if t.entry_date and t.exit_date and t.exit_reason != "still open at the end of the data"]
+    ts.sort(key=lambda t: (t.entry_date, setup_rank.get(t.setup, 3), -t.score))
+    eq, peak, max_dd = start_equity, start_equity, 0.0
+    open_: list = []  # (exit_date, risk_amount, r)
+    taken = skipped = 0
+    curve = []
+    for t in ts:
+        still = []
+        for ex, risk, r in sorted(open_):
+            if ex <= t.entry_date:
+                eq += risk * r
+                peak = max(peak, eq)
+                max_dd = max(max_dd, 1 - eq / peak)
+            else:
+                still.append((ex, risk, r))
+        open_ = still
+        risk_amt = eq * risk_pct / 100
+        heat = sum(r for _, r, _ in open_)
+        if heat + risk_amt > eq * heat_pct / 100 + 1e-9 or len(open_) >= max_open or eq <= 0:
+            skipped += 1
+            continue
+        taken += 1
+        open_.append((t.exit_date, risk_amt, t.r_multiple))
+        curve.append((t.entry_date, eq))
+    for ex, risk, r in sorted(open_):
+        eq += risk * r
+        peak = max(peak, eq)
+        max_dd = max(max_dd, 1 - eq / peak)
+    years = 1.0
+    if ts:
+        years = max(0.5, (pd.Timestamp(ts[-1].exit_date) - pd.Timestamp(ts[0].entry_date)).days / 365.25)
+    cagr = (eq / start_equity) ** (1 / years) - 1 if eq > 0 else -1.0
+    return {"risk": risk_pct, "heat": heat_pct, "taken": taken, "skipped": skipped, "final": eq,
+            "cagr": cagr, "max_dd": max_dd, "years": years}
+
+
+def portfolio_report(trades: list, cfg: dict) -> None:
+    max_open = int(cfg["paper"]["max_open_positions"])
+    print("\nWhole-account simulation (every signal that passes your paper rules, ranked each day, £5,000 start,")
+    print(f"at most {max_open} trades open, open risk counted from the entry stop):\n")
+    rows = []
+    for risk in (1.0, 2.0):
+        for heat in (6, 12, 18, 24, 36):
+            r = portfolio_sim(trades, cfg, risk, heat, max_open)
+            rows.append([f"{risk:g}%", f"{heat}%", f"{r['taken']}/{r['taken'] + r['skipped']}",
+                         f"£{r['final']:,.0f}", f"{r['cagr']:+.1%}", f"{r['max_dd']:.0%}",
+                         f"{r['cagr'] / r['max_dd']:.2f}" if r["max_dd"] > 0 else "-"])
+    print(_table(["Risk/trade", "Risk cap", "Trades taken", "End balance", "A year", "Worst fall", "Year/fall"], rows))
+    print("Year/fall = yearly growth divided by the worst fall: higher means more growth for each bit of pain.")
+
+
 def cmd_backtest(cfg: dict, args) -> int:
     interval = cfg["scan"]["interval"]
     history = cfg["backtest"]["history"]
@@ -3146,6 +3204,9 @@ def cmd_backtest(cfg: dict, args) -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     out = STATE_DIR / "backtest_trades.csv"
     pd.DataFrame([asdict(t) for t in all_trades]).to_csv(out, index=False)
+    if getattr(args, "portfolio", False):
+        paper_trades = [t for t in all_trades if t.score >= min_score_for(t.setup, cfg, "paper")]
+        portfolio_report(paper_trades, cfg)
     print(f"\nEvery trade is saved in {out.relative_to(BASE_DIR) if out.is_relative_to(BASE_DIR) else out}")
     print("How to read this: look for positive expectancy after costs in BOTH periods, from at least 100 trades,")
     print("and higher scores doing better than lower ones. If you change settings to improve these numbers,")
@@ -4029,6 +4090,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--until", default="", help="pulse: stop at this UTC time, e.g. 21:35")
     parser.add_argument("--for", dest="for_minutes", type=float, default=0, help="pulse: stop after this many minutes")
     parser.add_argument("--days", type=int, default=0, help="insiders: how many days of SEC filings to read")
+    parser.add_argument("--portfolio", action="store_true", help="backtest: also simulate the whole account at different risk caps")
     parser.add_argument("--no-fetch", action="store_true", help="insiders: list what's already saved, without downloading")
     args = parser.parse_args(argv)
     global OFFLINE
