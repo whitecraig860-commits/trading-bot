@@ -41,6 +41,8 @@ volume_surge = 1.5            # "heavy volume" = at least this many times the 20
 adx_trending = 20             # ADX at or above this counts as a trending market
 squeeze_pctile = 0.25         # squeeze = Bollinger width in the narrowest 25% of the last 6 months
 overextended_atr = 3.0        # breakouts this many ATRs above the 20-day average lose points
+max_signal_day_atr = 0        # e.g. 3 skips signals made by one huge day (earnings gaps, news shocks). Off: in the
+                              # 10-year test it made no difference (breakouts +0.79R either way), so they're kept
 copy_stop_atr = 3.0           # copy-the-insiders trades: stop and trailing stop, in ATRs (insiders are often early)
 copy_max_hold_bars = 63       # ...and sold after about 3 months at most
 
@@ -61,6 +63,20 @@ high_mult = 1.5
 high_points = 3
 low_points = 0
 max_risk_pct = 3.0
+
+[trump]
+# Reads Donald Trump's Truth Social posts every 5 minutes while the pulse runs (via trumpstruth.org; Truth Social
+# blocks automated readers). A post about tariffs, China, the Fed, oil or Iran, crypto, the stock market or a named
+# company gets an alert saying which markets it could move and which way, then a check 30 and 120 minutes later
+# of what really happened. Paper only. A free feed is minutes late, so fast traders move first: the checks show
+# whether anything is left to catch.
+enabled = true
+every_minutes = 5
+max_markets = 4
+
+[briefing]
+enabled = true              # a morning briefing on weekdays from 06:30 UK: top news, then indexes, commodities,
+                            # crypto and currencies, green or red
 
 [charts]
 enabled = true              # send a chart picture with alerts, closed trades, pulse signals and scalper trades
