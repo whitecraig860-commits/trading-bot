@@ -571,7 +571,7 @@ class Alpaca:
         try:
             return self.trading.close_position(contract)
         except Exception as exc:
-            print(f"close {contract}: {exc}")
+            print(bot.redact(f"close {contract}: {exc}", {}))
             return None
 
 
@@ -601,7 +601,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
     clock = api.clock()
     if not clock.is_open:
         nxt = pd.Timestamp(clock.next_open).tz_convert(NY)
-        if (nxt - pd.Timestamp.now(tz=NY)).total_seconds() > 20 * 60:
+        if (nxt - pd.Timestamp.now(tz=NY)).total_seconds() > 45 * 60:
             print(f"Market closed. Next open {nxt:%a %d %b %H:%M} New York time. Nothing to do.")
             return 0
         print(f"Waiting for the open at {nxt:%H:%M} New York time...")
@@ -622,7 +622,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
         try:
             history5 = api.bars_history(cfg["symbols"])
         except Exception as exc:
-            print(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.")
+            print(bot.redact(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.", full))
     fh, fm = ny_time(cfg["flat_by"])
     while True:
         now = pd.Timestamp.now(tz=NY)
@@ -632,7 +632,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
             bars = api.bars_today(cfg["symbols"])
             tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5)
         except Exception as exc:
-            print(f"{now:%H:%M:%S} error: {exc}")
+            print(bot.redact(f"{now:%H:%M:%S} error: {exc}", full))
         save_day(day)
         if flat_time or out_of_time:
             break
