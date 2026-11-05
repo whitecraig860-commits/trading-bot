@@ -3900,6 +3900,67 @@ def dispatch_workflow(name: str) -> bool:
         return False
 
 
+def scalper_runs_today() -> list[dict] | None:
+    """The scalper's GitHub runs from the last 24 hours: [{status, minutes, created}] (None if GitHub can't be asked)."""
+    import subprocess
+
+    if not (os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_ACTIONS")):
+        return None
+    try:
+        r = subprocess.run(["gh", "run", "list", "--workflow", "scalper.yml", "--limit", "8", "--json",
+                            "status,createdAt,updatedAt,conclusion"], capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            return None
+        out = []
+        for x in json.loads(r.stdout):
+            created = pd.Timestamp(x["createdAt"])
+            if (pd.Timestamp.now(tz="UTC") - created).total_seconds() > 24 * 3600:
+                continue
+            mins = (pd.Timestamp(x["updatedAt"]) - created).total_seconds() / 60
+            out.append({"status": x["status"], "minutes": mins, "created": created})
+        return out
+    except Exception as exc:
+        print(f"Scalper runs: {exc}")
+        return None
+
+
+def scalper_supervisor(ps: dict) -> list[str]:
+    """Makes sure the 0DTE scalper is actually running through the US session. On 5 Nov it was started once, 30
+    minutes before the open, gave up, and never tried again, so it missed a 4% fall. Now, from 09:15 to 15:00 New
+    York time, if no scalper run is going (and the last one ended early), it starts one, up to 4 times a day."""
+    msgs: list[str] = []
+    ny = pd.Timestamp.now(tz="America/New_York")
+    day = ny.strftime("%Y-%m-%d")
+    if ny.weekday() >= 5:
+        return msgs
+    mins = ny.hour * 60 + ny.minute
+    st = ps.setdefault("scalper", {})
+    if st.get("day") != day:
+        st.clear()
+        st.update(day=day, tries=0, last_try=0.0, warned=False)
+    if 9 * 60 + 15 <= mins <= 15 * 60 and st["tries"] < 4 and time.time() - st["last_try"] > 10 * 60:
+        runs = scalper_runs_today()
+        if runs is None:
+            if not os.environ.get("GITHUB_ACTIONS"):
+                return msgs  # on your own computer you run scalper.py yourself
+            runs = []
+        running = [r for r in runs if r["status"] in {"in_progress", "queued", "pending", "waiting", "requested"}]
+        healthy = [r for r in runs if r["minutes"] >= 30 and r["created"] >= pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=8)]
+        if not running and not healthy:
+            st["tries"] += 1
+            st["last_try"] = time.time()
+            if dispatch_workflow("scalper.yml") and st["tries"] > 1:
+                msgs.append(f"⚙️ The 0DTE scalper wasn't running, so the pulse started it (attempt {st['tries']}).")
+    # After the last entry time: say clearly if the scalper never ran, so a quiet day is never a mystery
+    if mins >= 15 * 60 + 10 and not st.get("warned"):
+        st["warned"] = True
+        runs = scalper_runs_today()
+        if runs is not None and not any(r["minutes"] >= 30 for r in runs):
+            msgs.append("⚠️ The 0DTE scalper did NOT run during the US session today (no run lasted 30+ minutes). "
+                        "No scalper trades were possible. The pulse tried to start it " f"{st['tries']} time(s).")
+    return msgs
+
+
 def live_price(sym: str, args) -> tuple[float | None, bool]:
     """(latest price, market open?) from 5-minute bars."""
     try:
@@ -4020,13 +4081,12 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     msgs: list[str] = []
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
-    ny = pd.Timestamp.now(tz="America/New_York")
-    # 1) Start the 0DTE scalper just before the US open (once a day, weekdays)
-    if pc.get("start_scalper", True) and ny.weekday() < 5 and ps.get("scalper_day") != today:
-        mins = ny.hour * 60 + ny.minute
-        if 9 * 60 + 15 <= mins <= 9 * 60 + 40:
-            if dispatch_workflow("scalper.yml") or not os.environ.get("GITHUB_ACTIONS"):
-                ps["scalper_day"] = today
+    # 1) Keep the 0DTE scalper running through the US session (starts it, and restarts it if it dies)
+    if pc.get("start_scalper", True):
+        try:
+            msgs += scalper_supervisor(ps)
+        except Exception as exc:
+            print(f"Scalper supervisor: {exc}")
     # 2) The daily insider catch-up (every filing from the previous days), once a day
     if cc.get("enabled", True) and not OFFLINE and ps.get("insiders_day") != today:
         try:
