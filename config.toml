@@ -179,8 +179,16 @@ seed = 19                   # same seed = same answer every time
 # Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
 daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% of the account (two full losses)
 weekly_loss_limit_pct = 10  # ...or this week's reach 10%
-max_open_risk_pct = 12      # total at risk across all open trades (6 trades at 2%)
+max_open_risk_pct = 16      # total that can still be lost across all open trades (8 trades at 2%). The 10-year whole-
+                            # account test ("python bot.py backtest --portfolio"): at 2% a trade, a 12% cap blocked 202
+                            # of 759 good trades (+25.6% a year, worst fall 27%); 16-18% blocked none (+40.5% a year,
+                            # worst fall 35%). For real money, 1% a trade with a 12% cap blocked none either and fell
+                            # least (+23.2% a year, worst fall 19%).
 max_new_trades_per_day = 3
+low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
+                                # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
+                                # copy trades, then pullbacks; within each, HIGH confidence first), and open trades count
+                                # only what they can still lose to their current stop.
 min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average is below +0.1R; -1 = off
 
 [analysis]
@@ -199,9 +207,11 @@ fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 # approach that's working, and a WON/LOST message for every paper trade it follows.
 markets = ["GC=F", "SPY", "QQQ", "IWM", "^FTSE", "BTC-USD"]   # gold, S&P 500, Nasdaq, Russell 2000, FTSE 100, Bitcoin
 every_minutes = 5
+run_scan = true             # the pulse runs the nightly scan itself at 00:25 UTC (GitHub's schedule ran it up to 6.5 hours late)
 send_open_brief = true      # a summary when each market opens
 send_changes = true         # a message when a market switches between trending and choppy, or changes direction
 confirm_bars = 3            # ...only once the change has lasted 3 bars (15 minutes), to stop flip-flopping
+min_minutes_between_changes = 60  # ...and at least an hour after the last one for that market
 max_changes_per_market = 3  # ...and at most 3 change messages per market per day
 send_signals = true         # signals for the best approach (only if it has made money there lately)
 max_signals_per_market = 4  # per day
