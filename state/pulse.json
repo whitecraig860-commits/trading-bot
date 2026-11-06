@@ -7,48 +7,49 @@
      "win_rate": 0.24786324786324787,
      "avg_r": -0.3045521882828006,
      "total_r": -35.632606029087675,
-     "sessions": 49
+     "sessions": 50
     },
     "orb": {
      "trades": 76,
      "win_rate": 0.3815789473684211,
      "avg_r": 0.013877360399661656,
      "total_r": 1.054679390374286,
-     "sessions": 49
+     "sessions": 50
     },
     "fade": {
      "trades": 4,
      "win_rate": 0.75,
      "avg_r": 0.6452824682588348,
      "total_r": 2.5811298730353394,
-     "sessions": 49
+     "sessions": 50
     },
     "vwap": {
      "trades": 360,
      "win_rate": 0.20555555555555555,
      "avg_r": -0.13002545164868512,
      "total_r": -46.80916259352664,
-     "sessions": 49
+     "sessions": 50
     },
     "late": {
      "trades": 40,
      "win_rate": 0.45,
      "avg_r": -0.11483530830200439,
      "total_r": -4.593412332080176,
-     "sessions": 49
+     "sessions": 50
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
-   "last_bar": "2026-11-05 16:55:00-05:00",
-   "brief_day": "2026-11-05",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
+   "last_bar": "2026-11-06 05:55:00-05:00",
+   "brief_day": "2026-11-06",
    "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-05": 3
+    "2026-11-06": 1
    },
-   "stance_desc": "TRENDING DOWN"
+   "stance_desc": "TRENDING DOWN",
+   "last_change_at": "2026-11-06T10:25:40.000701+00:00"
   },
   "SPY": {
    "record": {
@@ -88,7 +89,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
    "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
    "stance": "down|None",
@@ -139,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
    "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
    "stance": "down|None",
@@ -190,7 +191,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
    "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
    "stance": "down|None",
@@ -206,17 +207,17 @@
   "^FTSE": {
    "record": {
     "trend": {
-     "trades": 69,
-     "win_rate": 0.2028985507246377,
-     "avg_r": -0.5034932222788318,
-     "total_r": -34.74103233723939,
+     "trades": 70,
+     "win_rate": 0.2,
+     "avg_r": -0.5176097246257442,
+     "total_r": -36.23268072380209,
      "sessions": 60
     },
     "orb": {
-     "trades": 31,
-     "win_rate": 0.3870967741935484,
-     "avg_r": -0.11683709808851221,
-     "total_r": -3.6219500407438785,
+     "trades": 30,
+     "win_rate": 0.4,
+     "avg_r": -0.08428501846846262,
+     "total_r": -2.5285505540538784,
      "sessions": 60
     },
     "fade": {
@@ -227,38 +228,40 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 270,
-     "win_rate": 0.2814814814814815,
-     "avg_r": -0.049885155010782625,
-     "total_r": -13.468991852911309,
+     "trades": 266,
+     "win_rate": 0.2781954887218045,
+     "avg_r": -0.056996356212604356,
+     "total_r": -15.161030752552758,
      "sessions": 60
     },
     "late": {
      "trades": 41,
      "win_rate": 0.5121951219512195,
-     "avg_r": -0.03166242138165441,
-     "total_r": -1.298159276647831,
+     "avg_r": -0.03166241570846703,
+     "total_r": -1.2981590440471482,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
-   "last_bar": "2026-11-05 16:10:00+00:00",
-   "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
+   "last_bar": "2026-11-06 10:50:00+00:00",
+   "brief_day": "2026-11-06",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-05": 3
-   }
+    "2026-11-06": 2
+   },
+   "stance_desc": "TRENDING DOWN",
+   "last_change_at": "2026-11-06T10:15:40.001846+00:00"
   },
   "BTC-USD": {
    "record": {
     "trend": {
-     "trades": 262,
-     "win_rate": 0.32061068702290074,
-     "avg_r": -0.6554508408971278,
-     "total_r": -171.72812031504748,
+     "trades": 264,
+     "win_rate": 0.32196969696969696,
+     "avg_r": -0.6510519731952853,
+     "total_r": -171.87772092355533,
      "sessions": 60
     },
     "orb": {
@@ -276,10 +279,10 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 568,
-     "win_rate": 0.19014084507042253,
-     "avg_r": -0.7895343467860436,
-     "total_r": -448.45550897447276,
+     "trades": 569,
+     "win_rate": 0.19156414762741653,
+     "avg_r": -0.7854006563213023,
+     "total_r": -446.892973446821,
      "sessions": 60
     },
     "late": {
@@ -290,18 +293,18 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-06T05:00:40.000263+00:00",
-   "last_bar": "2026-11-06 05:35:00+00:00",
+   "record_at": "2026-11-06T10:10:40.000855+00:00",
+   "last_bar": "2026-11-06 11:00:00+00:00",
    "brief_day": "2026-11-06",
-   "stance": "down|None",
-   "pending": null,
-   "pending_n": 0,
+   "stance": "up|None",
+   "pending": "none|None",
+   "pending_n": 2,
    "alerts": {},
    "changes": {
-    "2026-11-06": 2
+    "2026-11-06": 3
    },
-   "stance_desc": "LEANING DOWN, not trending cleanly",
-   "last_change_at": "2026-11-06T01:50:40.000282+00:00"
+   "stance_desc": "TRENDING UP",
+   "last_change_at": "2026-11-06T09:15:40.000739+00:00"
   }
  },
  "trades": [],
@@ -441,6 +444,12 @@
    "tries": 1,
    "done": true,
    "last": 1793924810.6762543
+  },
+  "morning briefing": {
+   "day": "2026-11-06",
+   "tries": 1,
+   "done": true,
+   "last": 1793946642.3153253
   }
  },
  "scan_day": "2026-11-06"
