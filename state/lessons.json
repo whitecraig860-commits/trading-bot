@@ -1,0 +1,49 @@
+{
+"history": {},
+"paper": [
+{
+"id": "GKOS|breakout|2026-10-30",
+"kind": "daily",
+"setup": "breakout",
+"symbol": "GKOS",
+"r": -1.0205339184919815,
+"conditions": [],
+"date": "2026-11-05",
+"findings": []
+}
+],
+"pending": [
+{
+"id": "GKOS|breakout|2026-10-30",
+"symbol": "GKOS",
+"exit_date": "2026-11-05",
+"entry": 242.4199981689453,
+"stop": 219.9048207051501,
+"exit": 219.9048207051501,
+"long": true,
+"reason": "stop",
+"r": -1.0205339184919815,
+"setup": "breakout"
+}
+],
+"paper_tables": {
+"daily|breakout": {
+"all": {
+"n": 1,
+"avg": -1.0205339184919815,
+"win": 0.0,
+"sd": 0.0
+},
+"cond": {},
+"symbol": {
+"GKOS": {
+"n": 1,
+"avg": -1.0205339184919815,
+"win": 0.0,
+"sd": 0.0
+}
+},
+"finding": {}
+}
+}
+}
