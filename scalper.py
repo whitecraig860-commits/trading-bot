@@ -490,6 +490,7 @@ class Trade:
     u_stop: float = 0.0      # VWAP then: where the setup is wrong
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
+    best_r: float = 0.0      # the share's best move in its favour so far, in R (for locking in profit)
     risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
@@ -972,8 +973,23 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         reason = None
         sb = sig_bars.get(t.worker)
         ind = session_indicators(sb, cfg) if sb is not None and len(sb) > 3 else None
+        u_r = None
+        if t.u_entry and t.worker in bars and len(bars[t.worker]):
+            u_now = float(bars[t.worker]["Close"].iloc[-1])
+            u_risk = max(abs(t.u_entry - t.u_stop), t.u_entry * 0.0015)
+            u_r = ((u_now - t.u_entry) if t.side == "call" else (t.u_entry - u_now)) / u_risk
+            t.best_r = max(t.best_r, u_r)
+        floor = profit_floor(t.best_r, cfg)
+        best_gain = (t.best / t.entry_price - 1) * 100
         if force_exit:
             reason = "end of the trading window"
+        elif u_r is not None and cfg.get("lock_profits") and u_r >= float(cfg.get("target_r", 2.0)):
+            reason = f"profit target: the share moved {u_r:.1f}R your way ({chg:+.0f}% on the option)"
+        elif u_r is not None and floor is not None and u_r <= floor:
+            reason = f"locked in profit: it was up {t.best_r:.1f}R and came back ({chg:+.0f}%)"
+        elif cfg.get("lock_profits") and best_gain >= float(cfg.get("lock_after_pct", 15)) and \
+                chg <= float(cfg.get("lock_floor_pct", 3)):
+            reason = f"locked in profit: the option was up {best_gain:.0f}% and came back ({chg:+.0f}%)"
         elif chg <= -float(cfg["stop_loss_pct"]):
             reason = f"stop loss ({chg:.0f}%)"
         elif chg >= float(cfg["take_profit_pct"]):
