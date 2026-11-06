@@ -24,30 +24,31 @@
      "sessions": 50
     },
     "vwap": {
-     "trades": 357,
-     "win_rate": 0.20448179271708683,
-     "avg_r": -0.1329266803745628,
-     "total_r": -47.454824893718914,
+     "trades": 359,
+     "win_rate": 0.20334261838440112,
+     "avg_r": -0.13575346986001646,
+     "total_r": -48.73549567974591,
      "sessions": 50
     },
     "late": {
-     "trades": 39,
-     "win_rate": 0.46153846153846156,
-     "avg_r": -0.1116883529626379,
-     "total_r": -4.355845765542878,
+     "trades": 40,
+     "win_rate": 0.45,
+     "avg_r": -0.1118015776198605,
+     "total_r": -4.47206310479442,
      "sessions": 50
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
-   "last_bar": "2026-11-05 13:20:00-05:00",
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
+   "last_bar": "2026-11-05 16:55:00-05:00",
    "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
     "2026-11-05": 3
-   }
+   },
+   "stance_desc": "TRENDING DOWN"
   },
   "SPY": {
    "record": {
@@ -80,31 +81,33 @@
      "sessions": 60
     },
     "late": {
-     "trades": 49,
-     "win_rate": 0.3469387755102041,
-     "avg_r": -0.265522009694443,
-     "total_r": -13.010578475027708,
+     "trades": 50,
+     "win_rate": 0.36,
+     "avg_r": -0.24886582176694397,
+     "total_r": -12.443291088347198,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
-   "last_bar": "2026-11-05 13:25:00-05:00",
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
+   "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-05": 1
-   }
+    "2026-11-05": 2
+   },
+   "last_change_at": "2026-11-05T18:45:40.000634+00:00",
+   "stance_desc": "TRENDING DOWN"
   },
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 48,
-     "win_rate": 0.22916666666666666,
-     "avg_r": -0.25954283156713137,
-     "total_r": -12.458055915222305,
+     "trades": 49,
+     "win_rate": 0.24489795918367346,
+     "avg_r": -0.2501907589344483,
+     "total_r": -12.259347187787968,
      "sessions": 60
     },
     "orb": {
@@ -122,38 +125,40 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 190,
-     "win_rate": 0.22105263157894736,
-     "avg_r": -0.05819980587156666,
-     "total_r": -11.057963115597666,
+     "trades": 191,
+     "win_rate": 0.2198952879581152,
+     "avg_r": -0.06249616759409619,
+     "total_r": -11.936768010472372,
      "sessions": 60
     },
     "late": {
-     "trades": 50,
-     "win_rate": 0.4,
-     "avg_r": -0.04785700730975627,
-     "total_r": -2.3928503654878135,
+     "trades": 51,
+     "win_rate": 0.4117647058823529,
+     "avg_r": -0.02985184615960178,
+     "total_r": -1.522444154139691,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
-   "last_bar": "2026-11-05 13:25:00-05:00",
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
+   "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-04": 3
-   }
+    "2026-11-05": 2
+   },
+   "last_change_at": "2026-11-05T20:00:40.000522+00:00",
+   "stance_desc": "LEANING DOWN, not trending cleanly"
   },
   "IWM": {
    "record": {
     "trend": {
-     "trades": 51,
-     "win_rate": 0.39215686274509803,
-     "avg_r": -0.039139793294720414,
-     "total_r": -1.9961294580307412,
+     "trades": 53,
+     "win_rate": 0.39622641509433965,
+     "avg_r": -0.04812587647066682,
+     "total_r": -2.5506714529453416,
      "sessions": 60
     },
     "orb": {
@@ -178,23 +183,25 @@
      "sessions": 60
     },
     "late": {
-     "trades": 49,
-     "win_rate": 0.3877551020408163,
-     "avg_r": -0.12823606724541017,
-     "total_r": -6.283567295025098,
+     "trades": 50,
+     "win_rate": 0.4,
+     "avg_r": -0.12412732198604176,
+     "total_r": -6.206366099302088,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
-   "last_bar": "2026-11-05 13:25:00-05:00",
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
+   "last_bar": "2026-11-05 15:55:00-05:00",
    "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-05": 2
-   }
+    "2026-11-05": 3
+   },
+   "last_change_at": "2026-11-05T18:45:40.000634+00:00",
+   "stance_desc": "TRENDING DOWN"
   },
   "^FTSE": {
    "record": {
@@ -234,7 +241,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
    "last_bar": "2026-11-05 16:10:00+00:00",
    "brief_day": "2026-11-05",
    "stance": "down|trend|None",
@@ -248,10 +255,10 @@
   "BTC-USD": {
    "record": {
     "trend": {
-     "trades": 270,
-     "win_rate": 0.3333333333333333,
-     "avg_r": -0.6063073986459986,
-     "total_r": -163.70299763441963,
+     "trades": 271,
+     "win_rate": 0.33579335793357934,
+     "avg_r": -0.5971817420719272,
+     "total_r": -161.83625210149228,
      "sessions": 60
     },
     "orb": {
@@ -283,21 +290,127 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-05T17:35:40.001547+00:00",
-   "last_bar": "2026-11-05 18:25:00+00:00",
-   "brief_day": "2026-11-05",
-   "stance": "down|trend|None",
-   "pending": null,
-   "pending_n": 0,
+   "record_at": "2026-11-05T23:45:40.000592+00:00",
+   "last_bar": "2026-11-06 00:10:00+00:00",
+   "brief_day": "2026-11-06",
+   "stance": "none|None",
+   "pending": "range|None",
+   "pending_n": 1,
    "alerts": {},
    "changes": {
     "2026-11-05": 3
-   }
+   },
+   "stance_desc": "MIXED: no clear direction"
   }
  },
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-04",
- "scalper_day": "2026-11-05"
+ "summary_day": "2026-11-05",
+ "scalper_day": "2026-11-05",
+ "trump_seen": [
+  "https://www.trumpstruth.org/statuses/43372",
+  "https://www.trumpstruth.org/statuses/43371",
+  "https://www.trumpstruth.org/statuses/43370",
+  "https://www.trumpstruth.org/statuses/43369",
+  "https://www.trumpstruth.org/statuses/43368",
+  "https://www.trumpstruth.org/statuses/43367",
+  "https://www.trumpstruth.org/statuses/43366",
+  "https://www.trumpstruth.org/statuses/43365",
+  "https://www.trumpstruth.org/statuses/43364",
+  "https://www.trumpstruth.org/statuses/43363",
+  "https://www.trumpstruth.org/statuses/43362",
+  "https://www.trumpstruth.org/statuses/43361",
+  "https://www.trumpstruth.org/statuses/43360",
+  "https://www.trumpstruth.org/statuses/43359",
+  "https://www.trumpstruth.org/statuses/43358",
+  "https://www.trumpstruth.org/statuses/43357",
+  "https://www.trumpstruth.org/statuses/43356",
+  "https://www.trumpstruth.org/statuses/43355",
+  "https://www.trumpstruth.org/statuses/43354",
+  "https://www.trumpstruth.org/statuses/43353",
+  "https://www.trumpstruth.org/statuses/43352",
+  "https://www.trumpstruth.org/statuses/43351",
+  "https://www.trumpstruth.org/statuses/43350",
+  "https://www.trumpstruth.org/statuses/43349",
+  "https://www.trumpstruth.org/statuses/43348",
+  "https://www.trumpstruth.org/statuses/43347",
+  "https://www.trumpstruth.org/statuses/43346",
+  "https://www.trumpstruth.org/statuses/43345",
+  "https://www.trumpstruth.org/statuses/43344",
+  "https://www.trumpstruth.org/statuses/43343",
+  "https://www.trumpstruth.org/statuses/43342",
+  "https://www.trumpstruth.org/statuses/43341",
+  "https://www.trumpstruth.org/statuses/43340",
+  "https://www.trumpstruth.org/statuses/43339",
+  "https://www.trumpstruth.org/statuses/43338",
+  "https://www.trumpstruth.org/statuses/43337",
+  "https://www.trumpstruth.org/statuses/43336",
+  "https://www.trumpstruth.org/statuses/43335",
+  "https://www.trumpstruth.org/statuses/43334",
+  "https://www.trumpstruth.org/statuses/43333",
+  "https://www.trumpstruth.org/statuses/43332",
+  "https://www.trumpstruth.org/statuses/43331",
+  "https://www.trumpstruth.org/statuses/43330",
+  "https://www.trumpstruth.org/statuses/43329",
+  "https://www.trumpstruth.org/statuses/43328",
+  "https://www.trumpstruth.org/statuses/43327",
+  "https://www.trumpstruth.org/statuses/43326",
+  "https://www.trumpstruth.org/statuses/43325",
+  "https://www.trumpstruth.org/statuses/43479",
+  "https://www.trumpstruth.org/statuses/43478",
+  "https://www.trumpstruth.org/statuses/43477",
+  "https://www.trumpstruth.org/statuses/43476",
+  "https://www.trumpstruth.org/statuses/43475",
+  "https://www.trumpstruth.org/statuses/43474",
+  "https://www.trumpstruth.org/statuses/43473",
+  "https://www.trumpstruth.org/statuses/43472",
+  "https://www.trumpstruth.org/statuses/43471",
+  "https://www.trumpstruth.org/statuses/43470",
+  "https://www.trumpstruth.org/statuses/43469",
+  "https://www.trumpstruth.org/statuses/43468",
+  "https://www.trumpstruth.org/statuses/43467",
+  "https://www.trumpstruth.org/statuses/43466",
+  "https://www.trumpstruth.org/statuses/43465",
+  "https://www.trumpstruth.org/statuses/43464",
+  "https://www.trumpstruth.org/statuses/43463",
+  "https://www.trumpstruth.org/statuses/43462",
+  "https://www.trumpstruth.org/statuses/43461",
+  "https://www.trumpstruth.org/statuses/43460",
+  "https://www.trumpstruth.org/statuses/43459",
+  "https://www.trumpstruth.org/statuses/43457",
+  "https://www.trumpstruth.org/statuses/43456",
+  "https://www.trumpstruth.org/statuses/43455",
+  "https://www.trumpstruth.org/statuses/43454",
+  "https://www.trumpstruth.org/statuses/43453",
+  "https://www.trumpstruth.org/statuses/43452",
+  "https://www.trumpstruth.org/statuses/43451",
+  "https://www.trumpstruth.org/statuses/43450",
+  "https://www.trumpstruth.org/statuses/43449",
+  "https://www.trumpstruth.org/statuses/43445",
+  "https://www.trumpstruth.org/statuses/43448",
+  "https://www.trumpstruth.org/statuses/43447",
+  "https://www.trumpstruth.org/statuses/43446",
+  "https://www.trumpstruth.org/statuses/43444",
+  "https://www.trumpstruth.org/statuses/43443",
+  "https://www.trumpstruth.org/statuses/43442",
+  "https://www.trumpstruth.org/statuses/43441",
+  "https://www.trumpstruth.org/statuses/43440",
+  "https://www.trumpstruth.org/statuses/43439",
+  "https://www.trumpstruth.org/statuses/43438",
+  "https://www.trumpstruth.org/statuses/43480",
+  "https://www.trumpstruth.org/statuses/43481",
+  "https://www.trumpstruth.org/statuses/43482",
+  "https://www.trumpstruth.org/statuses/43483",
+  "https://www.trumpstruth.org/statuses/43484",
+  "https://www.trumpstruth.org/statuses/43485",
+  "https://www.trumpstruth.org/statuses/43486",
+  "https://www.trumpstruth.org/statuses/43487",
+  "https://www.trumpstruth.org/statuses/43488",
+  "https://www.trumpstruth.org/statuses/43489",
+  "https://www.trumpstruth.org/statuses/43490"
+ ],
+ "trump_checks": [],
+ "trump_seeded": true,
+ "briefing_day": "2026-11-05"
 }
