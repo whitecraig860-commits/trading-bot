@@ -53,6 +53,8 @@ DEFAULTS = {
     "enabled": True,
     "symbols": ["SPY", "QQQ", "IWM"],
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
+    "account_currency": "USD",        # the currency account_size is in; messages show money in it too
+    "account_start": "",              # YYYY-MM-DD: from this day the account grows and shrinks with the scalper's results
     "risk_per_trade_pct": 1.0,        # loss if the option's stop is hit
     "max_premium_pct": 10.0,          # never spend more than this % of the account on one trade
     "opening_range_minutes": 15,
@@ -426,6 +428,7 @@ class Trade:
     u_stop: float = 0.0      # VWAP then: where the setup is wrong
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
+    risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
 @dataclass
@@ -617,7 +620,7 @@ def scalp_conditions(ind: pd.DataFrame, i: int, why: list[str], direction: str, 
 
 
 def scalp_record(t: "Trade", cfg: dict) -> dict:
-    risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
+    risk_cash = t.risk_cash or 50.0  # trades before risk_cash was kept were all sized at $50 (1% of 5,000)
     return {"id": f"{t.worker}|{t.entry_time}", "kind": "scalper", "setup": "scalper", "symbol": t.worker,
             "r": t.pnl / risk_cash if risk_cash else 0.0, "conditions": json.loads(t.conds or "[]"),
             "findings": [], "date": t.exit_time[:10]}
@@ -711,8 +714,41 @@ def learn_records(full: dict) -> list[dict]:
     return out
 
 
+_SHOW = {"ccy": "USD", "per_usd": 1.0}  # money is kept in dollars (options are priced in dollars) and shown in this
+
+
+def show_in(ccy: str) -> None:
+    """Messages show money in the account's currency (e.g. pounds), converted at today's rate."""
+    ccy = (ccy or "USD").upper()
+    rate = 1.0 if ccy == "USD" else bot.fx_rate("USD", ccy)
+    if not rate or not np.isfinite(rate) or rate <= 0:
+        rate = {"GBP": 0.76, "EUR": 0.87}.get(ccy, 1.0)  # rough fallback if the rate can't be read
+    _SHOW.update(ccy=ccy, per_usd=float(rate))
+
+
 def money(x: float) -> str:
-    return f"-${abs(x):,.0f}" if x < 0 else f"${x:,.0f}"
+    sym = {"GBP": "£", "EUR": "€"}.get(_SHOW["ccy"], "$")
+    v = x * _SHOW["per_usd"]
+    return f"-{sym}{abs(v):,.0f}" if v < 0 else f"{sym}{v:,.0f}"
+
+
+def account_usd(cfg: dict) -> float:
+    """The scalper's own account, in dollars: account_size, plus everything it has made or lost since account_start
+    (so it works off what it has: losses shrink the next trades, wins grow them)."""
+    size = float(cfg["account_size"])
+    ccy = str(cfg.get("account_currency", "USD")).upper()
+    if ccy != "USD" and _SHOW["ccy"] != ccy:
+        show_in(ccy)
+    usd = size / _SHOW["per_usd"] if ccy != "USD" else size
+    start = str(cfg.get("account_start") or "")
+    log = STATE / "scalper_log.csv"
+    if start and log.exists():
+        try:
+            hist = pd.read_csv(log)
+            usd += float(hist.loc[hist["date"].astype(str) >= start, "pnl"].sum())
+        except Exception:
+            pass
+    return max(0.0, usd)
 
 
 def run_session(cfg: dict, full: dict, args) -> int:
@@ -758,7 +794,10 @@ def run_session(cfg: dict, full: dict, args) -> int:
                   f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}"
                   f"{', strong candles only' if cfg.get('candle_filter') else ''}. "
                   f"Entries {cfg['first_entry']} to {cfg['last_entry']} New York time. "
-                  f"Daily loss limit {money(cfg['account_size'] * cfg['daily_loss_limit_pct'] / 100)}.", args)
+                  f"Daily loss limit {money(account_usd(cfg) * cfg['daily_loss_limit_pct'] / 100)}.\n"
+                  f"Account {money(account_usd(cfg))} · each trade risks up to "
+                  f"{money(account_usd(cfg) * cfg['risk_per_trade_pct'] / 100)} and spends at most "
+                  f"{money(account_usd(cfg) * cfg['max_premium_pct'] / 100)}.", args)
         day.stats["announced"] = True
     history5: dict = {}
     if cfg.get("trend_filter"):
@@ -868,7 +907,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         return
     # 2) risk limits before any new entry
     realised = sum(t.pnl for t in trades if t.status == "closed")
-    if realised <= -cfg["account_size"] * cfg["daily_loss_limit_pct"] / 100:
+    if realised <= -account_usd(cfg) * cfg["daily_loss_limit_pct"] / 100:
         if not day.orb_used.get("_limit_said"):
             say(full, f"<b>Daily loss limit hit</b> ({money(realised)}). No more trades today.", args)
             day.orb_used["_limit_said"] = ["yes"]
@@ -941,19 +980,25 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
         # traders found most of their losses came from trading costs (the bid/ask spread).
         limit = round(min(ask, mid + float(cfg.get("entry_offset_pct", 25)) / 100 * (ask - mid)) + 0.004, 2)
-        risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
+        acct = account_usd(cfg)
+        risk_cash = acct * cfg["risk_per_trade_pct"] / 100
         per_contract_risk = limit * 100 * cfg["stop_loss_pct"] / 100
-        max_spend = cfg["account_size"] * cfg["max_premium_pct"] / 100
-        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100)))
+        max_spend = acct * cfg["max_premium_pct"] / 100
+        # never spend more than the account has free: what's already in open or waiting trades is in use
+        in_use = sum(x.entry_price * 100 * x.qty for x in trades if x.status in {"open", "pending"})
+        max_spend = min(max_spend, acct - in_use)
+        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100))) if max_spend > 0 else 0
         if qty < 1:
-            print(f"{sym}: one contract (${limit * 100:,.0f}) is over your limits, skipped")
+            print(f"{sym}: one contract ({money(limit * 100)}) is over your limits, skipped")
+            day.stats["too_dear"] = day.stats.get("too_dear", 0) + 1
             continue
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
         o = api.buy(con.symbol, qty, limit)
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
-                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds))
+                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
+                  risk_cash=qty * per_contract_risk)
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
@@ -975,6 +1020,7 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('trend', 0)} went against the trend" if st.get("trend") else "")
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
+            + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
             + ". It only trades when everything lines up: a quiet day is part of that.")
     for w in cfg["symbols"]:
         ws = [t for t in closed if t.worker == w]
@@ -1035,6 +1081,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-telegram", action="store_true")
     args = ap.parse_args(argv)
     cfg, full = load_cfg(args.config)
+    show_in(str(cfg.get("account_currency", "USD")))
     if not cfg.get("enabled", True) and args.command == "run":
         print("Scalper is switched off in config.toml ([scalper] enabled = false).")
         return 0
