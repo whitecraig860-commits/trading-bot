@@ -1478,7 +1478,8 @@ def copy_now(cfg: dict, args, sym: str, cl: dict) -> tuple[list[str], bytes | No
     fx = fx_rate(meta["currency"], acct_ccy) or 1.0
     live_px, market_open = live_price(sym, args)
     entry = live_px if (market_open and live_px) else price
-    units, risk_amt, value = size_position(float(st["equity"]), cfg, entry, risk_unit, fx, False, mult)
+    units, risk_amt, value = size_position(float(st["equity"]), cfg, entry, risk_unit, fx, False, mult,
+                                           free_cash(st, cfg))
     ok, why = risk_check(st, cfg, risk_amt, tier)
     lines.append(f"Confidence: <b>{tier}</b>" + (f" ({mult:g}x the normal size)" if mult != 1 else ""))
     lines += [f"   {'➕' if p_ > 0 else '➖'} {esc(w)}" for p_, w in pts]
@@ -1927,6 +1928,7 @@ class Position:
     fx_to_account: float = 1.0
     risk_amount: float = 0.0
     risk_mult: float = 1.0
+    planned_value: float = 0.0  # money set aside for a trade waiting to open (so two trades can't spend the same cash)
     confidence: str = ""
     entry_live: bool = False  # bought during the session at the live price (insider copy trades), not at an open
     factors: str = ""      # JSON: the confidence points when the trade was taken
@@ -2119,20 +2121,63 @@ def assess_confidence(cfg: dict, direction: str, score: int, regime_ok: bool | N
     return 1.0, "NORMAL", pts
 
 
-def size_position(equity: float, cfg: dict, price: float, risk_unit: float, fx: float, crypto: bool, mult: float = 1.0):
+def size_position(equity: float, cfg: dict, price: float, risk_unit: float, fx: float, crypto: bool, mult: float = 1.0,
+                  cash: float | None = None):
     """Units to buy so a stop-out costs risk_per_trade_pct of the account, times the confidence multiplier,
-    never more than sizing.max_risk_pct of the account, and never more than max_position_pct in one position."""
+    never more than sizing.max_risk_pct of the account, never more than max_position_pct in one position, and
+    never more than the free cash (cash, already multiplied by any leverage) can pay for."""
     acct = cfg["account"]
     pct = float(acct["risk_per_trade_pct"]) * float(mult or 1.0)
     pct = min(pct, float(cfg.get("sizing", {}).get("max_risk_pct", 3.0)))
     risk_amt = equity * pct / 100.0
     units = risk_amt / (risk_unit * fx) if risk_unit > 0 else 0.0
-    max_units = (equity * float(acct["max_position_pct"]) / 100.0) / (price * fx) if price > 0 else 0.0
+    lev = max(1.0, float(acct.get("leverage", 1.0)))
+    max_units = (equity * lev * float(acct["max_position_pct"]) / 100.0) / (price * fx) if price > 0 else 0.0
+    if cash is not None and price > 0:
+        max_units = min(max_units, max(0.0, cash) / (price * fx))
     units = min(units, max_units)
     step = 0.0001 if crypto else (0.01 if acct.get("fractional_units", True) else 1.0)
     units = math.floor(units / step) * step
     units = round(units, 4)
     return units, units * risk_unit * fx, units * price * fx
+
+
+def pending_plan(p: dict, st: dict, cfg: dict) -> tuple[float, float]:
+    """(money, risk) a trade waiting to open is expected to use: what was set aside for it, or, for one queued before
+    cash was tracked, the normal risk shrunk to a position the account can pay for at its planned stop."""
+    if float(p.get("planned_value") or 0) > 0:
+        return float(p["planned_value"]), float(p.get("risk_amount") or 0)
+    acct = cfg["account"]
+    eq = float(st["equity"])
+    risk = eq * min(float(acct["risk_per_trade_pct"]) * float(p.get("risk_mult") or 1.0),
+                    float(cfg.get("sizing", {}).get("max_risk_pct", 3.0))) / 100
+    price, atr = float(p.get("signal_price") or 0), float(p.get("atr_at_signal") or 0)
+    if price <= 0 or atr <= 0:
+        return 0.0, risk
+    frac = stop_multiple(p.get("setup", ""), cfg) * atr / price
+    value = min(risk / frac, eq * max(1.0, float(acct.get("leverage", 1.0))) * float(acct["max_position_pct"]) / 100)
+    return value, value * frac
+
+
+def money_in_use(st: dict, skip: dict | None = None, cfg: dict | None = None, open_only: bool = False) -> float:
+    """Account money tied up in open paper trades (at what was paid) and set aside for trades waiting to open."""
+    total = 0.0
+    for p in st.get("positions", []):
+        if p is skip or (open_only and p.get("status") != "open"):
+            continue
+        if p.get("status") == "open" and float(p.get("units") or 0) > 0:
+            total += float(p["units"]) * float(p.get("entry_price") or 0) * float(p.get("fx_to_account") or 1.0)
+        elif p.get("status") == "pending":
+            total += pending_plan(p, st, cfg)[0] if cfg else float(p.get("planned_value") or 0)
+    return total
+
+
+def free_cash(st: dict, cfg: dict, skip: dict | None = None, open_only: bool = False) -> float:
+    """What a new trade may spend: the account (times leverage, 1 for an ordinary share account) minus what's in use.
+    open_only: when a trade actually opens, only money in open trades counts (the first waiting trade to fill gets
+    the cash, as at a real broker)."""
+    lev = max(1.0, float(cfg["account"].get("leverage", 1.0)))
+    return max(0.0, float(st["equity"]) * lev - money_in_use(st, skip, cfg, open_only))
 
 
 # ---------------------------------------------------------------------------
@@ -2332,7 +2377,8 @@ def format_alert(sym, setup, direction, score, checks_desc, plan, cfg, interval,
         intended = plan["equity"] * min(float(cfg["account"]["risk_per_trade_pct"]) * float(plan.get("mult", 1.0)),
                                         float(cfg.get("sizing", {}).get("max_risk_pct", 3.0))) / 100.0
         if plan["risk_amt"] < 0.97 * intended:
-            why = f"capped by the {cfg['account']['max_position_pct']:g}% position limit; full risk would be {fmt_money(intended, acct_ccy)}"
+            why = (f"capped by your cash: at most {cfg['account']['max_position_pct']:g}% of the account in one trade, and only "
+                   f"money that's free; full risk would be {fmt_money(intended, acct_ccy)}")
         else:
             why = f"{intended / plan['equity'] * 100:g}% of {fmt_money(plan['equity'], acct_ccy)}"
         lines.append(
@@ -2396,6 +2442,10 @@ def load_state(cfg: dict) -> dict:
     st.setdefault("sent", {})
     st.setdefault("closed", [])
     st.setdefault("positions", [])
+    # a new account size applies at once, whichever job loads the account first (scan, watch or copy trades)
+    note = restart_account(st, cfg)
+    if note:
+        st["restart_note"] = note[0]
     return st
 
 
@@ -2471,11 +2521,11 @@ def manage_paper(st: dict, sym: str, ind: pd.DataFrame, meta: dict, cfg: dict, i
                 pos.fx_to_account = fx if fx else 1.0
                 units, risk_amt, value = size_position(
                     float(st["equity"]), cfg, pos.entry_price, pos.risk_per_unit, pos.fx_to_account, bool(meta.get("is_24_7")),
-                    pos.risk_mult or 1.0,
+                    pos.risk_mult or 1.0, free_cash(st, cfg, skip=d, open_only=True),
                 )
-                if units <= 0:
+                if units <= 0 or value < max(25.0, 0.02 * float(st["equity"])):
                     pos.status, pos.exit_reason = "cancelled", "position too small"
-                    msgs.append(f"Paper trade skipped: {esc(sym)} (position too small for the risk setting).")
+                    msgs.append(f"Paper trade skipped: {esc(sym)} (not enough free cash, or too small for the risk setting).")
                     break
                 pos.units, pos.risk_amount = units, risk_amt
                 msgs.append(
@@ -2616,6 +2666,36 @@ def journal_followups(sym: str, ind: pd.DataFrame, msgs: list[str]) -> None:
     j["pending"] = keep
 
 
+def restart_account(st: dict, cfg: dict) -> list[str]:
+    """When account.size changes (e.g. from the £5,000 test to the £1,000 you'll really put in), the paper account
+    starts again at the new size. Open trades are kept but shrunk in proportion, so they still fit in the cash;
+    the old account's closed trades are kept under "earlier_accounts"."""
+    size = float(cfg["account"]["size"])
+    if abs(float(st.get("start_equity", size)) - size) < 0.01:
+        return []
+    acct = cfg["account"]["currency"]
+    old_start, old_eq = float(st["start_equity"]), float(st["equity"])
+    f = size / old_eq if old_eq > 0 else 1.0
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    st.setdefault("earlier_accounts", []).append({"start": old_start, "end": old_eq, "until": today,
+                                                  "closed": st.get("closed", [])})
+    st["closed"] = []
+    kept = []
+    for d in st["positions"]:
+        if d.get("status") == "open" and float(d.get("units") or 0) > 0:
+            d["units"] = round(float(d["units"]) * f, 4)
+            d["risk_amount"] = float(d.get("risk_amount") or 0) * f
+            kept.append(d["symbol"])
+        elif d.get("status") == "pending":
+            d["risk_amount"], d["planned_value"] = 0.0, 0.0  # sized from the new account's free cash when it opens
+    st["start_equity"] = st["equity"] = size
+    st["risk_pct"] = float(cfg["account"]["risk_per_trade_pct"])  # the kept trades stay at their (shrunk) size
+    return [f"<b>Paper account restarted at {fmt_money(size, acct)}</b> (the {fmt_money(old_start, acct)} test ended at "
+            f"{fmt_money(old_eq, acct)}). New trades risk {fmt_money(size * st['risk_pct'] / 100, acct)} normally, "
+            f"but can only spend the cash that's free."
+            + (f" Open trades kept, shrunk to fit: {esc(', '.join(kept))}." if kept else "")]
+
+
 def rescale_open_positions(st: dict, cfg: dict) -> list[str]:
     """When you change risk_per_trade_pct, open paper trades are resized to match (once), so the whole
     account runs at the new size. Paper only: a real broker would need you to buy or sell the difference."""
@@ -2632,8 +2712,10 @@ def rescale_open_positions(st: dict, cfg: dict) -> list[str]:
         target = eq * min(pct * float(d.get("risk_mult") or 1.0), float(cfg.get("sizing", {}).get("max_risk_pct", 3.0))) / 100.0
         factor = target / float(d["risk_amount"])
         fx = float(d.get("fx_to_account") or 1.0)
-        cap = eq * float(cfg["account"]["max_position_pct"]) / 100.0 / (float(d["entry_price"]) * fx)
-        units = round(min(float(d["units"]) * factor, cap), 4)
+        cap = eq * max(1.0, float(cfg["account"].get("leverage", 1.0))) * float(cfg["account"]["max_position_pct"]) / 100.0 \
+            / (float(d["entry_price"]) * fx)
+        more = free_cash(st, cfg) / (float(d["entry_price"]) * fx)  # a bigger trade can only use cash that's free
+        units = round(min(float(d["units"]) * factor, cap, float(d["units"]) + more), 4)
         if abs(units - float(d["units"])) < 1e-9:
             continue
         old_risk = float(d["risk_amount"])
@@ -2782,6 +2864,8 @@ def cmd_scan(cfg: dict, args) -> int:
     events_soon = upcoming_events(cfg, max(3, warn_days)) if news_on else []
     warn_until = pd.Timestamp.now(tz=cfg["news"].get("timezone", "Europe/London")) + pd.Timedelta(days=warn_days)
 
+    if st.get("restart_note"):
+        msgs.append(st.pop("restart_note"))
     msgs += rescale_open_positions(st, cfg)
     for bench_sym, symbols in watch:
         bench_df = None
@@ -2870,7 +2954,8 @@ def cmd_scan(cfg: dict, args) -> int:
                         mult, tier, conf_pts = assess_confidence(cfg, direction, score, regime_ok, hist_stats, tm, tone, tone_text,
                                                                  warned, sym in copy_info, atr_pct, learned)
                         conds.append(f"confidence: {tier}")
-                        units, risk_amt, value = size_position(float(st["equity"]), cfg, price, risk_unit, fx or 1.0, crypto, mult)
+                        units, risk_amt, value = size_position(float(st["equity"]), cfg, price, risk_unit, fx or 1.0, crypto, mult,
+                                                               free_cash(st, cfg))
                         plan = {
                             "price": price,
                             "stop": price - risk_unit if long else price + risk_unit,
@@ -2905,6 +2990,7 @@ def cmd_scan(cfg: dict, args) -> int:
                             paper_note = "§PAPER§"
                             candidates.append({
                                 "idx": len(alerts), "risk": risk_amt, "tier": tier, "setup": setup, "score": score,
+                                "value": value,
                                 "pos": Position(symbol=sym, setup=setup, direction=direction, signal_date=bar,
                                                 signal_price=price, atr_at_signal=a, score=score,
                                                 currency=meta["currency"], risk_mult=mult, confidence=tier,
@@ -2971,10 +3057,21 @@ def cmd_scan(cfg: dict, args) -> int:
     setup_rank = {"breakout": 0, "copy": 1, "pullback": 2}
     tier_rank = {"HIGH": 0, "NORMAL": 1, "LOW": 2}
     for c in sorted(candidates, key=lambda c: (setup_rank.get(c["setup"], 3), tier_rank.get(c["tier"], 1), -c["score"])):
-        ok, why = risk_check(st, cfg, c["risk"], c["tier"])
+        # earlier (better) trades tonight may have used some of the cash: shrink this one to what's left
+        free = free_cash(st, cfg)
+        value, risk = float(c.get("value") or 0), float(c["risk"])
+        if value > free:
+            risk, value = (risk * free / value if value > 0 else 0.0), free
+        min_value = max(25.0, 0.02 * float(st["equity"]))
+        ok, why = risk_check(st, cfg, risk, c["tier"])
+        if ok and value < min_value:
+            ok, why = False, (f"not enough free cash ({fmt_money(free, acct_ccy)} left, the rest is in open trades)")
         if ok:
+            c["pos"].planned_value, c["pos"].risk_amount = value, risk
             st["positions"].append(asdict(c["pos"]))
             note = "Swing trader (paper): it buys this at the next open and manages it for you."
+            if value < float(c.get("value") or 0) - 0.5:
+                note += f" Smaller than planned: only {fmt_money(value, acct_ccy)} of cash was free (risking {fmt_money(risk, acct_ccy)})."
         else:
             note = "Swing trader (paper): blocked by the risk check, so no trade."
         text, png = alerts[c["idx"]]
@@ -3082,7 +3179,11 @@ def cmd_status(cfg: dict, args) -> int:
     st = load_state(cfg)
     acct_ccy = cfg["account"]["currency"]
     ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
-    lines = [f"<b>Paper account</b>: {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}% since start)"]
+    lines = [f"<b>Paper account</b>: {fmt_money(float(st['equity']), acct_ccy)} ({ret:+.1f}% since start) · "
+             f"{fmt_money(free_cash(st, cfg), acct_ccy)} of cash free"]
+    for e in st.get("earlier_accounts", []):
+        lines.append(f"Earlier test account: {fmt_money(e['start'], acct_ccy)} → {fmt_money(e['end'], acct_ccy)} "
+                     f"until {e['until']}, {len(e.get('closed', []))} closed trades")
     for p in st["positions"]:
         if p["status"] == "open":
             lines.append(
@@ -3239,6 +3340,8 @@ def position_risk(p: dict, st: dict, cfg: dict) -> float:
         long = p.get("direction", "long") == "long"
         gap = (float(p["entry_price"]) - float(p["stop"])) if long else (float(p["stop"]) - float(p["entry_price"]))
         return max(0.0, gap) * float(p["units"]) * float(p.get("fx_to_account") or 1.0)
+    if p.get("status") == "pending":
+        return pending_plan(p, st, cfg)[1]
     pct = min(float(cfg["account"]["risk_per_trade_pct"]) * float(p.get("risk_mult") or 1.0),
               float(cfg.get("sizing", {}).get("max_risk_pct", 3.0)))
     return eq * pct / 100
@@ -3409,7 +3512,7 @@ def portfolio_sim(trades: list, cfg: dict, risk_pct: float, heat_pct: float, max
 
 def portfolio_report(trades: list, cfg: dict) -> None:
     max_open = int(cfg["paper"]["max_open_positions"])
-    print("\nWhole-account simulation (every signal that passes your paper rules, ranked each day, £5,000 start,")
+    print("\nWhole-account simulation, no cash limit (every signal that passes your paper rules, ranked each day, £5,000 start,")
     print(f"at most {max_open} trades open, open risk counted from the entry stop):\n")
     rows = []
     for risk in (1.0, 2.0):
@@ -3854,9 +3957,25 @@ def save_pulse(d: dict) -> None:
     tmp.replace(pulse_path())
 
 
-def pulse_risk(cfg: dict) -> float:
-    """Money at risk on each paper intraday trade (so R can be shown as pounds won or lost)."""
-    return float(cfg["account"]["size"]) * float(cfg["account"]["risk_per_trade_pct"]) / 100.0
+def pulse_risk(cfg: dict, entry=None, stop=None) -> float:
+    """Money at risk on a paper intraday trade (so R can be shown as pounds won or lost): the normal risk, but no
+    more than a position the account's cash can pay for would lose at that stop (intraday stops are tight, so with
+    a small account this is usually much less than the normal risk)."""
+    acct = cfg["account"]
+    size = float(acct["size"])
+    risk = size * float(acct["risk_per_trade_pct"]) / 100.0
+    try:
+        e, s_ = float(entry), float(stop)
+    except (TypeError, ValueError):
+        return risk
+    if e > 0 and np.isfinite(s_) and abs(e - s_) > 0:
+        biggest = size * max(1.0, float(acct.get("leverage", 1.0))) * float(acct["max_position_pct"]) / 100.0
+        risk = min(risk, biggest * abs(e - s_) / e)
+    return risk
+
+
+def trade_money(c: dict, cfg: dict) -> float:
+    return float(c["r"]) * pulse_risk(cfg, c.get("entry"), c.get("stop"))
 
 
 def intraday_frame(sym: str, period: str, cfg: dict, csv_dir):
@@ -3877,8 +3996,8 @@ def record_line(record: dict) -> str:
     return f"Lately here ({n} sessions of 5-min bars, after costs): " + " · ".join(parts)
 
 
-def won_lost(r: float, cfg: dict) -> str:
-    money = r * pulse_risk(cfg)
+def won_lost(r: float, cfg: dict, money: float | None = None) -> str:
+    money = r * pulse_risk(cfg) if money is None else money
     acct = cfg["account"]["currency"]
     return f"{'WON' if money > 0 else 'LOST'} {fmt_money(money, acct)} ({r:+.2f}R)"
 
@@ -3929,17 +4048,18 @@ def manage_pulse_trades(ps: dict, sym: str, ind, spec, ccy, cfg) -> list[str]:
             keep.append(t)
             continue
         t.update(res)
-        t["money"] = t["r"] * pulse_risk(cfg)
+        t["money"] = trade_money(t, cfg)
         ps["closed"].append(t)
         today = [c for c in ps["closed"] if str(c.get("exit_time", ""))[:10] == str(res["exit_time"])[:10]]
         day_r = sum(c["r"] for c in today)
+        day_money = sum(trade_money(c, cfg) for c in today)
         text = (
-            f"<b>{esc(spec['name'])} {intraday.APPROACHES[t['approach']]} {t['side'].upper()}: {won_lost(t['r'], cfg)}</b>\n"
+            f"<b>{esc(spec['name'])} {intraday.APPROACHES[t['approach']]} {t['side'].upper()}: {won_lost(t['r'], cfg, t['money'])}</b>\n"
             f"{'Bought' if t['side'] == 'long' else 'Sold'} at {fmt_price(res['entry'], ccy)}, out at {fmt_price(res['exit'], ccy)} "
             f"({esc(res['reason'])}). Paper only.\n"
-            f"Today's intraday paper trades: {len(today)}, {won_lost(day_r, cfg)}"
+            f"Today's intraday paper trades: {len(today)}, {won_lost(day_r, cfg, day_money)}"
         )
-        png = charts.intraday_chart(ind, f"{spec['name']} {t['side']}: {won_lost(t['r'], cfg)}", entry=res["entry"],
+        png = charts.intraday_chart(ind, f"{spec['name']} {t['side']}: {won_lost(t['r'], cfg, t['money'])}", entry=res["entry"],
                                     stop=res["stop"], target=None if t["approach"] == "late" else res["target"],
                                     exit_=res["exit"]) if cfg.get("charts", {}).get("enabled", True) else None
         msgs.append((text, png) if png else text)
@@ -4029,9 +4149,9 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
                     f"{'sell at the close' if best == 'late' else 'target ' + fmt_price(target, ccy)}\n"
                     f"Why: {esc(intraday.describe(d, k).lower())}; {esc(intraday.HOW[(best, side)])}\n"
                     f"This approach has made {rec.get('avg_r', 0):+.2f}R a trade on this market lately "
-                    f"({rec.get('trades', 0)} trades). At {fmt_money(pulse_risk(cfg), cfg['account']['currency'])} risk, "
-                    f"the stop costs {fmt_money(-pulse_risk(cfg), cfg['account']['currency'])} and the target makes about "
-                    f"{fmt_money(pulse_risk(cfg) * (abs(target - price) / risk if risk and target == target else 2), cfg['account']['currency'])}"
+                    f"({rec.get('trades', 0)} trades). Sized for your {fmt_money(float(cfg['account']['size']), cfg['account']['currency'])}: "
+                    f"the stop costs {fmt_money(-pulse_risk(cfg, price, stop), cfg['account']['currency'])} and the target makes about "
+                    f"{fmt_money(pulse_risk(cfg, price, stop) * (abs(target - price) / risk if risk and target == target else 2), cfg['account']['currency'])}"
                     f"{' (if it runs 2R by the close)' if best == 'late' else ''}.\n"
                     "The bot paper-trades it and tells you how it ends.\n<i>Not advice. Check your broker's live price.</i>"
                 )
@@ -4046,15 +4166,16 @@ def pulse_once(cfg: dict, args, ps: dict) -> list[str]:
             lines = [f"<b>Intraday paper results · {today}</b>"]
             for c in todays:
                 lines.append(f"{esc(intraday.spec_for(c['symbol'])['name'])} {intraday.APPROACHES[c['approach']]} {c['side']}: "
-                             f"{won_lost(c['r'], cfg)}")
-            lines.append(f"Today: {won_lost(sum(c['r'] for c in todays), cfg)}")
+                             f"{won_lost(c['r'], cfg, trade_money(c, cfg))}")
+            lines.append(f"Today: {won_lost(sum(c['r'] for c in todays), cfg, sum(trade_money(c, cfg) for c in todays))}")
             allr = [c["r"] for c in ps["closed"]]
             lines.append(f"All intraday paper trades so far: {len(allr)}, {np.mean([r > 0 for r in allr]):.0%} won, "
-                         f"{won_lost(sum(allr), cfg)}")
+                         f"{won_lost(sum(allr), cfg, sum(trade_money(c, cfg) for c in ps['closed']))}")
             for a, name in intraday.APPROACHES.items():
-                rs = [c["r"] for c in ps["closed"] if c["approach"] == a]
-                if rs:
-                    lines.append(f"  {name}: {len(rs)} trades, {won_lost(sum(rs), cfg)}")
+                cs = [c for c in ps["closed"] if c["approach"] == a]
+                if cs:
+                    lines.append(f"  {name}: {len(cs)} trades, "
+                                 f"{won_lost(sum(c['r'] for c in cs), cfg, sum(trade_money(c, cfg) for c in cs))}")
             msgs.append("\n".join(lines))
         ps["summary_day"] = today
     return msgs
@@ -4229,7 +4350,8 @@ def swing_lines(cfg: dict, args) -> list[str]:
     st = load_state(cfg)
     acct = cfg["account"]["currency"]
     ret = (float(st["equity"]) / float(st["start_equity"]) - 1.0) * 100.0
-    lines = [f"<b>Swing trades</b> (holds days to months) · paper account {fmt_money(float(st['equity']), acct)} ({ret:+.1f}%)"]
+    lines = [f"<b>Swing trades</b> (holds days to months) · paper account {fmt_money(float(st['equity']), acct)} ({ret:+.1f}%), "
+             f"{fmt_money(free_cash(st, cfg), acct)} cash free"]
     total = 0.0
     for p in st["positions"]:
         if p.get("status") == "pending":
@@ -4299,7 +4421,7 @@ def health_lines() -> list[str]:
     except Exception as exc:
         out.append(f"? couldn't check the pulse ({esc(exc)})")
     try:
-        st = load_state({"account": {"size": 5000}})
+        st = json.loads(state_path().read_text(encoding="utf-8")) if state_path().exists() else {}
         out.append(f"✅ nightly scan ran for {st['last_scan']}" if st.get("last_scan") else "⚠️ no nightly scan recorded")
     except Exception:
         pass
