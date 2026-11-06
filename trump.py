@@ -27,21 +27,26 @@ RULES = [
                        r"\b(impose|imposing|raise|raising)\b.*\btariffs?\b",
      [("SPY", -1, "new or higher tariffs have hit shares"), ("QQQ", -1, "tech is hit hardest by trade fights"),
       ("GC=F", +1, "gold tends to rise on trade fear")]),
-    ("trade deal / tariff pause", r"\b(trade deal|deal with china|agreement|pause|paused|lower(ed|ing)? tariffs?|"
-                                  r"remove tariffs?|tariff relief|exempt)\b",
+    ("trade deal / tariff pause", r"\b(trade deal|deal with china|trade agreement|tariff pause|pause[ds]? (the |all )?tariffs?|"
+                                  r"lower(ed|ing)? (the )?tariffs?|remove (the )?tariffs?|tariff relief|exempt(ed|ion)? from tariffs?)\b",
      [("SPY", +1, "trade deals and tariff pauses have lifted shares"), ("QQQ", +1, "tech gains most from trade relief")]),
-    ("China", r"\bchina|chinese|xi\b", [("QQQ", -1, "China tension weighs on chip and tech shares")]),
-    ("Fed / rates (pressure to cut)", r"\b(fed|federal reserve|powell|interest rates?|rate cut|cut rates)\b",
+    ("China", r"\b(china|chinese|xi jinping|president xi)\b", [("QQQ", -1, "China tension weighs on chip and tech shares")]),
+    ("Fed / rates (pressure to cut)", r"\b(federal reserve|the fed|powell|interest rates?|rate cuts?|cut (interest )?rates)\b",
      [("SPY", +1, "pressure for lower rates has lifted shares"), ("GC=F", +1, "lower-rate talk tends to lift gold")]),
     ("oil / drilling", r"\b(drill|oil|opec|gasoline|energy prices?)\b", [("BZ=F", -1, "he usually wants oil prices lower")]),
-    ("Iran / war / strikes", r"\b(iran|war|strike[sd]?|attack(ed)?|missile|military action|bomb)\b",
+    ("Iran / war / strikes", r"\b(iran|missiles?|military (action|strikes?)|air ?strikes?|bomb(ed|ing|s)?|declared? war|"
+                             r"war (with|on) (iran|russia|china|venezuela))\b",
      [("BZ=F", +1, "conflict risk pushes oil up"), ("GC=F", +1, "gold is the fear trade"),
       ("SPY", -1, "war risk weighs on shares")]),
-    ("crypto", r"\b(crypto|bitcoin|btc|digital assets?|strategic reserve)\b",
+    ("crypto", r"\b(crypto|bitcoin|btc|digital assets?|strategic (bitcoin|crypto) reserve)\b",
      [("BTC-USD", +1, "his crypto posts have lifted Bitcoin")]),
-    ("the stock market", r"\b(stock market|dow|s&p|great time to buy|record high|markets? (are|is) (up|booming))\b",
+    # Only when he talks the market UP ("record high", "great time to buy"). A post about a fall that has already
+    # happened ("the stock market crashed today because...") says nothing about what comes next, so it's ignored.
+    ("the stock market (talked up)", r"\b(great time to buy|(stock market|dow|s&p|markets?)\b[^.!?]{0,60}"
+                                     r"\b(record highs?|all[- ]time highs?|booming|soaring|through the roof|up big))\b",
      [("SPY", +1, "he talks the market up")]),
 ]
+
 
 COMPANIES = {
     "apple": "AAPL", "tesla": "TSLA", "nvidia": "NVDA", "intel": "INTC", "boeing": "BA", "amazon": "AMZN",

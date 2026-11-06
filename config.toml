@@ -2,12 +2,19 @@
 # Lines starting with # are notes. Change a value, save the file, and run the bot again.
 
 [account]
-size = 5000                 # account size; paper trading starts from this
+size = 1000                 # the money you'll really put in; paper trading starts (again) from this. Changing it
+                            # restarts the paper account at the new size and shrinks the open trades to fit.
 currency = "GBP"            # GBP, USD or EUR
-risk_per_trade_pct = 2.0    # % of the account lost if a stop is hit: 2% of £5,000 = £100 a trade (paper).
-                            # Doubling this doubles every win AND every loss. Most professionals use 0.5-1% with real
-                            # money: ten losers in a row (it happens) costs about 18% at 2%, 10% at 1%.
-max_position_pct = 35       # never put more than this % of the account into one position
+risk_per_trade_pct = 10.0   # the TARGET loss if a stop is hit: 10% of £1,000 = £100 (LOW £50, HIGH £150). But a trade
+                            # can only buy what the free cash pays for (see leverage), so with £1,000 most trades risk
+                            # far less: the 10-year test's typical stop is 4.5% below the entry, so a £350 position
+                            # risks about £16. Only very jumpy shares, with stops 28%+ away, reach the full £100.
+leverage = 1                # 1 = an ordinary share account or ISA (Trading 212 Invest): you can only buy what you have.
+                            # 5 = a spread bet or CFD account (you put down 20%). The 10-year test of a £1,000 account
+                            # at £100 a trade: leverage 1 made +19.5% a year with a worst fall of 24% (lowest balance
+                            # £997); leverage 5 made more in good years but its worst falls were 64-85%. Keep 1.
+max_position_pct = 35       # never put more than this % of the account into one position (£350 of £1,000). In the same
+                            # test 35% beat 50% and 100% (more trades, smaller falls), so there's room for 2-3 at once
 fractional_units = true     # true if your broker sells fractions of a share (Trading 212 does)
 
 [scan]
@@ -50,19 +57,20 @@ copy_max_hold_bars = 63       # ...and sold after about 3 months at most
 # Confidence sizing: before each trade the bot adds up what agrees and what doesn't: the score, whether the wider
 # market agrees, this setup's own 10-year record on that market, the time machine, the news headlines (good or
 # bad keywords), earnings or big events close by, insider buying, and very high volatility. Each alert lists them.
-#   3+ points  -> HIGH confidence:   1.5x the normal risk (£150 at 2% of £5,000)
+#   3+ points  -> HIGH confidence:   1.5x the normal risk (£150 at 10% of £1,000)
 #   0 or less  -> LOW confidence:    0.5x (£50)
 #   otherwise  -> NORMAL:            1x (£100)
-# max_risk_pct is a hard ceiling for any one trade. It's 3% (£150) on purpose: the 10-year test's worst losing run
-# for breakouts was 26.7R, which at 2% a trade is a 53% fall in the account, and at 20% a trade (£1,000) would
-# have wiped it out several times over. "python bot.py status" shows how each confidence level has really done,
-# so you can see by January whether HIGH trades actually earn their bigger size.
+# max_risk_pct is a hard ceiling for any one trade: 15% (£150). With £1,000 in an ordinary share account, the cash
+# limit almost always makes the real risk smaller (2-4% on average in the 10-year test). If it didn't, the test's
+# worst losing run for breakouts (26.7R) would have wiped out most of the account at 10% a trade, which is why
+# leverage stays at 1. "python bot.py status" shows how each confidence level has really done, so you can see by
+# January whether HIGH trades actually earn their bigger size.
 enabled = true
 low_mult = 0.5
 high_mult = 1.5
 high_points = 3
 low_points = 0
-max_risk_pct = 3.0
+max_risk_pct = 15.0
 
 [trump]
 # Reads Donald Trump's Truth Social posts every 5 minutes while the pulse runs (via trumpstruth.org; Truth Social
@@ -97,7 +105,7 @@ enabled = true              # send a chart picture with alerts, closed trades, p
 [paper]
 enabled = true              # paper-trade strong alerts automatically (no real money)
 min_score = 70              # only paper-trade setups scoring at least this
-max_open_positions = 8      # at most this many paper trades at once
+max_open_positions = 10     # at most this many swing trades at once (with £1,000 the free cash usually stops it at 3-5)
 
 [backtest]
 history = "10y"             # how far back to test
@@ -190,14 +198,11 @@ seed = 19                   # same seed = same answer every time
 
 [risk]
 # Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
-daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% of the account (two full losses)
-weekly_loss_limit_pct = 10  # ...or this week's reach 10%
-max_open_risk_pct = 16      # total that can still be lost across all open trades (8 trades at 2%). The 10-year whole-
-                            # account test ("python bot.py backtest --portfolio"): at 2% a trade, a 12% cap blocked 202
-                            # of 759 good trades (+25.6% a year, worst fall 27%); 16-18% blocked none (+40.5% a year,
-                            # worst fall 35%). For real money, 1% a trade with a 12% cap blocked none either and fell
-                            # least (+23.2% a year, worst fall 19%).
-max_new_trades_per_day = 3
+daily_loss_limit_pct = 10   # no new trades once today's closed losses reach 10% of the account (£100)
+weekly_loss_limit_pct = 25  # ...or this week's reach 25% (£250)
+max_open_risk_pct = 30      # total that can still be lost across all open trades (£300). With £1,000 of cash it's
+                            # usually the cash that limits, not this: "python bot.py backtest --portfolio" shows both.
+max_new_trades_per_day = 5  # nightly queue plus insider copy trades in the day (with £1,000 the cash limits it anyway)
 low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
                                 # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
                                 # copy trades, then pullbacks; within each, HIGH confidence first), and open trades count
@@ -233,7 +238,8 @@ min_edge_r = 0.1            # ...and must have made at least +0.1R a trade after
                             # almost none did: then the pulse says "sit out", which is the right answer)
 cost_pct = 0.02             # spread + fees each way, in %, for markets not listed below
 costs = { "SPY" = 0.005, "QQQ" = 0.005, "IWM" = 0.01, "GC=F" = 0.01, "^FTSE" = 0.01, "BTC-USD" = 0.05 }
-# Each paper trade risks account.size x account.risk_per_trade_pct (£100 now), so WON/LOST shows real-looking money.
+# WON/LOST is shown for your account: the normal risk (£100), but never more than a £350 position (max_position_pct
+# of £1,000) would lose at that trade's stop. Intraday stops are tight, so that's usually a few pounds: honest numbers.
 
 [copy]
 # Copy the insiders: company directors and bosses buying their own company's shares with their own money.
@@ -273,10 +279,20 @@ benchmark = "SPY"
 # if you run it on your own computer).
 enabled = true
 symbols = ["SPY", "QQQ", "IWM"]   # one "worker" each
-account_size = 5000         # sizes trades as if the account were this big (Alpaca paper starts at $100,000)
-risk_per_trade_pct = 1.0    # loss if an option's stop is hit
-max_premium_pct = 10        # never spend more than 10% of account_size on one trade
-triggers = ["vwap", "ema50"]   # "orb" (opening-range breakout) lost money in the real-data test with both old and new rules
+account_size = 1000         # the scalper's own account (Alpaca paper starts at $100,000, but it only uses this)
+account_currency = "GBP"    # account_size is in pounds; messages show £ (converted at today's rate)
+account_start = "2026-11-06" # from this day the account grows and shrinks with the scalper's results, and every
+                            # trade is sized from what it has then
+risk_per_trade_pct = 10.0   # loss if an option's stop is hit: 10% of £1,000 = £100
+max_premium_pct = 35        # never spend more than 35% of the account (£350) on one trade, and never more than is free
+triggers = ["vwap", "ema50", "hod"]   # "orb" (opening-range breakout) lost money in the real-data test with both old and
+                            # new rules. "hod" buys a NEW HIGH of the day (puts on a new low) in the trend's direction,
+                            # because a steady trend day never crosses back over VWAP. Last month of real prices: VWAP/EMA
+                            # only +23.9R, 11 of 18 days won; with "hod" +25.2R, 13 of 19, same worst day (-2.1R).
+                            # "ema_bounce" (buy a dip to the EMA) lost (-0.31R a trade), so it's off.
+hod_after = "10:30"         # new highs/lows only count from this time (before it they're mostly the opening range)
+use_trump = true            # reads Trump's posts too: for 60 minutes after a market-moving one it won't trade against
+trump_minutes = 60          # it (no calls after a tariff threat, no puts after "great time to buy")
 require_confluence = true   # calls only when price is above VWAP AND the 50 EMA; puts below both
 signal_minutes = 5          # judge the triggers on 5-minute bars (1 = the old 1-minute rules that kept whipsawing)
 trend_filter = true         # calls only when the trend is UP, puts only when it's DOWN, nothing when it's choppy
@@ -299,7 +315,8 @@ trail_giveback_pct = 15
 max_hold_minutes = 30
 max_trades_per_day = 6
 max_open_positions = 2
-daily_loss_limit_pct = 2    # stops for the day after losing 2% of account_size
+daily_loss_limit_pct = 20   # stops for the day after losing 20% (£200, two full losses). Its record so far is about
+                            # break-even, so at £100 a trade a bad day costs a fifth of the account: see the README.
 cooldown_minutes = 10
 max_spread_pct = 10
 event_blackout_minutes = 30 # no new trades 30 min either side of Fed, jobs and inflation releases
