@@ -1,0 +1,73 @@
+{
+"history": {},
+"paper": [
+{
+"id": "SPY|2026-11-06 11:25:09.487729-05:00",
+"kind": "scalper",
+"setup": "scalper",
+"symbol": "SPY",
+"r": -0.027322404371584723,
+"conditions": [
+"late morning",
+"trigger: VWAP",
+"trend: up/mixed",
+"solid candle"
+],
+"findings": [
+"lucky"
+],
+"date": "2026-11-06"
+},
+{
+"id": "QQQ|2026-11-06 11:55:11.612449-05:00",
+"kind": "scalper",
+"setup": "scalper",
+"symbol": "QQQ",
+"r": -0.9656084656084657,
+"conditions": [
+"late morning",
+"trigger: VWAP",
+"trend: up/mixed",
+"solid candle"
+],
+"findings": [
+"stop saved you",
+"wrong from the start"
+],
+"date": "2026-11-06"
+},
+{
+"id": "QQQ|2026-11-06 14:35:05.977078-05:00",
+"kind": "scalper",
+"setup": "scalper",
+"symbol": "QQQ",
+"r": -1.0617283950617287,
+"conditions": [
+"afternoon",
+"trigger: EMA",
+"trend: down/mixed",
+"solid candle"
+],
+"findings": [
+"wrong from the start"
+],
+"date": "2026-11-06"
+},
+{
+"id": "SPY|2026-11-06 14:20:00.813132-05:00",
+"kind": "scalper",
+"setup": "scalper",
+"symbol": "SPY",
+"r": -0.43589743589743624,
+"conditions": [
+"afternoon",
+"trigger: VWAP",
+"trend: down/mixed",
+"solid candle"
+],
+"findings": [],
+"date": "2026-11-06"
+}
+],
+"pending": []
+}
