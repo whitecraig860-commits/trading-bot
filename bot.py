@@ -1483,8 +1483,14 @@ def copy_now(cfg: dict, args, sym: str, cl: dict) -> tuple[list[str], bytes | No
     ok, why = risk_check(st, cfg, risk_amt, tier)
     lines.append(f"Confidence: <b>{tier}</b>" + (f" ({mult:g}x the normal size)" if mult != 1 else ""))
     lines += [f"   {'➕' if p_ > 0 else '➖'} {esc(w)}" for p_, w in pts]
+    if ok and units > 0 and value < max(25.0, 0.02 * float(st["equity"])):
+        units = 0
     if not ok or units <= 0:
-        lines.append(f"Not copied: {esc(why if not ok else 'position too small for the risk setting')}.")
+        free = free_cash(st, cfg)
+        reason = why if not ok else (
+            f"not enough free cash ({fmt_money(free, acct_ccy)} free, the rest is in open trades or set aside for "
+            "tonight's trades)" if free < max(25.0, 0.02 * float(st["equity"])) else "position too small for the risk setting")
+        lines.append(f"Not copied: {esc(reason)}.")
         return lines, png
     bar = bar_label(ind.index[i], interval)
     pos = Position(symbol=sym, setup="copy", direction="long", signal_date=bar, signal_price=price, atr_at_signal=a,
@@ -3073,7 +3079,7 @@ def cmd_scan(cfg: dict, args) -> int:
             if value < float(c.get("value") or 0) - 0.5:
                 note += f" Smaller than planned: only {fmt_money(value, acct_ccy)} of cash was free (risking {fmt_money(risk, acct_ccy)})."
         else:
-            note = "Swing trader (paper): blocked by the risk check, so no trade."
+            note = f"Swing trader (paper): no trade, {why}."
         text, png = alerts[c["idx"]]
         text = text.replace("§RISK§", esc(("PASS, " if ok else "BLOCK, ") + why)).replace("§PAPER§", esc(note))
         alerts[c["idx"]] = (text, png)

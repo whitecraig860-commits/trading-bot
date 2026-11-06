@@ -44,6 +44,7 @@ import bot  # reuses Telegram, settings loading and the event calendar
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
+import trump  # reads Trump's posts for market-moving topics
 
 BASE = Path(__file__).resolve().parent
 STATE = BASE / "state"
@@ -54,6 +55,9 @@ DEFAULTS = {
     "symbols": ["SPY", "QQQ", "IWM"],
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
+    "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "use_trump": True,                # don't trade against a fresh market-moving Trump post
+    "trump_minutes": 60,              # ...for this long after it
     "account_start": "",              # YYYY-MM-DD: from this day the account grows and shrinks with the scalper's results
     "risk_per_trade_pct": 1.0,        # loss if the option's stop is hit
     "max_premium_pct": 10.0,          # never spend more than this % of the account on one trade
@@ -806,7 +810,9 @@ def run_session(cfg: dict, full: dict, args) -> int:
         print(f"Started at {now0:%H:%M} New York time, after the last entry time ({cfg['last_entry']}). Nothing to do.")
         return 0
     if not day.trades and not day.stats.get("announced"):
-        trig = {"vwap": "VWAP cross", "ema50": f"{ema_len(cfg)} EMA cross", "orb": "opening-range breakout"}
+        trig = {"vwap": "VWAP cross", "ema50": f"{ema_len(cfg)} EMA cross", "orb": "opening-range breakout",
+                "hod": f"a new high or low of the day (after {cfg.get('hod_after', '10:00')})",
+                "ema_bounce": "a dip to the EMA that holds"}
         names = ", ".join(trig.get(t, t) for t in cfg["triggers"])
         say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
                   f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: {names}"
@@ -842,6 +848,51 @@ def run_session(cfg: dict, full: dict, args) -> int:
     save_day(day)
     summary(day, full, args, cfg)
     return 0
+
+
+def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
+    """Reads Trump's posts every few minutes. A fresh post that the keyword rules say should push SPY, QQQ or IWM
+    one way stops the scalper trading AGAINST it for the next hour (no calls after a tariff threat, no puts after
+    "great time to buy"). Trades with it still need the normal trigger and trend. {symbol: bias} still in force."""
+    if not cfg.get("use_trump", True):
+        return {}
+    tb = day.stats.setdefault("trump_bias", {})
+    last = day.stats.get("trump_checked")
+    if not last or (now - pd.Timestamp(last)).total_seconds() >= 180:
+        day.stats["trump_checked"] = str(now)
+        posts = []
+        try:
+            import requests
+
+            r = requests.get(trump.FEED, timeout=15, headers={"User-Agent": "Mozilla/5.0 (setup-scanner-bot)"})
+            r.raise_for_status()
+            posts = trump.parse_feed(r.text)
+        except Exception as exc:
+            print(f"Trump feed: {exc}")
+        seen = day.stats.setdefault("trump_seen", [])
+        mins = int(cfg.get("trump_minutes", 60))
+        for p in posts:
+            if p["id"] in seen:
+                continue
+            seen.append(p["id"])
+            if p["when"] is None or (now - p["when"]).total_seconds() > 45 * 60:
+                continue  # old news by now
+            eff = {e["market"]: e for e in trump.read_post(p["text"])}
+            if "SPY" in eff and "IWM" not in eff:
+                eff["IWM"] = dict(eff["SPY"], market="IWM")  # small caps move with the whole market
+            hit = []
+            for sym in cfg["symbols"]:
+                e = eff.get(sym)
+                if e:
+                    tb[sym] = {"dir": int(e["direction"]), "until": str(p["when"] + pd.Timedelta(minutes=mins)),
+                               "topic": e["topic"], "text": p["text"][:90]}
+                    hit.append(f"{sym} {'⬆ up' if e['direction'] > 0 else '⬇ down'} ({e['topic']})")
+            if hit:
+                say(full, f"🇺🇸 <b>Scalper read Trump's post</b>: “{bot.esc(p['text'][:200])}”\n"
+                          f"Could move: {bot.esc(', '.join(hit))}. For the next {mins} minutes it won't trade against "
+                          f"that on those markets.", args)
+        day.stats["trump_seen"] = seen[-200:]
+    return {s_: b for s_, b in tb.items() if pd.Timestamp(b["until"]) > now}
 
 
 def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool,
@@ -937,6 +988,11 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
     if sum(1 for t in trades if t.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
         return
     ev = blackout(full, cfg, now)
+    try:
+        biases = trump_bias(day, cfg, full, args, now)
+    except Exception as exc:  # the Trump check must never stop the trading
+        print(f"Trump check: {exc}")
+        biases = {}
     # 3) look for new signals on the latest finished bar
     for sym, df1 in bars.items():
         df = sig_bars.get(sym, df1)
@@ -973,6 +1029,13 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             why = why + [f"trend {direction}"]
         else:
             direction, kind = ("up" if side == "call" else "down"), "trend"
+        b = biases.get(sym)
+        if b:
+            if side != ("call" if b["dir"] > 0 else "put"):
+                print(f"{now:%H:%M} {sym}: {side} signal skipped: against Trump's post ({b['topic']})")
+                day.stats["trump_skips"] = day.stats.get("trump_skips", 0) + 1
+                continue
+            why = why + [f"agrees with Trump's post ({b['topic']})"]
         conds = scalp_conditions(ind, len(ind) - 1, why, direction, kind)
         if cfg.get("learn_from_journal", True):
             proven = [w for p_, w in lessons.lessons_for(bot.journal(), "scalper", "scalper", sym, conds,
@@ -1040,6 +1103,7 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
             + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
+            + (f"; {st.get('trump_skips', 0)} went against a fresh Trump post" if st.get("trump_skips") else "")
             + ". It only trades when everything lines up: a quiet day is part of that.")
     for w in cfg["symbols"]:
         ws = [t for t in closed if t.worker == w]
