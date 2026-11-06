@@ -45,20 +45,8 @@ jobs:
               print(f"RES {name:<52} {len(t):>3} tr {np.mean(t.r > 0):>4.0%} won avg {t.r.mean():+.2f}R tot {t.r.sum():+5.1f}R "
                     f"days {(days > 0).sum()}/{len(days)} worst {days.min():+.1f}R {t['exit'].value_counts().to_dict()}")
               return t
-          base = run("NOW")
-          hours(base, "NOW")
-          for tg in (0.75, 1.0, 1.5, 2.0):
-              for be in (0.3, 0.5):
-                  for tr, gap in ((0.6, 0.3), (0.8, 0.4), (99, 0)):
-                      run(f"lock tgt {tg} be {be} trail {tr}/{gap}", lock_profits=True, target_r=tg, be_after_r=be, trail_after_r=tr, trail_gap_r=gap)
-          run("day_agree", day_agree=True)
-          L = dict(lock_profits=True, target_r=1.0, be_after_r=0.5, trail_after_r=0.8, trail_gap_r=0.4)
-          run("lock 1/0.5/0.8-0.4 + day_agree", day_agree=True, **L)
-          t = run("lock 1/0.5/0.8-0.4", **L)
-          hours(t, "LOCK")
-          print("TODAY")
-          for sym, df in frames.items():
-              d = df[df.index.date == df.index[-1].date()]
-              for r in scalper.backtest_frame(sym, d, cfg): print("  NOW", sym, r["t"], r["side"], round(r["r"], 2), r["exit"], r["why"])
-              for r in scalper.backtest_frame(sym, d, dict(cfg, **L)): print("  LOCK", sym, r["t"], r["side"], round(r["r"], 2), r["exit"])
+          base = run("NEW CONFIG")
+          hours(base, "NEW")
+          run("new config but entries until 15:00", last_entry="15:00")
+          run("old (no lock, no day_agree, until 15:00)", lock_profits=False, day_agree=False, last_entry="15:00")
           PY
