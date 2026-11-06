@@ -3347,7 +3347,8 @@ def _stats_row(label: str, st: dict) -> list[str]:
 
 
 def portfolio_sim(trades: list, cfg: dict, risk_pct: float, heat_pct: float, max_open: int,
-                  start_equity: float = 5000.0) -> dict:
+                  start_equity: float = 5000.0, cash_limit: bool = False, leverage: float = 1.0,
+                  max_pos_pct: float = 100.0, max_risk_pct: float | None = None) -> dict:
     """Runs the whole paper account through history: each day's new signals are ranked (breakouts first,
     then higher score), taken while total open risk stays under heat_pct, sized at risk_pct of the account
     at the time, and paid out in R when they close. Open risk counts from the entry stop (no credit for
@@ -3355,38 +3356,55 @@ def portfolio_sim(trades: list, cfg: dict, risk_pct: float, heat_pct: float, max
     setup_rank = {"breakout": 0, "copy": 1, "pullback": 2}
     ts = [t for t in trades if t.entry_date and t.exit_date and t.exit_reason != "still open at the end of the data"]
     ts.sort(key=lambda t: (t.entry_date, setup_rank.get(t.setup, 3), -t.score))
-    eq, peak, max_dd = start_equity, start_equity, 0.0
-    open_: list = []  # (exit_date, risk_amount, r)
-    taken = skipped = 0
-    curve = []
+    eq, peak, max_dd, low = start_equity, start_equity, 0.0, start_equity
+    open_: list = []  # (exit_date, risk_amount, r, money tied up)
+    taken = skipped = capped = 0
+    risk_used = []
     for t in ts:
         still = []
-        for ex, risk, r in sorted(open_):
+        for ex, risk, r, val in sorted(open_):
             if ex <= t.entry_date:
                 eq += risk * r
                 peak = max(peak, eq)
+                low = min(low, eq)
                 max_dd = max(max_dd, 1 - eq / peak)
             else:
-                still.append((ex, risk, r))
+                still.append((ex, risk, r, val))
         open_ = still
-        risk_amt = eq * risk_pct / 100
-        heat = sum(r for _, r, _ in open_)
+        risk_amt = eq * min(risk_pct, max_risk_pct if max_risk_pct else risk_pct) / 100
+        heat = sum(x[1] for x in open_)
         if heat + risk_amt > eq * heat_pct / 100 + 1e-9 or len(open_) >= max_open or eq <= 0:
             skipped += 1
             continue
+        value = 0.0
+        if cash_limit:
+            # only buy what the money covers: a position worth more than the free cash (x leverage) is made smaller,
+            # and then a stop-out loses less than the target risk
+            stop_frac = (t.risk_per_unit / t.entry_price) if t.entry_price > 0 and t.risk_per_unit > 0 else 0.05
+            want = risk_amt / stop_frac
+            free = eq * leverage - sum(x[3] for x in open_)
+            value = min(want, eq * max_pos_pct / 100, free)
+            if value < max(25.0, 0.02 * eq):  # not enough money left for a sensible position
+                skipped += 1
+                continue
+            if value < want - 1e-6:
+                capped += 1
+            risk_amt = value * stop_frac
         taken += 1
-        open_.append((t.exit_date, risk_amt, t.r_multiple))
-        curve.append((t.entry_date, eq))
-    for ex, risk, r in sorted(open_):
+        risk_used.append(risk_amt / eq if eq > 0 else 0.0)
+        open_.append((t.exit_date, risk_amt, t.r_multiple, value))
+    for ex, risk, r, val in sorted(open_):
         eq += risk * r
         peak = max(peak, eq)
+        low = min(low, eq)
         max_dd = max(max_dd, 1 - eq / peak)
     years = 1.0
     if ts:
         years = max(0.5, (pd.Timestamp(ts[-1].exit_date) - pd.Timestamp(ts[0].entry_date)).days / 365.25)
     cagr = (eq / start_equity) ** (1 / years) - 1 if eq > 0 else -1.0
     return {"risk": risk_pct, "heat": heat_pct, "taken": taken, "skipped": skipped, "final": eq,
-            "cagr": cagr, "max_dd": max_dd, "years": years}
+            "cagr": cagr, "max_dd": max_dd, "years": years, "low": low, "capped": capped,
+            "avg_risk_pct": float(np.mean(risk_used) * 100) if risk_used else 0.0}
 
 
 def portfolio_report(trades: list, cfg: dict) -> None:
@@ -3402,6 +3420,22 @@ def portfolio_report(trades: list, cfg: dict) -> None:
                          f"{r['cagr'] / r['max_dd']:.2f}" if r["max_dd"] > 0 else "-"])
     print(_table(["Risk/trade", "Risk cap", "Trades taken", "End balance", "A year", "Worst fall", "Year/fall"], rows))
     print("Year/fall = yearly growth divided by the worst fall: higher means more growth for each bit of pain.")
+    size = float(cfg["account"]["size"])
+    lev_now = float(cfg["account"].get("leverage", 1.0))
+    print(f"\nYour real account: £{size:,.0f}, and a trade can only buy what the money covers"
+          f" (leverage 1 = an ordinary share account or ISA; 5 = a spread bet or CFD account, where you put down 20%).")
+    print("Risk/trade is the target; when the cash can't buy enough shares, the trade is smaller and risks less.\n")
+    rows = []
+    for risk in (2.0, 5.0, 10.0):
+        for lev in sorted({1.0, 2.0, 5.0, lev_now}):
+            for pos_pct in (35, 100):
+                r = portfolio_sim(trades, cfg, risk, max(20.0, risk * max_open), max_open, size, True, lev, pos_pct * lev,
+                                  risk * 1.5)
+                rows.append([f"{risk:g}% (£{size * risk / 100:,.0f})", f"{lev:g}x", f"{pos_pct}%",
+                             f"{r['taken']}/{r['taken'] + r['skipped']}", f"{r['avg_risk_pct']:.1f}%",
+                             f"£{r['final']:,.0f}", f"{r['cagr']:+.1%}", f"{r['max_dd']:.0%}", f"£{r['low']:,.0f}"])
+    print(_table(["Target risk", "Leverage", "Max in one", "Trades taken", "Real risk avg", "End balance", "A year",
+                  "Worst fall", "Lowest balance"], rows))
 
 
 def cmd_backtest(cfg: dict, args) -> int:
