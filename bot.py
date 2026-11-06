@@ -1230,6 +1230,15 @@ def update_insiders(cfg: dict, days: int | None = None, log=print) -> dict:
             if back >= 4:  # a holiday: no filings that day
                 done.add(key)
             continue
+        except RuntimeError as exc:
+            if "403" not in str(exc):
+                raise
+            # The SEC answers 403 (not 404) for a day's index that isn't published yet. The live feed covers that
+            # day meanwhile; try the index again later rather than giving up on the whole catch-up.
+            log(f"SEC index for {day} not available yet (403); will try again later")
+            if back >= 4:
+                done.add(key)
+            continue
         todo = [e for e in entries if e["acc"] not in st["seen"]]
         log(f"SEC filings for {day}: {len(entries)} Form 4s, {len(todo)} not read yet")
         _, budget = read_filings(st, cfg, todo, budget, log)
@@ -3655,7 +3664,8 @@ def watch_once(cfg: dict, args) -> int:
 
             # 1) A big move today (the bot's version of a "most volatile" or "top movers" list)
             big = abs(chg) >= float(wc["big_move_pct"]) or (in_atrs >= float(wc["big_move_atr"]) and abs(chg) >= 1.0)
-            key = f"move|{sym}|{day}"
+            session = bar_label(ind.index[-1], "1d")  # the market's own trading day, not the UK date
+            key = f"move|{sym}|{session}"
             if big and key not in ws["sent"]:
                 lines = [f"<b>BIG MOVE: {esc(sym)} {chg:+.1f}% today</b>, now {fmt_price(price, ccy)}"]
                 if in_atrs:
@@ -3680,7 +3690,7 @@ def watch_once(cfg: dict, args) -> int:
                     if setup != "breakout" or not bool(frame["trig"].iloc[i]):
                         continue
                     score = int(frame["score"].iloc[i])
-                    key = f"bo|{sym}|{direction}|{day}"
+                    key = f"bo|{sym}|{direction}|{session}"
                     if score >= min_score_for(setup, cfg) and key not in ws["sent"]:
                         side = "high" if direction == "long" else "low"
                         msgs.append(
@@ -4084,12 +4094,15 @@ def scalper_supervisor(ps: dict) -> list[str]:
             if dispatch_workflow("scalper.yml") and st["tries"] > 1:
                 msgs.append(f"⚙️ The 0DTE scalper wasn't running, so the pulse started it (attempt {st['tries']}).")
     # After the last entry time: say clearly if the scalper never ran, so a quiet day is never a mystery
-    if mins >= 15 * 60 + 10 and not st.get("warned"):
+    if mins < 15 * 60:
+        st["watched_session"] = True  # the pulse was here during the session, so a warning after it means something
+    if 15 * 60 + 10 <= mins <= 16 * 60 + 30 and not st.get("warned") and st.get("watched_session"):
         st["warned"] = True
         runs = scalper_runs_today()
         if runs is not None and not any(r["minutes"] >= 30 for r in runs):
-            msgs.append("⚠️ The 0DTE scalper did NOT run during the US session today (no run lasted 30+ minutes). "
-                        "No scalper trades were possible. The pulse tried to start it " f"{st['tries']} time(s).")
+            msgs.append("⚠️ The 0DTE scalper did NOT run through today's US session (no run lasted 30+ minutes), so it "
+                        f"made no trades. The pulse started it {st['tries']} time(s); GitHub didn't keep it running. "
+                        "Ask Claude to look at the scalper's runs.")
     return msgs
 
 
@@ -4342,7 +4355,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
         except Exception as exc:
             print(f"Scalper supervisor: {exc}")
     # 2) The daily insider catch-up (every filing from the previous days), once a day
-    if cc.get("enabled", True) and not OFFLINE:
+    if cc.get("enabled", True) and not OFFLINE and 5 <= now.hour < 21:
         daily_job(ps, "insider catch-up", today, lambda: update_insiders(cfg, log=print), max_tries=4, gap_minutes=30)
     # 3) EDGAR's live insider feed every few minutes
     if (cc.get("enabled", True) and cc.get("live", True) and not OFFLINE
