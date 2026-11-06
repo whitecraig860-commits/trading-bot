@@ -44,6 +44,7 @@ import bot  # reuses Telegram, settings loading and the event calendar
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
+import trump  # reads Trump's posts for market-moving topics
 
 BASE = Path(__file__).resolve().parent
 STATE = BASE / "state"
@@ -53,6 +54,11 @@ DEFAULTS = {
     "enabled": True,
     "symbols": ["SPY", "QQQ", "IWM"],
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
+    "account_currency": "USD",        # the currency account_size is in; messages show money in it too
+    "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "use_trump": True,                # don't trade against a fresh market-moving Trump post
+    "trump_minutes": 60,              # ...for this long after it
+    "account_start": "",              # YYYY-MM-DD: from this day the account grows and shrinks with the scalper's results
     "risk_per_trade_pct": 1.0,        # loss if the option's stop is hit
     "max_premium_pct": 10.0,          # never spend more than this % of the account on one trade
     "opening_range_minutes": 15,
@@ -208,6 +214,25 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set, stats: dict |
             fired["call"].append(f"closed above the {ema_len(cfg)} EMA")
         if pc >= pem and c < em:
             fired["put"].append(f"closed below the {ema_len(cfg)} EMA")
+    if "hod" in trig and i >= 3:
+        # trend days never cross back over VWAP: buy the next new high of the day (sell the next new low)
+        t = ind.index[i]
+        after = cfg.get("hod_after", "10:00")
+        if t.hour * 60 + t.minute >= ny_time(after)[0] * 60 + ny_time(after)[1]:
+            prior_hi, prior_lo = float(ind["High"].iloc[:i].max()), float(ind["Low"].iloc[:i].min())
+            if c > prior_hi and pc <= prior_hi:
+                fired["call"].append("made a new high for the day")
+            if c < prior_lo and pc >= prior_lo:
+                fired["put"].append("made a new low for the day")
+    if "ema_bounce" in trig and i >= 10:
+        # a dip to the EMA that holds, in a market already above it (or a bounce up to it that fails, below)
+        atr = float(ind["atr"].iloc[i]) if np.isfinite(ind["atr"].iloc[i]) else 0.0
+        lo2 = min(float(ind["Low"].iloc[i]), float(ind["Low"].iloc[i - 1]))
+        hi2 = max(float(ind["High"].iloc[i]), float(ind["High"].iloc[i - 1]))
+        if pc > pem and c > em and lo2 <= em + 0.1 * atr:
+            fired["call"].append(f"dipped to the {ema_len(cfg)} EMA and held")
+        if pc < pem and c < em and hi2 >= em - 0.1 * atr:
+            fired["put"].append(f"bounced up to the {ema_len(cfg)} EMA and failed")
     if "orb" in trig and bool(ind["or_done"].iloc[i]) and np.isfinite(ind["or_high"].iloc[i]):
         hi, lo = ind["or_high"].iloc[i], ind["or_low"].iloc[i]
         if c > hi and pc <= hi and "call" not in orb_used:
@@ -426,6 +451,7 @@ class Trade:
     u_stop: float = 0.0      # VWAP then: where the setup is wrong
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
+    risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
 @dataclass
@@ -617,7 +643,7 @@ def scalp_conditions(ind: pd.DataFrame, i: int, why: list[str], direction: str, 
 
 
 def scalp_record(t: "Trade", cfg: dict) -> dict:
-    risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
+    risk_cash = t.risk_cash or 50.0  # trades before risk_cash was kept were all sized at $50 (1% of 5,000)
     return {"id": f"{t.worker}|{t.entry_time}", "kind": "scalper", "setup": "scalper", "symbol": t.worker,
             "r": t.pnl / risk_cash if risk_cash else 0.0, "conditions": json.loads(t.conds or "[]"),
             "findings": [], "date": t.exit_time[:10]}
@@ -711,8 +737,41 @@ def learn_records(full: dict) -> list[dict]:
     return out
 
 
+_SHOW = {"ccy": "USD", "per_usd": 1.0}  # money is kept in dollars (options are priced in dollars) and shown in this
+
+
+def show_in(ccy: str) -> None:
+    """Messages show money in the account's currency (e.g. pounds), converted at today's rate."""
+    ccy = (ccy or "USD").upper()
+    rate = 1.0 if ccy == "USD" else bot.fx_rate("USD", ccy)
+    if not rate or not np.isfinite(rate) or rate <= 0:
+        rate = {"GBP": 0.76, "EUR": 0.87}.get(ccy, 1.0)  # rough fallback if the rate can't be read
+    _SHOW.update(ccy=ccy, per_usd=float(rate))
+
+
 def money(x: float) -> str:
-    return f"-${abs(x):,.0f}" if x < 0 else f"${x:,.0f}"
+    sym = {"GBP": "£", "EUR": "€"}.get(_SHOW["ccy"], "$")
+    v = x * _SHOW["per_usd"]
+    return f"-{sym}{abs(v):,.0f}" if v < 0 else f"{sym}{v:,.0f}"
+
+
+def account_usd(cfg: dict) -> float:
+    """The scalper's own account, in dollars: account_size, plus everything it has made or lost since account_start
+    (so it works off what it has: losses shrink the next trades, wins grow them)."""
+    size = float(cfg["account_size"])
+    ccy = str(cfg.get("account_currency", "USD")).upper()
+    if ccy != "USD" and _SHOW["ccy"] != ccy:
+        show_in(ccy)
+    usd = size / _SHOW["per_usd"] if ccy != "USD" else size
+    start = str(cfg.get("account_start") or "")
+    log = STATE / "scalper_log.csv"
+    if start and log.exists():
+        try:
+            hist = pd.read_csv(log)
+            usd += float(hist.loc[hist["date"].astype(str) >= start, "pnl"].sum())
+        except Exception:
+            pass
+    return max(0.0, usd)
 
 
 def run_session(cfg: dict, full: dict, args) -> int:
@@ -751,14 +810,19 @@ def run_session(cfg: dict, full: dict, args) -> int:
         print(f"Started at {now0:%H:%M} New York time, after the last entry time ({cfg['last_entry']}). Nothing to do.")
         return 0
     if not day.trades and not day.stats.get("announced"):
-        trig = {"vwap": "VWAP cross", "ema50": f"{ema_len(cfg)} EMA cross", "orb": "opening-range breakout"}
+        trig = {"vwap": "VWAP cross", "ema50": f"{ema_len(cfg)} EMA cross", "orb": "opening-range breakout",
+                "hod": f"a new high or low of the day (after {cfg.get('hod_after', '10:00')})",
+                "ema_bounce": "a dip to the EMA that holds"}
         names = ", ".join(trig.get(t, t) for t in cfg["triggers"])
         say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
                   f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: {names}"
                   f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}"
                   f"{', strong candles only' if cfg.get('candle_filter') else ''}. "
                   f"Entries {cfg['first_entry']} to {cfg['last_entry']} New York time. "
-                  f"Daily loss limit {money(cfg['account_size'] * cfg['daily_loss_limit_pct'] / 100)}.", args)
+                  f"Daily loss limit {money(account_usd(cfg) * cfg['daily_loss_limit_pct'] / 100)}.\n"
+                  f"Account {money(account_usd(cfg))} · each trade risks up to "
+                  f"{money(account_usd(cfg) * cfg['risk_per_trade_pct'] / 100)} and spends at most "
+                  f"{money(account_usd(cfg) * cfg['max_premium_pct'] / 100)}.", args)
         day.stats["announced"] = True
     history5: dict = {}
     if cfg.get("trend_filter"):
@@ -784,6 +848,51 @@ def run_session(cfg: dict, full: dict, args) -> int:
     save_day(day)
     summary(day, full, args, cfg)
     return 0
+
+
+def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
+    """Reads Trump's posts every few minutes. A fresh post that the keyword rules say should push SPY, QQQ or IWM
+    one way stops the scalper trading AGAINST it for the next hour (no calls after a tariff threat, no puts after
+    "great time to buy"). Trades with it still need the normal trigger and trend. {symbol: bias} still in force."""
+    if not cfg.get("use_trump", True):
+        return {}
+    tb = day.stats.setdefault("trump_bias", {})
+    last = day.stats.get("trump_checked")
+    if not last or (now - pd.Timestamp(last)).total_seconds() >= 180:
+        day.stats["trump_checked"] = str(now)
+        posts = []
+        try:
+            import requests
+
+            r = requests.get(trump.FEED, timeout=15, headers={"User-Agent": "Mozilla/5.0 (setup-scanner-bot)"})
+            r.raise_for_status()
+            posts = trump.parse_feed(r.text)
+        except Exception as exc:
+            print(f"Trump feed: {exc}")
+        seen = day.stats.setdefault("trump_seen", [])
+        mins = int(cfg.get("trump_minutes", 60))
+        for p in posts:
+            if p["id"] in seen:
+                continue
+            seen.append(p["id"])
+            if p["when"] is None or (now - p["when"]).total_seconds() > 45 * 60:
+                continue  # old news by now
+            eff = {e["market"]: e for e in trump.read_post(p["text"])}
+            if "SPY" in eff and "IWM" not in eff:
+                eff["IWM"] = dict(eff["SPY"], market="IWM")  # small caps move with the whole market
+            hit = []
+            for sym in cfg["symbols"]:
+                e = eff.get(sym)
+                if e:
+                    tb[sym] = {"dir": int(e["direction"]), "until": str(p["when"] + pd.Timedelta(minutes=mins)),
+                               "topic": e["topic"], "text": p["text"][:90]}
+                    hit.append(f"{sym} {'⬆ up' if e['direction'] > 0 else '⬇ down'} ({e['topic']})")
+            if hit:
+                say(full, f"🇺🇸 <b>Scalper read Trump's post</b>: “{bot.esc(p['text'][:200])}”\n"
+                          f"Could move: {bot.esc(', '.join(hit))}. For the next {mins} minutes it won't trade against "
+                          f"that on those markets.", args)
+        day.stats["trump_seen"] = seen[-200:]
+    return {s_: b for s_, b in tb.items() if pd.Timestamp(b["until"]) > now}
 
 
 def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool,
@@ -868,7 +977,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         return
     # 2) risk limits before any new entry
     realised = sum(t.pnl for t in trades if t.status == "closed")
-    if realised <= -cfg["account_size"] * cfg["daily_loss_limit_pct"] / 100:
+    if realised <= -account_usd(cfg) * cfg["daily_loss_limit_pct"] / 100:
         if not day.orb_used.get("_limit_said"):
             say(full, f"<b>Daily loss limit hit</b> ({money(realised)}). No more trades today.", args)
             day.orb_used["_limit_said"] = ["yes"]
@@ -879,6 +988,11 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
     if sum(1 for t in trades if t.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
         return
     ev = blackout(full, cfg, now)
+    try:
+        biases = trump_bias(day, cfg, full, args, now)
+    except Exception as exc:  # the Trump check must never stop the trading
+        print(f"Trump check: {exc}")
+        biases = {}
     # 3) look for new signals on the latest finished bar
     for sym, df1 in bars.items():
         df = sig_bars.get(sym, df1)
@@ -915,6 +1029,13 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             why = why + [f"trend {direction}"]
         else:
             direction, kind = ("up" if side == "call" else "down"), "trend"
+        b = biases.get(sym)
+        if b:
+            if side != ("call" if b["dir"] > 0 else "put"):
+                print(f"{now:%H:%M} {sym}: {side} signal skipped: against Trump's post ({b['topic']})")
+                day.stats["trump_skips"] = day.stats.get("trump_skips", 0) + 1
+                continue
+            why = why + [f"agrees with Trump's post ({b['topic']})"]
         conds = scalp_conditions(ind, len(ind) - 1, why, direction, kind)
         if cfg.get("learn_from_journal", True):
             proven = [w for p_, w in lessons.lessons_for(bot.journal(), "scalper", "scalper", sym, conds,
@@ -941,19 +1062,25 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
         # traders found most of their losses came from trading costs (the bid/ask spread).
         limit = round(min(ask, mid + float(cfg.get("entry_offset_pct", 25)) / 100 * (ask - mid)) + 0.004, 2)
-        risk_cash = cfg["account_size"] * cfg["risk_per_trade_pct"] / 100
+        acct = account_usd(cfg)
+        risk_cash = acct * cfg["risk_per_trade_pct"] / 100
         per_contract_risk = limit * 100 * cfg["stop_loss_pct"] / 100
-        max_spend = cfg["account_size"] * cfg["max_premium_pct"] / 100
-        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100)))
+        max_spend = acct * cfg["max_premium_pct"] / 100
+        # never spend more than the account has free: what's already in open or waiting trades is in use
+        in_use = sum(x.entry_price * 100 * x.qty for x in trades if x.status in {"open", "pending"})
+        max_spend = min(max_spend, acct - in_use)
+        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100))) if max_spend > 0 else 0
         if qty < 1:
-            print(f"{sym}: one contract (${limit * 100:,.0f}) is over your limits, skipped")
+            print(f"{sym}: one contract ({money(limit * 100)}) is over your limits, skipped")
+            day.stats["too_dear"] = day.stats.get("too_dear", 0) + 1
             continue
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
         o = api.buy(con.symbol, qty, limit)
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
-                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds))
+                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
+                  risk_cash=qty * per_contract_risk)
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
@@ -975,6 +1102,8 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('trend', 0)} went against the trend" if st.get("trend") else "")
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
+            + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
+            + (f"; {st.get('trump_skips', 0)} went against a fresh Trump post" if st.get("trump_skips") else "")
             + ". It only trades when everything lines up: a quiet day is part of that.")
     for w in cfg["symbols"]:
         ws = [t for t in closed if t.worker == w]
@@ -1035,6 +1164,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-telegram", action="store_true")
     args = ap.parse_args(argv)
     cfg, full = load_cfg(args.config)
+    show_in(str(cfg.get("account_currency", "USD")))
     if not cfg.get("enabled", True) and args.command == "run":
         print("Scalper is switched off in config.toml ([scalper] enabled = false).")
         return 0
