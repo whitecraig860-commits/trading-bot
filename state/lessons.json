@@ -734,6 +734,18 @@
 "conditions": [],
 "date": "2026-11-05",
 "findings": []
+},
+{
+"id": "SOL-USD|pullback|2026-11-03",
+"kind": "daily",
+"setup": "pullback",
+"symbol": "SOL-USD",
+"r": -0.28555126367204464,
+"conditions": [],
+"date": "2026-11-06",
+"findings": [
+"gapped through the stop"
+]
 }
 ],
 "pending": [
@@ -748,6 +760,18 @@
 "reason": "stop",
 "r": -1.0205339184919815,
 "setup": "breakout"
+},
+{
+"id": "SOL-USD|pullback|2026-11-03",
+"symbol": "SOL-USD",
+"exit_date": "2026-11-06",
+"entry": 91.83545684814453,
+"stop": 81.86738490993332,
+"exit": 89.1700668334961,
+"long": true,
+"reason": "stop (gapped through)",
+"r": -0.28555126367204464,
+"setup": "pullback"
 }
 ],
 "paper_tables": {
@@ -768,6 +792,26 @@
 }
 },
 "finding": {}
+},
+"daily|pullback": {
+"all": {
+"n": 1,
+"avg": -0.28555126367204464,
+"win": 0.0,
+"sd": 0.0
+},
+"cond": {},
+"symbol": {
+"SOL-USD": {
+"n": 1,
+"avg": -0.28555126367204464,
+"win": 0.0,
+"sd": 0.0
+}
+},
+"finding": {
+"gapped through the stop": 1
+}
 }
 },
 "history_built": "2026-11-06T00:26:58.698943+00:00"
