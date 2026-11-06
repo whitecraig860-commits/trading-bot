@@ -291,11 +291,11 @@
     }
    },
    "record_at": "2026-11-05T23:45:40.000592+00:00",
-   "last_bar": "2026-11-06 00:10:00+00:00",
+   "last_bar": "2026-11-06 00:15:00+00:00",
    "brief_day": "2026-11-06",
    "stance": "none|None",
    "pending": "range|None",
-   "pending_n": 1,
+   "pending_n": 2,
    "alerts": {},
    "changes": {
     "2026-11-05": 3
@@ -412,5 +412,19 @@
  ],
  "trump_checks": [],
  "trump_seeded": true,
- "briefing_day": "2026-11-05"
+ "briefing_day": "2026-11-05",
+ "scalper": {
+  "day": "2026-11-05",
+  "tries": 0,
+  "last_try": 0.0,
+  "warned": true
+ },
+ "jobs": {
+  "insider catch-up": {
+   "day": "2026-11-06",
+   "tries": 1,
+   "done": false,
+   "last": 1793924178.2022674
+  }
+ }
 }
