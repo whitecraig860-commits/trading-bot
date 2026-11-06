@@ -97,7 +97,8 @@ enabled = true              # send a chart picture with alerts, closed trades, p
 [paper]
 enabled = true              # paper-trade strong alerts automatically (no real money)
 min_score = 70              # only paper-trade setups scoring at least this
-max_open_positions = 8      # at most this many paper trades at once
+max_open_positions = 10     # at most this many swing trades at once. 10-year test at 2% a trade: 8 at once took 727 of
+                            # 1,330 good signals (+38.0% a year, worst fall 33%); 10 took 851 (+44.8% a year, worst fall 38%)
 
 [backtest]
 history = "10y"             # how far back to test
@@ -192,11 +193,11 @@ seed = 19                   # same seed = same answer every time
 # Every new trade must PASS these, or it's BLOCKED (no paper trade, and the alert says why).
 daily_loss_limit_pct = 4    # no new trades once today's closed losses reach 4% of the account (two full losses)
 weekly_loss_limit_pct = 10  # ...or this week's reach 10%
-max_open_risk_pct = 16      # total that can still be lost across all open trades (8 trades at 2%). The 10-year whole-
-                            # account test ("python bot.py backtest --portfolio"): at 2% a trade, a 12% cap blocked 202
-                            # of 759 good trades (+25.6% a year, worst fall 27%); 16-18% blocked none (+40.5% a year,
-                            # worst fall 35%). For real money, 1% a trade with a 12% cap blocked none either and fell
-                            # least (+23.2% a year, worst fall 19%).
+max_open_risk_pct = 20      # total that can still be lost across all open trades (10 trades at 2%)
+                            # account test ("python bot.py backtest --portfolio"): at 2% a trade, 8 trades at once with
+                            # a 16% cap took 727 of 1,330 good signals (+38.0% a year, worst fall 33%); 10 at once with
+                            # 20% took 851 (+44.8% a year, worst fall 38%). Gentler: 1.5% a trade, 10 at once, 15% cap
+                            # (+36% a year, worst fall 30%). For real money, start at 1% a trade.
 max_new_trades_per_day = 3
 low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
                                 # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
