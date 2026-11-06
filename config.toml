@@ -202,7 +202,7 @@ daily_loss_limit_pct = 10   # no new trades once today's closed losses reach 10%
 weekly_loss_limit_pct = 25  # ...or this week's reach 25% (£250)
 max_open_risk_pct = 30      # total that can still be lost across all open trades (£300). With £1,000 of cash it's
                             # usually the cash that limits, not this: "python bot.py backtest --portfolio" shows both.
-max_new_trades_per_day = 3
+max_new_trades_per_day = 5  # nightly queue plus insider copy trades in the day (with £1,000 the cash limits it anyway)
 low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
                                 # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
                                 # copy trades, then pullbacks; within each, HIGH confidence first), and open trades count
@@ -285,7 +285,14 @@ account_start = "2026-11-06" # from this day the account grows and shrinks with 
                             # trade is sized from what it has then
 risk_per_trade_pct = 10.0   # loss if an option's stop is hit: 10% of £1,000 = £100
 max_premium_pct = 35        # never spend more than 35% of the account (£350) on one trade, and never more than is free
-triggers = ["vwap", "ema50"]   # "orb" (opening-range breakout) lost money in the real-data test with both old and new rules
+triggers = ["vwap", "ema50", "hod"]   # "orb" (opening-range breakout) lost money in the real-data test with both old and
+                            # new rules. "hod" buys a NEW HIGH of the day (puts on a new low) in the trend's direction,
+                            # because a steady trend day never crosses back over VWAP. Last month of real prices: VWAP/EMA
+                            # only +23.9R, 11 of 18 days won; with "hod" +25.2R, 13 of 19, same worst day (-2.1R).
+                            # "ema_bounce" (buy a dip to the EMA) lost (-0.31R a trade), so it's off.
+hod_after = "10:30"         # new highs/lows only count from this time (before it they're mostly the opening range)
+use_trump = true            # reads Trump's posts too: for 60 minutes after a market-moving one it won't trade against
+trump_minutes = 60          # it (no calls after a tariff threat, no puts after "great time to buy")
 require_confluence = true   # calls only when price is above VWAP AND the 50 EMA; puts below both
 signal_minutes = 5          # judge the triggers on 5-minute bars (1 = the old 1-minute rules that kept whipsawing)
 trend_filter = true         # calls only when the trend is UP, puts only when it's DOWN, nothing when it's choppy
