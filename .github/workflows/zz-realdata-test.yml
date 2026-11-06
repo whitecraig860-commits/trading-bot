@@ -1,0 +1,63 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: SEC - which daily indexes exist, and the live feed
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          python -W ignore - <<'PY'
+          import bot
+          cfg = bot.load_config("config.toml")
+          for d in ["20261103", "20261104", "20261105", "20261106"]:
+              url = f"{bot.SEC_ARCHIVES}edgar/daily-index/2026/QTR4/form.{d}.idx"
+              try:
+                  print(d, "OK", len(bot.parse_form_index(bot.sec_get(url, cfg))), "Form 4s")
+              except Exception as e:
+                  print(d, "->", type(e).__name__, str(e)[:60])
+          try:
+              print("live feed OK:", len(bot.parse_live_feed(bot.sec_get(bot.SEC_LIVE.format(start=0), cfg))), "Form 4s")
+          except Exception as e:
+              print("live feed ->", e)
+          st = bot.load_insiders(); print("catch-up now:"); bot.update_insiders(cfg, log=print)
+          PY
+      - name: More trades at once, each smaller? 10-year whole-account test
+        run: |
+          python -W ignore - 2>/dev/null <<'PY'
+          import bot, argparse
+          cfg = bot.load_config("config.toml")
+          args = argparse.Namespace(csv_dir=None, symbols=None, benchmark="")
+          trades = []
+          interval, history = cfg["scan"]["interval"], cfg["backtest"]["history"]
+          cost = float(cfg["backtest"]["cost_per_side_pct"]) / 100
+          for bench_sym, syms in bot.iter_watchlist(cfg, args):
+              bdf = bot.get_data(bench_sym, interval, history)[0] if bench_sym else None
+              for s in syms:
+                  try:
+                      df, _ = bot.get_data(s, interval, history)
+                  except Exception:
+                      continue
+                  if len(df) < 260: continue
+                  ind = bot.add_indicators(df, cfg)
+                  sigs = bot.compute_signals(ind, bot.align_benchmark(ind, bdf), cfg, s, bench_sym)
+                  trades += [t for t in bot.run_backtest_symbol(ind, sigs, cfg, s, interval, cost, 0)
+                             if t.score >= bot.min_score_for(t.setup, cfg, "paper")]
+          print(f"{'risk':>5} {'max open':>8} {'cap':>5}  {'taken':>9}  {'end £':>9}  {'a year':>7}  {'worst fall':>10}  year/fall")
+          for risk, mo in ((2.0, 8), (2.0, 10), (1.5, 10), (1.5, 12), (1.0, 12), (1.0, 16)):
+              cap = risk * mo
+              r = bot.portfolio_sim(trades, cfg, risk, cap, mo)
+              print(f"{risk:>4g}% {mo:>8} {cap:>4g}%  {r['taken']:>4}/{r['taken']+r['skipped']:<4}  {r['final']:>9,.0f}  {r['cagr']:>+7.1%}  {r['max_dd']:>10.0%}  {r['cagr']/r['max_dd']:.2f}")
+          PY
