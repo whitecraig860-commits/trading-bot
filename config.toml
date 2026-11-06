@@ -306,13 +306,28 @@ learn_from_journal = true   # skip setups the journal has proven lose (30+ trade
 lesson_min_trades = 30
 loss_cooldown_minutes = 30  # and waits 30 minutes after any loss
 first_entry = "09:45"       # New York time (14:45 UK most of the year)
-last_entry = "15:00"
+last_entry = "11:30"         # no new trades after this: last month, trades started 11:30-15:00 made nothing
+                            # (midday chop: 35 trades, 0.00R), and 6 Nov's -£55 QQQ call was bought at 11:55
 flat_by = "15:50"           # everything sold by then: 0DTE options expire worthless at the close
 stop_loss_pct = 30
 take_profit_pct = 50
 trail_after_pct = 25
 trail_giveback_pct = 15
 max_hold_minutes = 30
+# Taking profits (last month of real prices, 20 days): selling at a 1R move of the share, never letting a trade that
+# was 0.5R up turn into a loss, and trailing 0.4R behind once 0.8R up took the win rate from 49% to 73% and the
+# winning days from 12 to 15 of 20, with the worst day -1.4R instead of -2.1R. It makes a bit less in total
+# (+19.0R vs +24.3R), because the odd big runner is sold early: smaller, steadier wins.
+lock_profits = true
+target_r = 1.0              # sell when the share has moved 1R your way (R = its distance to VWAP at entry)
+be_after_r = 0.5            # once 0.5R up, it may not come back below +0.05R
+be_lock_r = 0.05
+trail_after_r = 0.8         # once 0.8R up, sell if it gives back 0.4R from its best
+trail_gap_r = 0.4
+lock_after_pct = 15         # and on the option itself: once it has been up 15%, sell if it drops back to +3%
+lock_floor_pct = 3
+day_agree = true            # never buy calls while the share is down on the day, or puts while it's up
+                            # (last month: +24.3R vs +21.2R, 14 vs 12 winning days, worst day -1.5R vs -2.1R)
 max_trades_per_day = 6
 max_open_positions = 2
 daily_loss_limit_pct = 20   # stops for the day after losing 20% (£200, two full losses). Its record so far is about
