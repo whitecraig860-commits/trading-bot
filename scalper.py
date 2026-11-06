@@ -246,6 +246,13 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set, stats: dict |
             ok = (c > vw and c > em) if side == "call" else (c < vw and c < em)
             if not ok:
                 continue
+        if cfg.get("day_agree"):
+            # never buy calls while the share is down on the day (or puts while it's up)
+            day_open = float(ind["Open"].iloc[0])
+            if (side == "call" and c <= day_open) or (side == "put" and c >= day_open):
+                if stats is not None:
+                    stats["day"] = stats.get("day", 0) + 1
+                continue
         if cfg.get("candle_filter", False) and not candle_ok(ind, i, side, cfg):
             if stats is not None:
                 stats["candle"] = stats.get("candle", 0) + 1
@@ -328,6 +335,19 @@ def cmd_backtest(cfg: dict, full: dict, args) -> int:
     return report_backtest([r for sym, df in frames_by_sym.items() for r in backtest_frame(sym, df, cfg)], cfg)
 
 
+def profit_floor(best_r: float, cfg: dict) -> float | None:
+    """Once a trade has been well in profit, the least it may give back to: break-even after be_after_r, then
+    trailing trail_gap_r behind its best after trail_after_r. None = no floor yet (only the normal stop)."""
+    if not cfg.get("lock_profits"):
+        return None
+    floor = None
+    if best_r >= float(cfg.get("be_after_r", 0.5)):
+        floor = float(cfg.get("be_lock_r", 0.05))
+    if best_r >= float(cfg.get("trail_after_r", 1.0)):
+        floor = max(floor or 0.0, best_r - float(cfg.get("trail_gap_r", 0.4)))
+    return floor
+
+
 def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
     """Simulates the triggers on the share price. Risk = distance to VWAP or 0.15%, whichever is bigger;
     exits on the reverse cross, the time stop or the close. Results in R (multiples of that risk)."""
@@ -356,12 +376,31 @@ def backtest_frame(sym: str, df: pd.DataFrame, cfg: dict) -> list[dict]:
             c = float(ind["Close"].iloc[i])
             if pos:
                 long = pos["side"] == "call"
+                if cfg.get("lock_profits"):
+                    h, lo_ = float(ind["High"].iloc[i]), float(ind["Low"].iloc[i])
+                    fav = ((h - pos["entry"]) if long else (pos["entry"] - lo_)) / pos["risk"]
+                    adv = ((lo_ - pos["entry"]) if long else (pos["entry"] - h)) / pos["risk"]
+                    floor = profit_floor(pos.get("best", 0.0), cfg)
+                    tgt = float(cfg.get("target_r", 2.0))
+                    hit = None
+                    if floor is not None and adv <= floor:
+                        o = float(ind["Open"].iloc[i])
+                        o_r = ((o - pos["entry"]) if long else (pos["entry"] - o)) / pos["risk"]
+                        hit = (min(floor, o_r), "locked profit" if floor > 0 else "break-even")
+                    elif fav >= tgt:
+                        hit = (tgt, "target")
+                    pos["best"] = max(pos.get("best", 0.0), fav)
+                    if hit:
+                        pos["r"], pos["exit"] = hit
+                        trades.append(pos)
+                        pos, last_exit = None, ts
+                        continue
                 move = (c - pos["entry"]) if long else (pos["entry"] - c)
                 r = move / pos["risk"]
                 reverse = cfg["exit_on_reverse_cross"] and ((long and c < ind["vwap"].iloc[i]) or ((not long) and c > ind["vwap"].iloc[i]))
                 timeout = (ts - pos["t"]).total_seconds() / 60 >= int(cfg["max_hold_minutes"])
                 late = ts.hour * 60 + ts.minute >= fh * 60 + fm
-                if r <= -1 or r >= 2 or reverse or timeout or late:
+                if r <= -1 or r >= float(cfg.get("target_r", 2.0)) or reverse or timeout or late:
                     exit_px = float(ind["Open"].iloc[i + 1])
                     move = (exit_px - pos["entry"]) if long else (pos["entry"] - exit_px)
                     pos["r"] = max(-1.5, move / pos["risk"])
@@ -451,6 +490,7 @@ class Trade:
     u_stop: float = 0.0      # VWAP then: where the setup is wrong
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
+    best_r: float = 0.0      # the share's best move in its favour so far, in R (for locking in profit)
     risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
@@ -933,8 +973,23 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         reason = None
         sb = sig_bars.get(t.worker)
         ind = session_indicators(sb, cfg) if sb is not None and len(sb) > 3 else None
+        u_r = None
+        if t.u_entry and t.worker in bars and len(bars[t.worker]):
+            u_now = float(bars[t.worker]["Close"].iloc[-1])
+            u_risk = max(abs(t.u_entry - t.u_stop), t.u_entry * 0.0015)
+            u_r = ((u_now - t.u_entry) if t.side == "call" else (t.u_entry - u_now)) / u_risk
+            t.best_r = max(t.best_r, u_r)
+        floor = profit_floor(t.best_r, cfg)
+        best_gain = (t.best / t.entry_price - 1) * 100
         if force_exit:
             reason = "end of the trading window"
+        elif u_r is not None and cfg.get("lock_profits") and u_r >= float(cfg.get("target_r", 2.0)):
+            reason = f"profit target: the share moved {u_r:.1f}R your way ({chg:+.0f}% on the option)"
+        elif u_r is not None and floor is not None and u_r <= floor:
+            reason = f"locked in profit: it was up {t.best_r:.1f}R and came back ({chg:+.0f}%)"
+        elif cfg.get("lock_profits") and best_gain >= float(cfg.get("lock_after_pct", 15)) and \
+                chg <= float(cfg.get("lock_floor_pct", 3)):
+            reason = f"locked in profit: the option was up {best_gain:.0f}% and came back ({chg:+.0f}%)"
         elif chg <= -float(cfg["stop_loss_pct"]):
             reason = f"stop loss ({chg:.0f}%)"
         elif chg >= float(cfg["take_profit_pct"]):
