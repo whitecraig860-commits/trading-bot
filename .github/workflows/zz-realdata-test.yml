@@ -1,0 +1,50 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: A £1,000 account that can only buy what its cash covers - 10 years
+        run: |
+          python -W ignore - 2>/dev/null <<'PY'
+          import bot, argparse
+          cfg = bot.load_config("config.toml")
+          args = argparse.Namespace(csv_dir=None, symbols=None, benchmark="")
+          trades = []
+          interval, history = cfg["scan"]["interval"], cfg["backtest"]["history"]
+          cost = float(cfg["backtest"]["cost_per_side_pct"]) / 100
+          for bench_sym, syms in bot.iter_watchlist(cfg, args):
+              bdf = bot.get_data(bench_sym, interval, history)[0] if bench_sym else None
+              for s in syms:
+                  try:
+                      df, _ = bot.get_data(s, interval, history)
+                  except Exception:
+                      continue
+                  if len(df) < 260: continue
+                  ind = bot.add_indicators(df, cfg)
+                  sigs = bot.compute_signals(ind, bot.align_benchmark(ind, bdf), cfg, s, bench_sym)
+                  trades += [t for t in bot.run_backtest_symbol(ind, sigs, cfg, s, interval, cost, 0)
+                             if t.score >= bot.min_score_for(t.setup, cfg, "paper")]
+          import numpy as np
+          sp = [t.risk_per_unit / t.entry_price * 100 for t in trades if t.entry_price > 0 and t.risk_per_unit > 0]
+          print(f"{len(trades)} trades; stop distance: median {np.median(sp):.1f}%, 25-75%: {np.percentile(sp,25):.1f}-{np.percentile(sp,75):.1f}%")
+          print(f"{'risk':>5} {'lev':>4} {'in one':>6} {'open':>4}  {'taken':>9} {'capped':>6} {'real risk':>9}  {'end £':>12}  {'a year':>7}  {'worst fall':>10} {'lowest £':>8}")
+          for risk in (2.0, 5.0, 10.0):
+              for lev in (1.0, 5.0):
+                  for pos in (35, 50, 100):
+                      for mo in (3, 5, 10):
+                          r = bot.portfolio_sim(trades, cfg, risk, max(20.0, risk * mo), mo, 1000.0, True, lev, pos * lev, risk * 1.5)
+                          print(f"{risk:>4g}% {lev:>3g}x {pos:>5}% {mo:>4}  {r['taken']:>4}/{r['taken']+r['skipped']:<4} {r['capped']:>6} {r['avg_risk_pct']:>8.1f}%  {r['final']:>12,.0f}  {r['cagr']:>+7.1%}  {r['max_dd']:>10.0%} {r['low']:>8,.0f}")
+          print("same rules, no cash limit, 2%/10/20% at £1,000:", bot.portfolio_sim(trades, cfg, 2.0, 20, 10, 1000.0))
+          PY
