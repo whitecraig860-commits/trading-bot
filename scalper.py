@@ -210,6 +210,25 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set, stats: dict |
             fired["call"].append(f"closed above the {ema_len(cfg)} EMA")
         if pc >= pem and c < em:
             fired["put"].append(f"closed below the {ema_len(cfg)} EMA")
+    if "hod" in trig and i >= 3:
+        # trend days never cross back over VWAP: buy the next new high of the day (sell the next new low)
+        t = ind.index[i]
+        after = cfg.get("hod_after", "10:00")
+        if t.hour * 60 + t.minute >= ny_time(after)[0] * 60 + ny_time(after)[1]:
+            prior_hi, prior_lo = float(ind["High"].iloc[:i].max()), float(ind["Low"].iloc[:i].min())
+            if c > prior_hi and pc <= prior_hi:
+                fired["call"].append("made a new high for the day")
+            if c < prior_lo and pc >= prior_lo:
+                fired["put"].append("made a new low for the day")
+    if "ema_bounce" in trig and i >= 10:
+        # a dip to the EMA that holds, in a market already above it (or a bounce up to it that fails, below)
+        atr = float(ind["atr"].iloc[i]) if np.isfinite(ind["atr"].iloc[i]) else 0.0
+        lo2 = min(float(ind["Low"].iloc[i]), float(ind["Low"].iloc[i - 1]))
+        hi2 = max(float(ind["High"].iloc[i]), float(ind["High"].iloc[i - 1]))
+        if pc > pem and c > em and lo2 <= em + 0.1 * atr:
+            fired["call"].append(f"dipped to the {ema_len(cfg)} EMA and held")
+        if pc < pem and c < em and hi2 >= em - 0.1 * atr:
+            fired["put"].append(f"bounced up to the {ema_len(cfg)} EMA and failed")
     if "orb" in trig and bool(ind["or_done"].iloc[i]) and np.isfinite(ind["or_high"].iloc[i]):
         hi, lo = ind["or_high"].iloc[i], ind["or_low"].iloc[i]
         if c > hi and pc <= hi and "call" not in orb_used:
