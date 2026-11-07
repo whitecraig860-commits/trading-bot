@@ -41,10 +41,12 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 import bot  # reuses Telegram, settings loading and the event calendar
+import brain  # the multi-timeframe chart brain (1 hour, 15 and 5 minutes) and its written explanation
 import candles  # reads every candle, its wicks, the highs and lows and the wick levels
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
+import orderflow  # buying vs selling from Alpaca's IEX trades and quotes (a small sample, said so)
 import trump  # reads Trump's posts for market-moving topics
 
 BASE = Path(__file__).resolve().parent
@@ -57,6 +59,12 @@ DEFAULTS = {
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
     "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "brain": False,                   # let the multi-timeframe chart brain veto trades (it always explains them)
+    "explain": True,                  # write the brain's read into every "bought" message and the summary
+    "order_flow": True,               # add Alpaca's IEX trades/quotes reading to the explanation
+    "brain_min_score": 0,
+    "brain_veto_15m": True,
+    "brain_veto_1h": False,
     "chart_read": False,              # read the candles, wicks, highs/lows and wick levels before each trade
     "chart_min_score": 0,
     "use_trump": True,                # don't trade against a fresh market-moving Trump post
@@ -504,6 +512,7 @@ class Trade:
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
     best_r: float = 0.0      # the share's best move in its favour so far, in R (for locking in profit)
+    explain: str = ""        # the chart brain's written read when it was bought
     risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
@@ -575,6 +584,28 @@ class Alpaca:
             # only finished bars: a bar stamped 10:31 is complete at 10:32
             d = d[d.index + pd.Timedelta(minutes=1) <= now]
             out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
+        return out
+
+    def bars_premarket(self, symbols: list[str]) -> dict[str, pd.DataFrame]:
+        """Today's 1-minute bars from 4:00 to 9:29 New York time (the pre-market, which overlaps London)."""
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from alpaca.data.enums import DataFeed
+
+        day = pd.Timestamp.now(tz=NY).normalize()
+        req = StockBarsRequest(symbol_or_symbols=symbols, timeframe=TimeFrame.Minute,
+                               start=(day + pd.Timedelta(hours=4)).tz_convert("UTC").to_pydatetime(),
+                               end=(day + pd.Timedelta(hours=9, minutes=30)).tz_convert("UTC").to_pydatetime(),
+                               feed=DataFeed.IEX)
+        df = self.stocks.get_stock_bars(req).df
+        out = {}
+        if df is None or df.empty:
+            return out
+        for sym in symbols:
+            if sym in df.index.get_level_values(0):
+                d = df.xs(sym, level=0).rename(columns=str.title)
+                d.index = pd.DatetimeIndex(d.index).tz_convert(NY)
+                out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
         return out
 
     def bars_history(self, symbols: list[str], days: int = 7) -> dict[str, pd.DataFrame]:
@@ -900,11 +931,16 @@ def run_session(cfg: dict, full: dict, args) -> int:
                   f"{money(account_usd(cfg) * cfg['max_premium_pct'] / 100)}.", args)
         day.stats["announced"] = True
     history5: dict = {}
-    if cfg.get("trend_filter"):
+    if True:  # earlier days' 5-minute bars: for the trend filter and the brain's 15-minute and 1-hour view
         try:
             history5 = api.bars_history(cfg["symbols"])
         except Exception as exc:
             print(bot.redact(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.", full))
+    pre1: dict = {}
+    try:
+        pre1 = api.bars_premarket(cfg["symbols"])
+    except Exception as exc:
+        print(bot.redact(f"Couldn't load the pre-market bars ({exc}); the brain will do without them.", full))
     fh, fm = ny_time(cfg["flat_by"])
     while True:
         now = ny_now()
@@ -912,7 +948,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
         out_of_time = (time.time() - started) / 60 > float(cfg["max_runtime_minutes"])
         try:
             bars = api.bars_today(cfg["symbols"])
-            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5)
+            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5, pre1=pre1)
         except Exception as exc:
             print(bot.redact(f"{now:%H:%M:%S} error: {exc}", full))
         save_day(day)
@@ -1010,8 +1046,15 @@ def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
     return {s_: b for s_, b in tb.items() if pd.Timestamp(b["until"]) > now}
 
 
+def consider(day: Day, now, sym: str, side: str, decision: str) -> None:
+    """Every trade the scalper weighs up, taken or not, with the reason (shown in the day's summary)."""
+    c = day.stats.setdefault("considered", [])
+    c.append(f"{now:%H:%M} {sym} {side}: {decision}")
+    day.stats["considered"] = c[-40:]
+
+
 def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool,
-         history5: dict | None = None) -> None:
+         history5: dict | None = None, pre1: dict | None = None) -> None:
     trades = [Trade(**t) for t in day.trades]
     mins = int(cfg.get("signal_minutes", 1))
     sig_bars = {s: to_bars(d, mins, now) for s, d in bars.items()}
@@ -1024,9 +1067,10 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 t.entry_price = float(o.filled_avg_price)
                 t.best = t.entry_price
                 t.status = "open"
-                say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> {t.contract} at ${t.entry_price:.2f} "
-                          f"(${t.entry_price * 100 * t.qty:,.0f}) · {t.why}\n{bot.chart_link(t.worker, 1)} · "
-                          f'<a href="https://app.alpaca.markets/paper/dashboard/overview">Alpaca paper account</a>', args)
+                say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> at ${t.entry_price:.2f} "
+                          f"({money(t.entry_price * 100 * t.qty)}) · {bot.esc(t.why)}\n{bot.chart_link(t.worker, 1)} · "
+                          f'<a href="https://app.alpaca.markets/paper/dashboard/overview">Alpaca paper account</a>'
+                          + (f"\n<blockquote expandable>{bot.esc(t.explain)}</blockquote>" if t.explain else ""), args)
                 if t.worker in bars:
                     picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper bought the {t.side}", args,
                             float(bars[t.worker]["Close"].iloc[-1]))
@@ -1159,6 +1203,28 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         ind = session_indicators(df, cfg)
         used = set(day.orb_used.get(sym, []))
         sig = signal_at(ind, len(ind) - 1, cfg, used, day.stats)
+        ctx = None
+
+        def picture_now():
+            try:
+                return brain.build(df1[df1.index + pd.Timedelta(minutes=1) <= now], (history5 or {}).get(sym),
+                                   (pre1 or {}).get(sym), ema_len(cfg))
+            except Exception as exc:
+                print(bot.redact(f"chart brain ({sym}): {exc}", full))
+                return None
+
+        if not sig and "sweep" in cfg["triggers"]:
+            levels = []
+            h = (history5 or {}).get(sym)
+            if h is not None and len(h):
+                hr = h.between_time("09:30", "15:59")
+                hr = hr[hr.index < now.normalize()]
+                if len(hr):
+                    last = hr[hr.index >= hr.index[-1].normalize()]
+                    levels += [float(last["High"].max()), float(last["Low"].min())]
+            if brain.maybe_sweep(ind, levels):
+                ctx = picture_now()
+                sig = brain.sweep_trigger(ctx, cfg)
         if not sig:
             continue
         side, why = sig
@@ -1168,6 +1234,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if not trend_allows(side, direction, kind):
                 print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
                 day.stats["trend"] = day.stats.get("trend", 0) + 1
+                consider(day, now, sym, side, f"skipped, the trend is {direction}/{kind}")
                 continue
             why = why + [f"trend {direction}"]
         else:
@@ -1177,6 +1244,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if side != ("call" if b["dir"] > 0 else "put"):
                 print(f"{now:%H:%M} {sym}: {side} signal skipped: against Trump's post ({b['topic']})")
                 day.stats["trump_skips"] = day.stats.get("trump_skips", 0) + 1
+                consider(day, now, sym, side, f"skipped, against Trump's post ({b['topic']})")
                 continue
             why = why + [f"agrees with Trump's post ({b['topic']})"]
         conds = scalp_conditions(ind, len(ind) - 1, why, direction, kind)
@@ -1187,11 +1255,34 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 day.stats["journal"] = day.stats.get("journal", 0) + 1
                 print(f"{now:%H:%M} {sym}: {side} signal skipped, the journal says: {proven[0]}")
                 say(full, f"📘 <b>{sym} {side} skipped</b>: the journal has a proven lesson against it.\n{bot.esc(proven[0])}", args)
+                consider(day, now, sym, side, "skipped, the journal has a proven lesson against it")
                 continue
         price = float(ind["Close"].iloc[-1])
+        explain = ""
+        if cfg.get("brain") or cfg.get("explain", True):
+            ctx = ctx or picture_now()
+            if ctx is not None:
+                extra = []
+                if cfg.get("order_flow", True):
+                    try:
+                        tr_, qu_ = orderflow.fetch(api.stocks, sym)
+                        extra = orderflow.lines(orderflow.analyse(tr_, qu_, float(ind["atr"].iloc[-1])), side)
+                    except Exception as exc:
+                        print(bot.redact(f"order flow ({sym}): {exc}", full))
+                u_risk = max(abs(price - float(ind["vwap"].iloc[-1])), price * 0.0015)
+                a = brain.analyse(ctx, side, u_risk, cfg, extra)
+                head, body = brain.explain(sym, side, a, f"{now:%H:%M} ")
+                explain = body
+                if cfg.get("brain") and not a["take"]:
+                    print(f"{now:%H:%M} {sym}: {side} signal skipped by the chart brain: {a['decision']}")
+                    day.stats["brain"] = day.stats.get("brain", 0) + 1
+                    consider(day, now, sym, side, f"skipped, {a['decision'][len('NO TRADE: '):]}")
+                    continue
+                why = why + [f"{a['setup']}, chart {a['score']:+d}"]
         con = api.pick_contract(sym, side, price)
         if not con:
             print(f"{sym}: no 0DTE {side} found")
+            consider(day, now, sym, side, "skipped, no 0DTE option found")
             continue
         q = api.quote(con.symbol)
         if not q:
@@ -1201,6 +1292,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
             print(f"{sym}: {con.symbol} spread too wide ({bid}/{ask}), skipped")
             day.stats["spread"] = day.stats.get("spread", 0) + 1
+            consider(day, now, sym, side, f"skipped, the option's spread was too wide ({bid}/{ask})")
             continue
         # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
         # traders found most of their losses came from trading costs (the bid/ask spread).
@@ -1216,6 +1308,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if qty < 1:
             print(f"{sym}: one contract ({money(limit * 100)}) is over your limits, skipped")
             day.stats["too_dear"] = day.stats.get("too_dear", 0) + 1
+            consider(day, now, sym, side, "skipped, one contract costs more than the account allows")
             continue
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
@@ -1223,7 +1316,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
                   u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
-                  risk_cash=qty * per_contract_risk)
+                  risk_cash=qty * per_contract_risk, explain=explain)
+        consider(day, now, sym, side, f"BOUGHT {qty} at {limit:.2f}")
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
@@ -1246,6 +1340,7 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
             + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
+            + (f"; {st.get('brain', 0)} were turned down by the chart brain" if st.get("brain") else "")
             + (f"; {st.get('chart', 0)} didn't fit the chart (highs and lows against it, rejection wicks, or no "
                f"room before a wall of wicks)" if st.get("chart") else "")
             + (f"; {st.get('trump_skips', 0)} went against a fresh Trump post" if st.get("trump_skips") else "")
@@ -1254,19 +1349,31 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
         ws = [t for t in closed if t.worker == w]
         if ws:
             lines.append(f"{w}: {len(ws)} trades, {money(sum(t.pnl for t in ws))}")
+    wl = [t.pnl for t in closed if t.pnl > 0]
+    ll = [t.pnl for t in closed if t.pnl <= 0]
+    if wl and ll:
+        lines.append(f"Average win {money(sum(wl) / len(wl))} vs average loss {money(sum(ll) / len(ll))}")
     log = STATE / "scalper_log.csv"
-    new = not log.exists()
     STATE.mkdir(exist_ok=True)
-    with open(log, "a", newline="") as fh:
+    rows = []
+    if log.exists():  # one row per day, even if the summary is sent twice
+        with open(log, newline="") as fh:
+            rows = [r for r in csv.reader(fh)][1:]
+        rows = [r for r in rows if r and r[0] != day.date]
+    rows.append([day.date, len(closed), wins, round(total, 2)])
+    with open(log, "w", newline="") as fh:
         wr = csv.writer(fh)
-        if new:
-            wr.writerow(["date", "trades", "won", "pnl"])
-        wr.writerow([day.date, len(closed), wins, round(total, 2)])
+        wr.writerow(["date", "trades", "won", "pnl"])
+        wr.writerows(rows)
     hist = pd.read_csv(log)
     traded = hist[hist["trades"] > 0]
     if len(traded) > 1:
         lines.append(f"All paper days with trades so far: {len(traded)} days, {money(traded['pnl'].sum())}, "
                      f"{(traded['pnl'] > 0).sum()} winning days")
+    considered = st.get("considered", [])
+    if considered:
+        lines.append(f"<blockquote expandable>Every trade it weighed up today ({len(considered)}):\n"
+                     + "\n".join(bot.esc(c) for c in considered) + "</blockquote>")
     say(full, "\n".join(lines), args)
 
 

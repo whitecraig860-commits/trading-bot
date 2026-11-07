@@ -118,6 +118,8 @@ in_sample_share = 0.7       # results are split into the first 70% and the last 
 # On GitHub, leave these empty and add TELEGRAM_TOKEN and TELEGRAM_CHAT_ID as repository secrets.
 token = ""
 chat_id = ""
+compact = true              # long messages show a short summary; the details fold into a box you tap to open
+summary_lines = 3           # how many lines stay visible before the fold
 
 [leaders]
 top_n = 5                   # weekly momentum ranking: how many to list

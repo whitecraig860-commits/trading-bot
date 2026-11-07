@@ -2215,8 +2215,50 @@ def fmt_money(x: float, ccy: str) -> str:
 def to_plain(text: str) -> str:
     """Telegram HTML to plain text for the console."""
     text = re.sub(r'<a href="([^"]*)">(.*?)</a>', lambda m: f"{m.group(2)} [{html.unescape(m.group(1))}]", text)
-    text = re.sub(r"</?(b|i)>", "", text)
+    text = re.sub(r"</?(b|i|u|s|code|pre|tg-spoiler)>", "", text)
+    text = re.sub(r"<blockquote[^>]*>", "\n", text).replace("</blockquote>", "")
     return html.unescape(text)
+
+
+_TAGS = ("b", "i", "u", "s", "code", "pre", "a", "blockquote", "tg-spoiler")
+
+
+def _balanced(t: str) -> bool:
+    for tag in _TAGS:
+        if len(re.findall(rf"<{tag}(?:\s[^>]*)?>", t)) != t.count(f"</{tag}>"):
+            return False
+    return True
+
+
+def telegram_chunks(text: str, cfg: dict | None = None, limit: int = 3800) -> list[str]:
+    """Splits a message into Telegram-sized pieces. Long messages are summarised: the first few lines stay
+    visible and the rest folds into an expandable quote you tap to open ([telegram] compact / summary_lines)."""
+    tc = (cfg or {}).get("telegram", {})
+    keep = int(tc.get("summary_lines", 3))
+    lines = text.split("\n")
+    if tc.get("compact", True) and len(lines) > keep + 3 and "<blockquote" not in text and "<pre>" not in text:
+        head = "\n".join(lines[:keep]).rstrip()
+        rest = lines[keep:]
+        while rest and not rest[0].strip():
+            rest.pop(0)
+        if head and rest and _balanced(head) and all(_balanced(x) for x in rest):
+            chunks, cur = [], head + "\n<blockquote expandable>"
+            for ln in rest:
+                if len(cur) + len(ln) + 20 > limit and not cur.endswith(">"):
+                    chunks.append(cur + "</blockquote>")
+                    cur = "<blockquote expandable>"
+                cur = cur + ("\n" if not cur.endswith(">") else "") + ln
+            chunks.append(cur + "</blockquote>")
+            return chunks
+    chunks, current = [], ""
+    for line in lines:  # split on line breaks so no HTML tag is cut in half
+        if len(current) + len(line) + 1 > limit and current:
+            chunks.append(current)
+            current = ""
+        current = f"{current}\n{line}" if current else line
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 def output(cfg: dict, text: str, args) -> None:
@@ -2244,21 +2286,17 @@ def send_telegram(cfg: dict, text: str, args=None) -> bool:
     import requests
 
     ok = True
-    chunks, current = [], ""
-    for line in text.split("\n"):  # split on line breaks so no HTML tag is cut in half
-        if len(current) + len(line) + 1 > 3900 and current:
-            chunks.append(current)
-            current = ""
-        current = f"{current}\n{line}" if current else line
-    if current:
-        chunks.append(current)
-    for chunk in chunks:
+    for chunk in telegram_chunks(text, cfg):
         try:
             r = requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage",
                 json={"chat_id": chat, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": True},
                 timeout=20,
             )
+            if r.status_code == 400:  # Telegram couldn't read the formatting: never lose the message, send it plain
+                r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                                  json={"chat_id": chat, "text": to_plain(chunk)[:4000], "disable_web_page_preview": True},
+                                  timeout=20)
             if r.status_code != 200:
                 ok = False
                 print(redact(f"Telegram error {r.status_code}: {r.text[:200]}", cfg))
@@ -2306,11 +2344,26 @@ def send_photo(cfg: dict, png: bytes | None, caption: str, args=None, url: str |
     import requests
 
     try:
-        data = {"chat_id": chat, "caption": caption[:1000], "parse_mode": "HTML"}
+        cap = caption
+        if len(cap) > 1000:  # cut at a line break, never in the middle of a tag
+            keep = []
+            for ln in cap.split("\n"):
+                if len("\n".join(keep + [ln])) > 990:
+                    break
+                keep.append(ln)
+            cap = "\n".join(keep)
+        data = {"chat_id": chat, "caption": cap if _balanced(cap) else to_plain(cap)[:1000]}
+        if _balanced(cap):
+            data["parse_mode"] = "HTML"
         if url:  # a tappable button under the picture
             data["reply_markup"] = json.dumps({"inline_keyboard": [[{"text": "📈 Live chart", "url": url}]]})
         r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto", data=data,
                           files={"photo": ("chart.png", png, "image/png")}, timeout=30)
+        if r.status_code == 400 and data.get("parse_mode"):  # formatting refused: send the picture with plain text
+            data.pop("parse_mode")
+            data["caption"] = to_plain(cap)[:1000]
+            r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto", data=data,
+                              files={"photo": ("chart.png", png, "image/png")}, timeout=30)
         if r.status_code != 200:
             print(redact(f"Telegram photo error {r.status_code}: {r.text[:200]}", cfg))
         return r.status_code == 200
