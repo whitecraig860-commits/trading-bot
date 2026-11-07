@@ -237,7 +237,7 @@ def run(args) -> list[dict]:
                             reason = "reverse"
                 if reason:
                     pnl = (px - t["fill"]) * 100 * t["qty"] - 2 * fee * t["qty"]
-                    t.update(exit=px, exit_t=now, reason=reason, pnl=pnl, r=pnl / risk_cash)
+                    t.update(exit=px, exit_t=now, reason=reason, pnl=pnl, r=pnl / risk_cash, mid1=mid)
                     open_.remove(t)
                     done.append(t)
                     realised += pnl
@@ -309,7 +309,7 @@ def run(args) -> list[dict]:
                     continue
                 open_.append({"sym": s, "side": side, "day": day.strftime("%Y-%m-%d"), "t": now, "K": K, "qty": qty,
                               "fill": fill, "best": fill, "u_entry": c, "u_risk": u_risk, "best_r": 0.0,
-                              "sigma": dd[s]["sigma"], "why": "; ".join(why)[:80], "dte": dte})
+                              "sigma": dd[s]["sigma"], "why": "; ".join(why)[:80], "dte": dte, "mid0": mid})
         trades += done
     for t in trades:
         t["variant"] = name
