@@ -514,6 +514,10 @@ class Trade:
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
     best_r: float = 0.0      # the share's best move in its favour so far, in R (for locking in profit)
     explain: str = ""        # the chart brain's written read when it was bought
+    q_bid: float = 0.0       # execution log: the option's bid and ask when the order was placed,
+    q_ask: float = 0.0
+    limit_px: float = 0.0    # the limit price sent,
+    exit_quote: float = 0.0  # and the bid when it decided to sell (vs exit_price = what it really got)
     risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
@@ -1146,6 +1150,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if (t.side == "call" and c < vw) or (t.side == "put" and c > vw):
                 reason = "price closed back across VWAP"
         if reason:
+            t.exit_quote = px
             px = api.exit_fill(api.sell_all(t.contract), px)
             chg = (px / t.entry_price - 1) * 100
             t.exit_price, t.exit_time, t.exit_reason, t.status = px, str(now), reason, "closed"
@@ -1326,13 +1331,32 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
                   u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
-                  risk_cash=qty * per_contract_risk, explain=explain)
+                  risk_cash=qty * per_contract_risk, explain=explain, q_bid=bid, q_ask=ask, limit_px=limit)
         consider(day, now, sym, side, f"BOUGHT {qty} at {limit:.2f}")
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
             break
     day.trades = [asdict(t) for t in trades]
+
+
+def execution_line(closed: list) -> str | None:
+    """How much the fills cost compared with trading at the middle of the bid/ask: is execution eating the edge?"""
+    rows = [t for t in closed if t.q_ask > 0 and t.q_bid > 0 and t.entry_price > 0]
+    if not rows:
+        return None
+    cost = 0.0
+    for t in rows:
+        mid = (t.q_bid + t.q_ask) / 2
+        cost += (t.entry_price - mid) * 100 * t.qty  # paid above the middle on the way in
+        # on the way out it sells at the bid: half the spread (estimated from the entry quote) plus any slippage
+        cost += (mid - t.q_bid) * 100 * t.qty
+        if t.exit_quote > 0 and t.exit_price > 0:
+            cost += (t.exit_quote - t.exit_price) * 100 * t.qty
+    spread = sum((t.q_ask - t.q_bid) / ((t.q_ask + t.q_bid) / 2) for t in rows) / len(rows) * 100
+    gross = sum(t.pnl for t in rows) + cost
+    return (f"Execution: fills cost {money(cost)} vs trading at the middle of the quote (average spread {spread:.1f}%); "
+            f"without that cost today would have been {money(gross)}")
 
 
 def summary(day: Day, full: dict, args, cfg: dict) -> None:
@@ -1363,6 +1387,9 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
     ll = [t.pnl for t in closed if t.pnl <= 0]
     if wl and ll:
         lines.append(f"Average win {money(sum(wl) / len(wl))} vs average loss {money(sum(ll) / len(ll))}")
+    ex = execution_line(closed)
+    if ex:
+        lines.append(ex)
     log = STATE / "scalper_log.csv"
     STATE.mkdir(exist_ok=True)
     rows = []
