@@ -4220,14 +4220,15 @@ def scalper_runs_today() -> list[dict] | None:
             if (pd.Timestamp.now(tz="UTC") - created).total_seconds() > 24 * 3600:
                 continue
             mins = (pd.Timestamp(x["updatedAt"]) - created).total_seconds() / 60
-            out.append({"status": x["status"], "minutes": mins, "created": created})
+            out.append({"status": x["status"], "minutes": mins, "created": created,
+                        "ended": pd.Timestamp(x["updatedAt"]), "conclusion": x.get("conclusion") or ""})
         return out
     except Exception as exc:
         print(f"Scalper runs: {exc}")
         return None
 
 
-def scalper_supervisor(ps: dict) -> list[str]:
+def scalper_supervisor(ps: dict, last_entry: str = "11:30") -> list[str]:
     """Makes sure the 0DTE scalper is actually running through the US session. On 5 Nov it was started once, 30
     minutes before the open, gave up, and never tried again, so it missed a 4% fall. Now, from 09:15 to 15:00 New
     York time, if no scalper run is going (and the last one ended early), it starts one, up to 4 times a day."""
@@ -4248,7 +4249,12 @@ def scalper_supervisor(ps: dict) -> list[str]:
                 return msgs  # on your own computer you run scalper.py yourself
             runs = []
         running = [r for r in runs if r["status"] in {"in_progress", "queued", "pending", "waiting", "requested"}]
-        healthy = [r for r in runs if r["minutes"] >= 30 and r["created"] >= pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=8)]
+        # a run only counts as done if it finished properly AFTER the last entry time; one that crashed or was
+        # stopped earlier (even after an hour) is started again, and it picks up any trade that was open
+        lh, lm = (int(x) for x in last_entry.split(":"))
+        done_after = ny.normalize() + pd.Timedelta(hours=lh, minutes=lm)
+        healthy = [r for r in runs if r["status"] == "completed" and r.get("conclusion") == "success"
+                   and r.get("ended") is not None and r["ended"].tz_convert("America/New_York") >= done_after]
         if not running and not healthy:
             st["tries"] += 1
             st["last_try"] = time.time()
@@ -4513,7 +4519,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     # 1) Keep the 0DTE scalper running through the US session (starts it, and restarts it if it dies)
     if pc.get("start_scalper", True):
         try:
-            msgs += scalper_supervisor(ps)
+            msgs += scalper_supervisor(ps, str(cfg.get("scalper", {}).get("last_entry", "11:30")))
         except Exception as exc:
             print(f"Scalper supervisor: {exc}")
     # 2) The daily insider catch-up (every filing from the previous days), once a day

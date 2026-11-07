@@ -659,6 +659,14 @@ class Alpaca:
         except Exception:
             pass
 
+    def option_positions(self) -> list[tuple[str, int]]:
+        """[(contract, qty)] for every option the paper account holds right now."""
+        out = []
+        for p in self.trading.get_all_positions():
+            if "option" in str(getattr(p, "asset_class", "")).lower():
+                out.append((str(p.symbol), int(float(p.qty))))
+        return out
+
     def sell_all(self, contract: str):
         try:
             return self.trading.close_position(contract)
@@ -827,6 +835,15 @@ def account_usd(cfg: dict) -> float:
     return max(0.0, usd)
 
 
+def ny_now() -> pd.Timestamp:
+    """New York time now (one place, so a test can run a whole day in seconds)."""
+    return pd.Timestamp.now(tz=NY)
+
+
+def pause(seconds: float) -> None:
+    time.sleep(seconds)
+
+
 def run_session(cfg: dict, full: dict, args) -> int:
     api = Alpaca(cfg["key"], cfg["secret"])
     started = time.time()
@@ -837,27 +854,32 @@ def run_session(cfg: dict, full: dict, args) -> int:
                 return api.clock()
             except Exception as exc:
                 print(bot.redact(f"Alpaca clock check failed ({exc}), retrying", full))
-                time.sleep(10 * (attempt + 1))
+                pause(10 * (attempt + 1))
         return api.clock()
 
     clock = clock_now()
     if not clock.is_open:
         nxt = pd.Timestamp(clock.next_open).tz_convert(NY)
-        if (nxt - pd.Timestamp.now(tz=NY)).total_seconds() > 45 * 60:
+        if (nxt - ny_now()).total_seconds() > 45 * 60:
             print(f"Market closed. Next open {nxt:%a %d %b %H:%M} New York time. Nothing to do.")
             return 0
         print(f"Waiting for the open at {nxt:%H:%M} New York time...")
         while not clock_now().is_open:
-            time.sleep(20)
-    today = pd.Timestamp.now(tz=NY).strftime("%Y-%m-%d")
+            pause(20)
+    today = ny_now().strftime("%Y-%m-%d")
     day = load_day(today)
     if day.orb_used.get("_done"):
         print("Today's session already finished.")
         return 0
     lh, lm = ny_time(cfg["last_entry"])
-    now0 = pd.Timestamp.now(tz=NY)
+    now0 = ny_now()
     still_open = [t for t in day.trades if t.get("status") in {"open", "pending"}]
+    sweep_orphans(api, day, full, args)
     if now0.hour * 60 + now0.minute > lh * 60 + lm and not still_open:
+        if day.stats.get("announced"):
+            # an earlier run today traded the session but was stopped before it could send the summary: send it now
+            finish_day(day, full, args, cfg, api)
+            return 0
         # GitHub sometimes starts this hours late. Past the last entry time there's nothing to do, so say nothing
         # (no "on shift" and no "0 trades" summary) and don't log a fake no-trade day.
         print(f"Started at {now0:%H:%M} New York time, after the last entry time ({cfg['last_entry']}). Nothing to do.")
@@ -885,7 +907,7 @@ def run_session(cfg: dict, full: dict, args) -> int:
             print(bot.redact(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.", full))
     fh, fm = ny_time(cfg["flat_by"])
     while True:
-        now = pd.Timestamp.now(tz=NY)
+        now = ny_now()
         flat_time = now.hour * 60 + now.minute >= fh * 60 + fm
         out_of_time = (time.time() - started) / 60 > float(cfg["max_runtime_minutes"])
         try:
@@ -896,11 +918,51 @@ def run_session(cfg: dict, full: dict, args) -> int:
         save_day(day)
         if flat_time or out_of_time:
             break
-        time.sleep(int(cfg["poll_seconds"]))
+        past_last = now.hour * 60 + now.minute > lh * 60 + lm
+        if past_last and not any(t.get("status") in {"open", "pending"} for t in day.trades):
+            print(f"{now:%H:%M} past the last entry time with nothing open: the day's done.")
+            break  # no new trades after last_entry, and nothing left to manage: finish now, with the summary
+        pause(int(cfg["poll_seconds"]))
+    finish_day(day, full, args, cfg, api)
+    return 0
+
+
+def sweep_orphans(api: "Alpaca", day: Day, full: dict, args) -> None:
+    """Options the paper account holds that today's record doesn't know about (a run that was killed with a trade
+    open) are sold at once, so nothing is ever left to expire."""
+    try:
+        known = {t["contract"] for t in day.trades if t.get("status") in {"open", "pending"}}
+        orphans = [(c, q) for c, q in api.option_positions() if c not in known]
+    except Exception as exc:
+        print(bot.redact(f"position check: {exc}", full))
+        return
+    for c, q in orphans:
+        api.sell_all(c)
+    if orphans:
+        say(full, "🧹 <b>Scalper tidy-up</b>: sold " + ", ".join(f"{q} x {c}" for c, q in orphans)
+            + " left over from a run that was stopped.", args)
+
+
+def finish_day(day: Day, full: dict, args, cfg: dict, api: "Alpaca | None" = None) -> None:
+    """End of the session: make sure no option is still held, mark the day done, and always send the summary."""
+    if api is not None:
+        try:
+            left = api.option_positions()
+            for c, _q in left:
+                api.sell_all(c)
+            if left:
+                say(full, "🧹 Sold " + ", ".join(f"{q} x {c}" for c, q in left) + " still held at the end of the session.", args)
+        except Exception as exc:
+            print(bot.redact(f"end-of-day position check: {exc}", full))
     day.orb_used["_done"] = ["yes"]
     save_day(day)
-    summary(day, full, args, cfg)
-    return 0
+    try:
+        summary(day, full, args, cfg)
+    except Exception as exc:  # the summary must always arrive, even a short one
+        print(bot.redact(f"summary failed: {exc}", full))
+        closed = [t for t in day.trades if t.get("status") == "closed"]
+        say(full, f"<b>0DTE scalper · {day.date} (paper)</b>\n{len(closed)} trades · total "
+                  f"{money(sum(float(t.get('pnl', 0)) for t in closed))}", args)
 
 
 def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
@@ -970,9 +1032,22 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                             float(bars[t.worker]["Close"].iloc[-1]))
             elif (now - pd.Timestamp(t.entry_time)).total_seconds() > 90 or force_exit:
                 api.cancel(t.order_id)
-                t.status = "cancelled"
-                t.exit_reason = "not filled within 90 seconds"
-                day.last_exit[t.worker] = str(now)
+                got = 0
+                try:  # a partly filled order still bought some contracts: keep managing those, never orphan them
+                    o2 = api.order(t.order_id)
+                    got = int(float(getattr(o2, "filled_qty", 0) or 0))
+                    if got > 0:
+                        t.entry_price = float(o2.filled_avg_price)
+                except Exception as exc:
+                    print(bot.redact(f"order check {t.contract}: {exc}", full))
+                if got > 0:
+                    t.qty, t.best, t.status = got, t.entry_price, "open"
+                    say(full, f"<b>{t.worker} bought {got} x {t.side.upper()}</b> (part of the order) at "
+                              f"${t.entry_price:.2f}", args)
+                else:
+                    t.status = "cancelled"
+                    t.exit_reason = "not filled within 90 seconds"
+                    day.last_exit[t.worker] = str(now)
             continue
         if t.status != "open":
             continue
