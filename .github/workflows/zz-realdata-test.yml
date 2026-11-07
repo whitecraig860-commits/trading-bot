@@ -1,0 +1,68 @@
+name: TEMP real-data test (delete before merging)
+on:
+  push:
+    branches: ["claude/**"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Chart reading on the last month of 1-minute prices
+        run: |
+          python -W ignore - <<'PY'
+          import yfinance as yf, pandas as pd, numpy as np, scalper, candles
+          cfg, full = scalper.load_cfg("config.toml")
+          frames = {}
+          for sym in cfg["symbols"]:
+              fs = []
+              end = pd.Timestamp.now(tz="UTC")
+              for k in range(4):
+                  s, e = end - pd.Timedelta(days=7 * (k + 1)), end - pd.Timedelta(days=7 * k)
+                  try:
+                      d = yf.Ticker(sym).history(start=s, end=e, interval="1m", prepost=False, auto_adjust=False)
+                      if d is not None and len(d): fs.append(d)
+                  except Exception as exc: print(sym, exc)
+              df = pd.concat(fs).sort_index(); df = df[~df.index.duplicated()]; df.index = df.index.tz_convert(scalper.NY)
+              frames[sym] = df
+          def run(name, **over):
+              c = dict(cfg, **over)
+              rows = [r for sym, df in frames.items() for r in scalper.backtest_frame(sym, df, c)]
+              if not rows: print(f"RES {name}: no trades"); return None
+              t = pd.DataFrame(rows); days = t.groupby("day")["r"].sum()
+              print(f"RES {name:<50} {len(t):>3} tr {np.mean(t.r > 0):>4.0%} won avg {t.r.mean():+.2f}R tot {t.r.sum():+5.1f}R "
+                    f"days {(days > 0).sum()}/{len(days)} worst {days.min():+.1f}R")
+              return t
+          run("NOW (main)")
+          for ms in (-1, 0, 1, 2):
+              run(f"chart read, both vetoes, min score {ms}", chart_read=True, chart_min_score=ms)
+          for ms in (-1, 0, 1):
+              run(f"chart read, structure veto only, min {ms}", chart_read=True, chart_min_score=ms, chart_veto_room=False)
+              run(f"chart read, room veto only, min {ms}", chart_read=True, chart_min_score=ms, chart_veto_structure=False)
+              run(f"chart read, score only, min {ms}", chart_read=True, chart_min_score=ms, chart_veto_room=False, chart_veto_structure=False)
+          wide = dict(last_entry="15:00", lock_profits=False, day_agree=False)
+          run("OLD rules (as live on 6 Nov)", **wide)
+          run("OLD rules + chart read (both vetoes, min 0)", chart_read=True, chart_min_score=0, **wide)
+          print("\nTHE 4 TRADES OF 6 NOV, read at the candle before each entry:")
+          for sym, hhmm, side in (("SPY", "11:25", "call"), ("QQQ", "11:55", "call"), ("SPY", "14:20", "put"), ("QQQ", "14:35", "put")):
+              df = frames[sym]; day = df[df.index.date == pd.Timestamp("2026-11-06").date()].between_time("09:30", "15:59")
+              if not len(day): print("no data for", sym); continue
+              bars = scalper.to_bars(day[["Open", "High", "Low", "Close", "Volume"]], 5)
+              ind = scalper.session_indicators(bars, cfg)
+              t = pd.Timestamp(f"2026-11-06 {hhmm}", tz=scalper.NY) - pd.Timedelta(minutes=5)
+              i = int(ind.index.get_indexer([t], method="pad")[0])
+              c = float(ind["Close"].iloc[i]); vw = float(ind["vwap"].iloc[i])
+              rd = candles.read(ind, i, side, max(abs(c - vw), c * 0.0015), cfg)
+              after = day[day.index > t + pd.Timedelta(minutes=5)].head(30)
+              move = (after["Close"].iloc[-1] - c) if len(after) else float("nan")
+              print(f"\n{sym} {side} at {hhmm}: chart read {rd['score']:+d} -> {'WOULD BUY' if rd['ok'] else 'WOULD SKIP: ' + str(rd['veto'] or 'score too low')}")
+              print(f"   the share then moved {move:+.2f} in 30 minutes; day open {float(ind['Open'].iloc[0]):.2f}, price {c:.2f}")
+              for w in rd["why"]: print("   ", w)
+          PY
