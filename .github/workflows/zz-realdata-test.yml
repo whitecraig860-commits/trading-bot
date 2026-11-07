@@ -20,4 +20,4 @@ jobs:
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
           ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
-        run: python -W ignore optionbt.py --start 2025-01-02 --end 2026-11-07 --explore
+        run: python -W ignore optionbt.py --start 2025-01-02 --end 2026-11-07

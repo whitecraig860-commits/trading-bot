@@ -341,26 +341,24 @@ def main() -> int:
     cfg, _ = scalper.load_cfg(str(Path(__file__).with_name("config.toml")))
     bars = load_bars(cfg["symbols"], a.start, a.end, Path(a.cache))
     vol = load_vol(a.start, a.end)
-    old = dict(cfg, last_entry="15:00", lock_profits=False, day_agree=False, chart_read=False, triggers=["vwap", "ema50", "hod"])
+    old = dict(cfg, last_entry="15:00", lock_profits=False, day_agree=False, chart_read=False, brain=False, dte=0,
+               exit_on_reverse_cross=True, triggers=["vwap", "ema50", "hod"])
+    before = dict(cfg, brain=False, dte=0, exit_on_reverse_cross=True)
     variants = [
-        ("OLD rules (live until 6 Nov)", old, 1.0),
-        ("NOW: main (chart read)", cfg, 1.0),
-        ("NOW without chart read", dict(cfg, chart_read=False), 1.0),
-        ("+ brain (15m veto, score>=0)", dict(cfg, brain=True), 1.0),
-        ("+ brain (15m+1h veto, score>=0)", dict(cfg, brain=True, brain_veto_1h=True), 1.0),
-        ("+ brain score>=2", dict(cfg, brain=True, brain_min_score=2), 1.0),
-        ("+ brain + sweep trigger", dict(cfg, brain=True, triggers=cfg["triggers"] + ["sweep"]), 1.0),
-        ("brain instead of chart read", dict(cfg, brain=True, chart_read=False), 1.0),
+        ("rules live until 6 Nov", old, 1.0),
+        ("rules of 7 Nov (0DTE, reverse exit, no brain)", before, 1.0),
+        ("NOW (config.toml)", cfg, 1.0),
         ("NOW, volatility x0.8", cfg, 0.8),
         ("NOW, volatility x1.2", cfg, 1.2),
     ]
     if a.explore:
-        nr = dict(cfg, exit_on_reverse_cross=False)
+        base = dict(cfg, brain=False, dte=0, exit_on_reverse_cross=True)
+        nr = dict(base, exit_on_reverse_cross=False)
         variants = [
-            ("NOW (0DTE)", cfg, 1.0),
+            ("0DTE (rules of 7 Nov)", base, 1.0),
             ("no VWAP-reverse exit", nr, 1.0),
             ("no reverse, stop -50%", dict(nr, stop_loss_pct=50), 1.0),
-            ("1DTE", dict(cfg, dte=1), 1.0),
+            ("1DTE", dict(base, dte=1), 1.0),
             ("1DTE, no reverse", dict(nr, dte=1), 1.0),
             ("1DTE, no reverse, stop -50%", dict(nr, dte=1, stop_loss_pct=50), 1.0),
             ("2DTE, no reverse", dict(nr, dte=2), 1.0),
@@ -397,7 +395,7 @@ def main() -> int:
         print(report(n, t))
         print(report("    out of sample", t[t.day < cut]))
         print(report("    in sample (tuned)", t[t.day >= cut]))
-    main_t = allt[allt.variant == "NOW: main (chart read)"]
+    main_t = allt[allt.variant == "NOW (config.toml)"]
     if len(main_t):
         main_t = main_t.assign(q=pd.to_datetime(main_t.day).dt.to_period("Q").astype(str))
         print("\nNOW by quarter:")
