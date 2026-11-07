@@ -41,6 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 import bot  # reuses Telegram, settings loading and the event calendar
+import candles  # reads every candle, its wicks, the highs and lows and the wick levels
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
@@ -56,6 +57,8 @@ DEFAULTS = {
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
     "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "chart_read": False,              # read the candles, wicks, highs/lows and wick levels before each trade
+    "chart_min_score": 0,
     "use_trump": True,                # don't trade against a fresh market-moving Trump post
     "trump_minutes": 60,              # ...for this long after it
     "account_start": "",              # YYYY-MM-DD: from this day the account grows and shrinks with the scalper's results
@@ -257,6 +260,16 @@ def signal_at(ind: pd.DataFrame, i: int, cfg: dict, orb_used: set, stats: dict |
             if stats is not None:
                 stats["candle"] = stats.get("candle", 0) + 1
             continue
+        if cfg.get("chart_read", False):
+            rd = candles.read(ind, i, side, max(abs(c - vw), c * 0.0015), cfg)
+            if not rd["ok"]:
+                if stats is not None:
+                    stats["chart"] = stats.get("chart", 0) + 1
+                    stats.setdefault("chart_why", []).append(
+                        f"{ind.index[i]:%H:%M} {side}: " + (rd["veto"] or f"chart read only {rd['score']:+d}"))
+                    stats["chart_why"] = stats["chart_why"][-20:]
+                continue
+            return side, fired[side] + [rd["summary"]]
         return side, fired[side]
     return None
 
@@ -1158,6 +1171,8 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
             + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
+            + (f"; {st.get('chart', 0)} didn't fit the chart (highs and lows against it, rejection wicks, or no "
+               f"room before a wall of wicks)" if st.get("chart") else "")
             + (f"; {st.get('trump_skips', 0)} went against a fresh Trump post" if st.get("trump_skips") else "")
             + ". It only trades when everything lines up: a quiet day is part of that.")
     for w in cfg["symbols"]:
