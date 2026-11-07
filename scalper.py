@@ -59,6 +59,7 @@ DEFAULTS = {
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
     "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "dte": 0,                         # 0 = options expiring today; 1 = the next day's (much less time decay)
     "brain": False,                   # let the multi-timeframe chart brain veto trades (it always explains them)
     "explain": True,                  # write the brain's read into every "bought" message and the summary
     "order_flow": True,               # add Alpaca's IEX trades/quotes reading to the explanation
@@ -643,18 +644,26 @@ class Alpaca:
             time.sleep(1)
         return fallback
 
-    def pick_contract(self, sym: str, side: str, price: float):
+    def pick_contract(self, sym: str, side: str, price: float, dte: int = 0):
+        """The nearest-strike option expiring today (dte 0) or on the dte-th trading day after today."""
         from alpaca.trading.requests import GetOptionContractsRequest
         from alpaca.trading.enums import ContractType
 
         today = pd.Timestamp.now(tz=NY).date()
-        req = GetOptionContractsRequest(
-            underlying_symbols=[sym], expiration_date=today,
-            type=ContractType.CALL if side == "call" else ContractType.PUT,
-            strike_price_gte=str(round(price * 0.98, 2)), strike_price_lte=str(round(price * 1.02, 2)), limit=100,
-        )
+        kind = ContractType.CALL if side == "call" else ContractType.PUT
+        strikes = dict(strike_price_gte=str(round(price * 0.98, 2)), strike_price_lte=str(round(price * 1.02, 2)), limit=500)
+        if dte <= 0:
+            req = GetOptionContractsRequest(underlying_symbols=[sym], expiration_date=today, type=kind, **strikes)
+        else:
+            req = GetOptionContractsRequest(underlying_symbols=[sym], type=kind,
+                                            expiration_date_gte=today + pd.Timedelta(days=1),
+                                            expiration_date_lte=today + pd.Timedelta(days=7 + 2 * dte), **strikes)
         res = self.trading.get_option_contracts(req)
         cons = [c for c in (res.option_contracts or []) if c.tradable]
+        if dte > 0 and cons:
+            expiries = sorted({pd.Timestamp(c.expiration_date).date() for c in cons})
+            want = expiries[min(dte, len(expiries)) - 1]  # 1 = the next expiry after today (the next trading day)
+            cons = [c for c in cons if pd.Timestamp(c.expiration_date).date() == want]
         if not cons:
             return None
         # nearest to the money, slightly in the money first
@@ -920,7 +929,8 @@ def run_session(cfg: dict, full: dict, args) -> int:
                 "hod": f"a new high or low of the day (after {cfg.get('hod_after', '10:00')})",
                 "ema_bounce": "a dip to the EMA that holds"}
         names = ", ".join(trig.get(t, t) for t in cfg["triggers"])
-        say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
+        dte = int(cfg.get("dte", 0))
+        say(full, f"<b>Options scalper on shift</b> (paper, {'options expiring today' if not dte else 'options with ' + str(dte) + ' day' + ('s' if dte > 1 else '') + ' left'}, all sold the same day) · workers: {', '.join(cfg['symbols'])}\n"
                   f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: {names}"
                   f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}"
                   f"{', strong candles only' if cfg.get('candle_filter') else ''}. "
@@ -1279,10 +1289,10 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                     consider(day, now, sym, side, f"skipped, {a['decision'][len('NO TRADE: '):]}")
                     continue
                 why = why + [f"{a['setup']}, chart {a['score']:+d}"]
-        con = api.pick_contract(sym, side, price)
+        con = api.pick_contract(sym, side, price, int(cfg.get("dte", 0)))
         if not con:
-            print(f"{sym}: no 0DTE {side} found")
-            consider(day, now, sym, side, "skipped, no 0DTE option found")
+            print(f"{sym}: no {side} found for the chosen expiry")
+            consider(day, now, sym, side, "skipped, no option found for the chosen expiry")
             continue
         q = api.quote(con.symbol)
         if not q:
