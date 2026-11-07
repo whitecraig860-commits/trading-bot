@@ -758,6 +758,18 @@
 "findings": [
 "wrong from the start"
 ]
+},
+{
+"id": "LIND|pullback|2026-11-04",
+"kind": "daily",
+"setup": "pullback",
+"symbol": "LIND",
+"r": -0.28330389983802484,
+"conditions": [],
+"date": "2026-11-06",
+"findings": [
+"gapped through the stop"
+]
 }
 ],
 "pending": [
@@ -796,6 +808,18 @@
 "reason": "stop",
 "r": -1.0095472815410096,
 "setup": "pullback"
+},
+{
+"id": "LIND|pullback|2026-11-04",
+"symbol": "LIND",
+"exit_date": "2026-11-06",
+"entry": 32.70000076293945,
+"stop": 28.378705327929502,
+"exit": 31.540000915527344,
+"long": true,
+"reason": "stop (gapped through)",
+"r": -0.28330389983802484,
+"setup": "pullback"
 }
 ],
 "paper_tables": {
@@ -819,10 +843,10 @@
 },
 "daily|pullback": {
 "all": {
-"n": 2,
-"avg": -0.6475492726065271,
+"n": 3,
+"avg": -0.5261341483503597,
 "win": 0.0,
-"sd": 0.5119424937872019
+"sd": 0.41864956188553615
 },
 "cond": {},
 "symbol": {
@@ -837,10 +861,16 @@
 "avg": -1.0095472815410096,
 "win": 0.0,
 "sd": 0.0
+},
+"LIND": {
+"n": 1,
+"avg": -0.28330389983802484,
+"win": 0.0,
+"sd": 0.0
 }
 },
 "finding": {
-"gapped through the stop": 1,
+"gapped through the stop": 2,
 "wrong from the start": 1
 }
 }
