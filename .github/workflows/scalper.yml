@@ -25,6 +25,9 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Optional candlestick library (the scalper works the same without it)
+        run: pip install TA-Lib || echo "TA-Lib could not be installed; the bot's own candle patterns are used"
+        continue-on-error: true
       - name: Trade the session on paper
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
