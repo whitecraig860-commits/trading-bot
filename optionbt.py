@@ -125,9 +125,10 @@ def bs(S: float, K: float, T: float, sigma: float, call: bool, r: float = 0.04) 
     return K * math.exp(-r * T) * _ncdf(-d2) - S * _ncdf(-d1)
 
 
-def years_left(ts: pd.Timestamp) -> float:
+def years_left(ts: pd.Timestamp, dte: int = 0) -> float:
+    """Trading time to expiry: what's left of today plus dte more full sessions."""
     close = ts.normalize() + pd.Timedelta(hours=16)
-    return max((close - ts).total_seconds() / 60, 1.0) / (252 * 390)
+    return (max((close - ts).total_seconds() / 60, 1.0) + 390 * dte) / (252 * 390)
 
 
 def strike_for(price: float, side: str) -> float:
@@ -200,7 +201,7 @@ def run(args) -> list[dict]:
                 if m not in d.index:
                     continue
                 S = float(d.at[m, "Close"])
-                mid = bs(S, t["K"], years_left(now), t["sigma"], t["side"] == "call")
+                mid = bs(S, t["K"], years_left(now, t["dte"]), t["sigma"], t["side"] == "call")
                 half = max(0.02, 0.02 * mid) / 2
                 px = max(0.01, mid - half)
                 t["best"] = max(t["best"], px)
@@ -295,7 +296,8 @@ def run(args) -> list[dict]:
                     continue
                 S0 = float(d1.at[now, "Open"])
                 K = strike_for(S0, side)
-                mid = bs(S0, K, years_left(now), dd[s]["sigma"], side == "call")
+                dte = int(cfg.get("dte", 0))
+                mid = bs(S0, K, years_left(now, dte), dd[s]["sigma"], side == "call")
                 if mid < 0.05:
                     continue
                 half = max(0.02, 0.02 * mid) / 2
@@ -307,7 +309,7 @@ def run(args) -> list[dict]:
                     continue
                 open_.append({"sym": s, "side": side, "day": day.strftime("%Y-%m-%d"), "t": now, "K": K, "qty": qty,
                               "fill": fill, "best": fill, "u_entry": c, "u_risk": u_risk, "best_r": 0.0,
-                              "sigma": dd[s]["sigma"], "why": "; ".join(why)[:80]})
+                              "sigma": dd[s]["sigma"], "why": "; ".join(why)[:80], "dte": dte})
         trades += done
     for t in trades:
         t["variant"] = name
@@ -334,6 +336,7 @@ def main() -> int:
     ap.add_argument("--start", default="2025-01-02")
     ap.add_argument("--end", default=pd.Timestamp.now(tz=NY).strftime("%Y-%m-%d"))
     ap.add_argument("--cache", default="/tmp/optionbt_bars.pkl")
+    ap.add_argument("--explore", action="store_true", help="choose on 2025, check on 2026 (never seen)")
     a = ap.parse_args()
     cfg, _ = scalper.load_cfg(str(Path(__file__).with_name("config.toml")))
     bars = load_bars(cfg["symbols"], a.start, a.end, Path(a.cache))
@@ -351,11 +354,39 @@ def main() -> int:
         ("NOW, volatility x0.8", cfg, 0.8),
         ("NOW, volatility x1.2", cfg, 1.2),
     ]
+    if a.explore:
+        nr = dict(cfg, exit_on_reverse_cross=False)
+        variants = [
+            ("NOW (0DTE)", cfg, 1.0),
+            ("no VWAP-reverse exit", nr, 1.0),
+            ("no reverse, stop -50%", dict(nr, stop_loss_pct=50), 1.0),
+            ("1DTE", dict(cfg, dte=1), 1.0),
+            ("1DTE, no reverse", dict(nr, dte=1), 1.0),
+            ("1DTE, no reverse, stop -50%", dict(nr, dte=1, stop_loss_pct=50), 1.0),
+            ("2DTE, no reverse", dict(nr, dte=2), 1.0),
+            ("2DTE, no reverse, stop -50%", dict(nr, dte=2, stop_loss_pct=50), 1.0),
+            ("1DTE, no reverse, brain>=2", dict(nr, dte=1, brain=True, brain_min_score=2), 1.0),
+            ("2DTE, no reverse, brain>=2", dict(nr, dte=2, brain=True, brain_min_score=2), 1.0),
+            ("1DTE, no reverse, target 1.5R", dict(nr, dte=1, target_r=1.5), 1.0),
+            ("1DTE, no reverse, no lock", dict(nr, dte=1, lock_profits=False), 1.0),
+        ]
     jobs = [(n, c, bars, vol, m) for n, c, m in variants]
     with ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 1)) as ex:
         results = list(ex.map(run, jobs))
     allt = pd.DataFrame([x for r in results for x in r])
     cut = TUNED_FROM
+    if a.explore:
+        print("\nCHOOSE on 2025 only; CHECK on 2026 (unseen). A change only counts if it makes money in both.\n")
+        for n, _c, _m in variants:
+            t = allt[allt.variant == n] if len(allt) else pd.DataFrame()
+            if t.empty:
+                print(report(n, t))
+                continue
+            print(report(n, t))
+            print(report("    2025 (choose)", t[t.day < "2026-01-01"]))
+            print(report("    2026 (check)", t[t.day >= "2026-01-01"]))
+        allt.to_csv("optionbt_trades.csv", index=False)
+        return 0
     print(f"\nPeriod {a.start} to {a.end}. Out of sample = before {cut}; in sample = {cut} onwards (the rules were tuned "
           "there). Money at £1,000 / £100 risk a trade, 1 contract mostly.\n")
     for n, _c, _m in variants:
