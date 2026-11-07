@@ -118,6 +118,8 @@ in_sample_share = 0.7       # results are split into the first 70% and the last 
 # On GitHub, leave these empty and add TELEGRAM_TOKEN and TELEGRAM_CHAT_ID as repository secrets.
 token = ""
 chat_id = ""
+compact = true              # long messages show a short summary; the details fold into a box you tap to open
+summary_lines = 3           # how many lines stay visible before the fold
 
 [leaders]
 top_n = 5                   # weekly momentum ranking: how many to list
@@ -326,6 +328,21 @@ trail_after_r = 0.8         # once 0.8R up, sell if it gives back 0.4R from its 
 trail_gap_r = 0.4
 lock_after_pct = 15         # and on the option itself: once it has been up 15%, sell if it drops back to +3%
 lock_floor_pct = 3
+# THE HONEST TEST ("python optionbt.py --explore": real 1-minute prices Jan 2025 - Nov 2026, option prices modelled
+# with time decay, spreads and fees, settings CHOSEN on 2025 and CHECKED on 2026): the scalper as it was lost money in
+# both years (-£1,356 and -£1,140; avg win £36 vs avg loss £38). Three changes helped in BOTH years and are on:
+# options with a day left instead of expiring today, no VWAP-reverse exit, and the chart brain's veto (score 2+).
+# Together: -£237 in 2025, +£400 in 2026, 237 trades, 54% won, avg win £26 vs avg loss £30: about break-even.
+# It has NOT shown a real edge, so it stays on paper. Don't put real money in it unless months of forward paper
+# results are clearly positive.
+dte = 1                     # 1 = options expiring the next trading day (sold the same day, so never held overnight)
+exit_on_reverse_cross = false  # selling when price closed back across VWAP lost on all 114 such trades in the test
+brain = true                # the multi-timeframe chart brain (brain.py) can turn trades down, not just explain them
+brain_min_score = 2
+brain_veto_15m = true       # never against clear 15-minute highs and lows
+brain_veto_1h = false       # (vetoing against the 1-hour trend too made it slightly worse)
+explain = true              # every "bought" message has the brain's full read folded underneath
+order_flow = true           # adds Alpaca's IEX trades and quotes (a ~2-3% sample; no order book exists on Alpaca)
 chart_read = true           # reads the chart before every trade (candles.py): each candle's body and wicks, patterns
                             # (hammer, shooting star, engulfing, doji, three in a row), higher/lower highs and lows,
                             # wicks stacking up at the same price (support/resistance), and whether there's room to the

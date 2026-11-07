@@ -41,10 +41,12 @@ except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 import bot  # reuses Telegram, settings loading and the event calendar
+import brain  # the multi-timeframe chart brain (1 hour, 15 and 5 minutes) and its written explanation
 import candles  # reads every candle, its wicks, the highs and lows and the wick levels
 import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
+import orderflow  # buying vs selling from Alpaca's IEX trades and quotes (a small sample, said so)
 import trump  # reads Trump's posts for market-moving topics
 
 BASE = Path(__file__).resolve().parent
@@ -57,6 +59,13 @@ DEFAULTS = {
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
     "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "dte": 0,                         # 0 = options expiring today; 1 = the next day's (much less time decay)
+    "brain": False,                   # let the multi-timeframe chart brain veto trades (it always explains them)
+    "explain": True,                  # write the brain's read into every "bought" message and the summary
+    "order_flow": True,               # add Alpaca's IEX trades/quotes reading to the explanation
+    "brain_min_score": 0,
+    "brain_veto_15m": True,
+    "brain_veto_1h": False,
     "chart_read": False,              # read the candles, wicks, highs/lows and wick levels before each trade
     "chart_min_score": 0,
     "use_trump": True,                # don't trade against a fresh market-moving Trump post
@@ -504,6 +513,7 @@ class Trade:
     conds: str = ""          # JSON: the conditions when it was taken
     reviewed: bool = False   # the 20-minutes-later follow-up has been done
     best_r: float = 0.0      # the share's best move in its favour so far, in R (for locking in profit)
+    explain: str = ""        # the chart brain's written read when it was bought
     risk_cash: float = 0.0   # dollars it risked when bought (so results in R stay right when the account size changes)
 
 
@@ -577,6 +587,28 @@ class Alpaca:
             out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
         return out
 
+    def bars_premarket(self, symbols: list[str]) -> dict[str, pd.DataFrame]:
+        """Today's 1-minute bars from 4:00 to 9:29 New York time (the pre-market, which overlaps London)."""
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from alpaca.data.enums import DataFeed
+
+        day = pd.Timestamp.now(tz=NY).normalize()
+        req = StockBarsRequest(symbol_or_symbols=symbols, timeframe=TimeFrame.Minute,
+                               start=(day + pd.Timedelta(hours=4)).tz_convert("UTC").to_pydatetime(),
+                               end=(day + pd.Timedelta(hours=9, minutes=30)).tz_convert("UTC").to_pydatetime(),
+                               feed=DataFeed.IEX)
+        df = self.stocks.get_stock_bars(req).df
+        out = {}
+        if df is None or df.empty:
+            return out
+        for sym in symbols:
+            if sym in df.index.get_level_values(0):
+                d = df.xs(sym, level=0).rename(columns=str.title)
+                d.index = pd.DatetimeIndex(d.index).tz_convert(NY)
+                out[sym] = d[["Open", "High", "Low", "Close", "Volume"]].astype(float)
+        return out
+
     def bars_history(self, symbols: list[str], days: int = 7) -> dict[str, pd.DataFrame]:
         """5-minute bars from the last few sessions, for the trend reading (fetched once at the start)."""
         from alpaca.data.requests import StockBarsRequest
@@ -612,18 +644,26 @@ class Alpaca:
             time.sleep(1)
         return fallback
 
-    def pick_contract(self, sym: str, side: str, price: float):
+    def pick_contract(self, sym: str, side: str, price: float, dte: int = 0):
+        """The nearest-strike option expiring today (dte 0) or on the dte-th trading day after today."""
         from alpaca.trading.requests import GetOptionContractsRequest
         from alpaca.trading.enums import ContractType
 
         today = pd.Timestamp.now(tz=NY).date()
-        req = GetOptionContractsRequest(
-            underlying_symbols=[sym], expiration_date=today,
-            type=ContractType.CALL if side == "call" else ContractType.PUT,
-            strike_price_gte=str(round(price * 0.98, 2)), strike_price_lte=str(round(price * 1.02, 2)), limit=100,
-        )
+        kind = ContractType.CALL if side == "call" else ContractType.PUT
+        strikes = dict(strike_price_gte=str(round(price * 0.98, 2)), strike_price_lte=str(round(price * 1.02, 2)), limit=500)
+        if dte <= 0:
+            req = GetOptionContractsRequest(underlying_symbols=[sym], expiration_date=today, type=kind, **strikes)
+        else:
+            req = GetOptionContractsRequest(underlying_symbols=[sym], type=kind,
+                                            expiration_date_gte=today + pd.Timedelta(days=1),
+                                            expiration_date_lte=today + pd.Timedelta(days=7 + 2 * dte), **strikes)
         res = self.trading.get_option_contracts(req)
         cons = [c for c in (res.option_contracts or []) if c.tradable]
+        if dte > 0 and cons:
+            expiries = sorted({pd.Timestamp(c.expiration_date).date() for c in cons})
+            want = expiries[min(dte, len(expiries)) - 1]  # 1 = the next expiry after today (the next trading day)
+            cons = [c for c in cons if pd.Timestamp(c.expiration_date).date() == want]
         if not cons:
             return None
         # nearest to the money, slightly in the money first
@@ -658,6 +698,14 @@ class Alpaca:
             self.trading.cancel_order_by_id(oid)
         except Exception:
             pass
+
+    def option_positions(self) -> list[tuple[str, int]]:
+        """[(contract, qty)] for every option the paper account holds right now."""
+        out = []
+        for p in self.trading.get_all_positions():
+            if "option" in str(getattr(p, "asset_class", "")).lower():
+                out.append((str(p.symbol), int(float(p.qty))))
+        return out
 
     def sell_all(self, contract: str):
         try:
@@ -827,6 +875,15 @@ def account_usd(cfg: dict) -> float:
     return max(0.0, usd)
 
 
+def ny_now() -> pd.Timestamp:
+    """New York time now (one place, so a test can run a whole day in seconds)."""
+    return pd.Timestamp.now(tz=NY)
+
+
+def pause(seconds: float) -> None:
+    time.sleep(seconds)
+
+
 def run_session(cfg: dict, full: dict, args) -> int:
     api = Alpaca(cfg["key"], cfg["secret"])
     started = time.time()
@@ -837,27 +894,32 @@ def run_session(cfg: dict, full: dict, args) -> int:
                 return api.clock()
             except Exception as exc:
                 print(bot.redact(f"Alpaca clock check failed ({exc}), retrying", full))
-                time.sleep(10 * (attempt + 1))
+                pause(10 * (attempt + 1))
         return api.clock()
 
     clock = clock_now()
     if not clock.is_open:
         nxt = pd.Timestamp(clock.next_open).tz_convert(NY)
-        if (nxt - pd.Timestamp.now(tz=NY)).total_seconds() > 45 * 60:
+        if (nxt - ny_now()).total_seconds() > 45 * 60:
             print(f"Market closed. Next open {nxt:%a %d %b %H:%M} New York time. Nothing to do.")
             return 0
         print(f"Waiting for the open at {nxt:%H:%M} New York time...")
         while not clock_now().is_open:
-            time.sleep(20)
-    today = pd.Timestamp.now(tz=NY).strftime("%Y-%m-%d")
+            pause(20)
+    today = ny_now().strftime("%Y-%m-%d")
     day = load_day(today)
     if day.orb_used.get("_done"):
         print("Today's session already finished.")
         return 0
     lh, lm = ny_time(cfg["last_entry"])
-    now0 = pd.Timestamp.now(tz=NY)
+    now0 = ny_now()
     still_open = [t for t in day.trades if t.get("status") in {"open", "pending"}]
+    sweep_orphans(api, day, full, args)
     if now0.hour * 60 + now0.minute > lh * 60 + lm and not still_open:
+        if day.stats.get("announced"):
+            # an earlier run today traded the session but was stopped before it could send the summary: send it now
+            finish_day(day, full, args, cfg, api)
+            return 0
         # GitHub sometimes starts this hours late. Past the last entry time there's nothing to do, so say nothing
         # (no "on shift" and no "0 trades" summary) and don't log a fake no-trade day.
         print(f"Started at {now0:%H:%M} New York time, after the last entry time ({cfg['last_entry']}). Nothing to do.")
@@ -867,7 +929,8 @@ def run_session(cfg: dict, full: dict, args) -> int:
                 "hod": f"a new high or low of the day (after {cfg.get('hod_after', '10:00')})",
                 "ema_bounce": "a dip to the EMA that holds"}
         names = ", ".join(trig.get(t, t) for t in cfg["triggers"])
-        say(full, f"<b>0DTE scalper on shift</b> (paper) · workers: {', '.join(cfg['symbols'])}\n"
+        dte = int(cfg.get("dte", 0))
+        say(full, f"<b>Options scalper on shift</b> (paper, {'options expiring today' if not dte else 'options with ' + str(dte) + ' day' + ('s' if dte > 1 else '') + ' left'}, all sold the same day) · workers: {', '.join(cfg['symbols'])}\n"
                   f"Triggers on {cfg.get('signal_minutes', 1)}-minute bars: {names}"
                   f"{', only in the direction of the trend' if cfg.get('trend_filter') else ''}"
                   f"{', strong candles only' if cfg.get('candle_filter') else ''}. "
@@ -878,29 +941,74 @@ def run_session(cfg: dict, full: dict, args) -> int:
                   f"{money(account_usd(cfg) * cfg['max_premium_pct'] / 100)}.", args)
         day.stats["announced"] = True
     history5: dict = {}
-    if cfg.get("trend_filter"):
+    if True:  # earlier days' 5-minute bars: for the trend filter and the brain's 15-minute and 1-hour view
         try:
             history5 = api.bars_history(cfg["symbols"])
         except Exception as exc:
             print(bot.redact(f"Couldn't load earlier bars for the trend filter ({exc}); it will use today's bars only.", full))
+    pre1: dict = {}
+    try:
+        pre1 = api.bars_premarket(cfg["symbols"])
+    except Exception as exc:
+        print(bot.redact(f"Couldn't load the pre-market bars ({exc}); the brain will do without them.", full))
     fh, fm = ny_time(cfg["flat_by"])
     while True:
-        now = pd.Timestamp.now(tz=NY)
+        now = ny_now()
         flat_time = now.hour * 60 + now.minute >= fh * 60 + fm
         out_of_time = (time.time() - started) / 60 > float(cfg["max_runtime_minutes"])
         try:
             bars = api.bars_today(cfg["symbols"])
-            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5)
+            tick(api, day, bars, cfg, full, args, now, force_exit=flat_time or out_of_time, history5=history5, pre1=pre1)
         except Exception as exc:
             print(bot.redact(f"{now:%H:%M:%S} error: {exc}", full))
         save_day(day)
         if flat_time or out_of_time:
             break
-        time.sleep(int(cfg["poll_seconds"]))
+        past_last = now.hour * 60 + now.minute > lh * 60 + lm
+        if past_last and not any(t.get("status") in {"open", "pending"} for t in day.trades):
+            print(f"{now:%H:%M} past the last entry time with nothing open: the day's done.")
+            break  # no new trades after last_entry, and nothing left to manage: finish now, with the summary
+        pause(int(cfg["poll_seconds"]))
+    finish_day(day, full, args, cfg, api)
+    return 0
+
+
+def sweep_orphans(api: "Alpaca", day: Day, full: dict, args) -> None:
+    """Options the paper account holds that today's record doesn't know about (a run that was killed with a trade
+    open) are sold at once, so nothing is ever left to expire."""
+    try:
+        known = {t["contract"] for t in day.trades if t.get("status") in {"open", "pending"}}
+        orphans = [(c, q) for c, q in api.option_positions() if c not in known]
+    except Exception as exc:
+        print(bot.redact(f"position check: {exc}", full))
+        return
+    for c, q in orphans:
+        api.sell_all(c)
+    if orphans:
+        say(full, "🧹 <b>Scalper tidy-up</b>: sold " + ", ".join(f"{q} x {c}" for c, q in orphans)
+            + " left over from a run that was stopped.", args)
+
+
+def finish_day(day: Day, full: dict, args, cfg: dict, api: "Alpaca | None" = None) -> None:
+    """End of the session: make sure no option is still held, mark the day done, and always send the summary."""
+    if api is not None:
+        try:
+            left = api.option_positions()
+            for c, _q in left:
+                api.sell_all(c)
+            if left:
+                say(full, "🧹 Sold " + ", ".join(f"{q} x {c}" for c, q in left) + " still held at the end of the session.", args)
+        except Exception as exc:
+            print(bot.redact(f"end-of-day position check: {exc}", full))
     day.orb_used["_done"] = ["yes"]
     save_day(day)
-    summary(day, full, args, cfg)
-    return 0
+    try:
+        summary(day, full, args, cfg)
+    except Exception as exc:  # the summary must always arrive, even a short one
+        print(bot.redact(f"summary failed: {exc}", full))
+        closed = [t for t in day.trades if t.get("status") == "closed"]
+        say(full, f"<b>0DTE scalper · {day.date} (paper)</b>\n{len(closed)} trades · total "
+                  f"{money(sum(float(t.get('pnl', 0)) for t in closed))}", args)
 
 
 def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
@@ -948,8 +1056,15 @@ def trump_bias(day: Day, cfg: dict, full: dict, args, now) -> dict:
     return {s_: b for s_, b in tb.items() if pd.Timestamp(b["until"]) > now}
 
 
+def consider(day: Day, now, sym: str, side: str, decision: str) -> None:
+    """Every trade the scalper weighs up, taken or not, with the reason (shown in the day's summary)."""
+    c = day.stats.setdefault("considered", [])
+    c.append(f"{now:%H:%M} {sym} {side}: {decision}")
+    day.stats["considered"] = c[-40:]
+
+
 def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, force_exit: bool,
-         history5: dict | None = None) -> None:
+         history5: dict | None = None, pre1: dict | None = None) -> None:
     trades = [Trade(**t) for t in day.trades]
     mins = int(cfg.get("signal_minutes", 1))
     sig_bars = {s: to_bars(d, mins, now) for s, d in bars.items()}
@@ -962,17 +1077,31 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 t.entry_price = float(o.filled_avg_price)
                 t.best = t.entry_price
                 t.status = "open"
-                say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> {t.contract} at ${t.entry_price:.2f} "
-                          f"(${t.entry_price * 100 * t.qty:,.0f}) · {t.why}\n{bot.chart_link(t.worker, 1)} · "
-                          f'<a href="https://app.alpaca.markets/paper/dashboard/overview">Alpaca paper account</a>', args)
+                say(full, f"<b>{t.worker} bought {t.qty} x {t.side.upper()}</b> at ${t.entry_price:.2f} "
+                          f"({money(t.entry_price * 100 * t.qty)}) · {bot.esc(t.why)}\n{bot.chart_link(t.worker, 1)} · "
+                          f'<a href="https://app.alpaca.markets/paper/dashboard/overview">Alpaca paper account</a>'
+                          + (f"\n<blockquote expandable>{bot.esc(t.explain)}</blockquote>" if t.explain else ""), args)
                 if t.worker in bars:
                     picture(full, bars, t.worker, f"<b>{t.worker}</b> when the scalper bought the {t.side}", args,
                             float(bars[t.worker]["Close"].iloc[-1]))
             elif (now - pd.Timestamp(t.entry_time)).total_seconds() > 90 or force_exit:
                 api.cancel(t.order_id)
-                t.status = "cancelled"
-                t.exit_reason = "not filled within 90 seconds"
-                day.last_exit[t.worker] = str(now)
+                got = 0
+                try:  # a partly filled order still bought some contracts: keep managing those, never orphan them
+                    o2 = api.order(t.order_id)
+                    got = int(float(getattr(o2, "filled_qty", 0) or 0))
+                    if got > 0:
+                        t.entry_price = float(o2.filled_avg_price)
+                except Exception as exc:
+                    print(bot.redact(f"order check {t.contract}: {exc}", full))
+                if got > 0:
+                    t.qty, t.best, t.status = got, t.entry_price, "open"
+                    say(full, f"<b>{t.worker} bought {got} x {t.side.upper()}</b> (part of the order) at "
+                              f"${t.entry_price:.2f}", args)
+                else:
+                    t.status = "cancelled"
+                    t.exit_reason = "not filled within 90 seconds"
+                    day.last_exit[t.worker] = str(now)
             continue
         if t.status != "open":
             continue
@@ -1084,6 +1213,28 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         ind = session_indicators(df, cfg)
         used = set(day.orb_used.get(sym, []))
         sig = signal_at(ind, len(ind) - 1, cfg, used, day.stats)
+        ctx = None
+
+        def picture_now():
+            try:
+                return brain.build(df1[df1.index + pd.Timedelta(minutes=1) <= now], (history5 or {}).get(sym),
+                                   (pre1 or {}).get(sym), ema_len(cfg))
+            except Exception as exc:
+                print(bot.redact(f"chart brain ({sym}): {exc}", full))
+                return None
+
+        if not sig and "sweep" in cfg["triggers"]:
+            levels = []
+            h = (history5 or {}).get(sym)
+            if h is not None and len(h):
+                hr = h.between_time("09:30", "15:59")
+                hr = hr[hr.index < now.normalize()]
+                if len(hr):
+                    last = hr[hr.index >= hr.index[-1].normalize()]
+                    levels += [float(last["High"].max()), float(last["Low"].min())]
+            if brain.maybe_sweep(ind, levels):
+                ctx = picture_now()
+                sig = brain.sweep_trigger(ctx, cfg)
         if not sig:
             continue
         side, why = sig
@@ -1093,6 +1244,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if not trend_allows(side, direction, kind):
                 print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
                 day.stats["trend"] = day.stats.get("trend", 0) + 1
+                consider(day, now, sym, side, f"skipped, the trend is {direction}/{kind}")
                 continue
             why = why + [f"trend {direction}"]
         else:
@@ -1102,6 +1254,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             if side != ("call" if b["dir"] > 0 else "put"):
                 print(f"{now:%H:%M} {sym}: {side} signal skipped: against Trump's post ({b['topic']})")
                 day.stats["trump_skips"] = day.stats.get("trump_skips", 0) + 1
+                consider(day, now, sym, side, f"skipped, against Trump's post ({b['topic']})")
                 continue
             why = why + [f"agrees with Trump's post ({b['topic']})"]
         conds = scalp_conditions(ind, len(ind) - 1, why, direction, kind)
@@ -1112,11 +1265,34 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                 day.stats["journal"] = day.stats.get("journal", 0) + 1
                 print(f"{now:%H:%M} {sym}: {side} signal skipped, the journal says: {proven[0]}")
                 say(full, f"📘 <b>{sym} {side} skipped</b>: the journal has a proven lesson against it.\n{bot.esc(proven[0])}", args)
+                consider(day, now, sym, side, "skipped, the journal has a proven lesson against it")
                 continue
         price = float(ind["Close"].iloc[-1])
-        con = api.pick_contract(sym, side, price)
+        explain = ""
+        if cfg.get("brain") or cfg.get("explain", True):
+            ctx = ctx or picture_now()
+            if ctx is not None:
+                extra = []
+                if cfg.get("order_flow", True):
+                    try:
+                        tr_, qu_ = orderflow.fetch(api.stocks, sym)
+                        extra = orderflow.lines(orderflow.analyse(tr_, qu_, float(ind["atr"].iloc[-1])), side)
+                    except Exception as exc:
+                        print(bot.redact(f"order flow ({sym}): {exc}", full))
+                u_risk = max(abs(price - float(ind["vwap"].iloc[-1])), price * 0.0015)
+                a = brain.analyse(ctx, side, u_risk, cfg, extra)
+                head, body = brain.explain(sym, side, a, f"{now:%H:%M} ")
+                explain = body
+                if cfg.get("brain") and not a["take"]:
+                    print(f"{now:%H:%M} {sym}: {side} signal skipped by the chart brain: {a['decision']}")
+                    day.stats["brain"] = day.stats.get("brain", 0) + 1
+                    consider(day, now, sym, side, f"skipped, {a['decision'][len('NO TRADE: '):]}")
+                    continue
+                why = why + [f"{a['setup']}, chart {a['score']:+d}"]
+        con = api.pick_contract(sym, side, price, int(cfg.get("dte", 0)))
         if not con:
-            print(f"{sym}: no 0DTE {side} found")
+            print(f"{sym}: no {side} found for the chosen expiry")
+            consider(day, now, sym, side, "skipped, no option found for the chosen expiry")
             continue
         q = api.quote(con.symbol)
         if not q:
@@ -1126,6 +1302,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
             print(f"{sym}: {con.symbol} spread too wide ({bid}/{ask}), skipped")
             day.stats["spread"] = day.stats.get("spread", 0) + 1
+            consider(day, now, sym, side, f"skipped, the option's spread was too wide ({bid}/{ask})")
             continue
         # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
         # traders found most of their losses came from trading costs (the bid/ask spread).
@@ -1141,6 +1318,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         if qty < 1:
             print(f"{sym}: one contract ({money(limit * 100)}) is over your limits, skipped")
             day.stats["too_dear"] = day.stats.get("too_dear", 0) + 1
+            consider(day, now, sym, side, "skipped, one contract costs more than the account allows")
             continue
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
@@ -1148,7 +1326,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
                   u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
-                  risk_cash=qty * per_contract_risk)
+                  risk_cash=qty * per_contract_risk, explain=explain)
+        consider(day, now, sym, side, f"BOUGHT {qty} at {limit:.2f}")
         trades.append(t)
         print(f"{now:%H:%M:%S} {sym}: buy {qty} {con.symbol} limit {limit:.2f} (bid {bid:.2f} / ask {ask:.2f}) ({t.why})")
         if sum(1 for x in trades if x.status in {"open", "pending"}) >= int(cfg["max_open_positions"]):
@@ -1171,6 +1350,7 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
             + (f"; {st.get('journal', 0)} matched a losing lesson in the journal" if st.get("journal") else "")
             + (f"; {st.get('spread', 0)} had too wide a bid/ask spread" if st.get("spread") else "")
             + (f"; {st.get('too_dear', 0)} cost more than the account allows" if st.get("too_dear") else "")
+            + (f"; {st.get('brain', 0)} were turned down by the chart brain" if st.get("brain") else "")
             + (f"; {st.get('chart', 0)} didn't fit the chart (highs and lows against it, rejection wicks, or no "
                f"room before a wall of wicks)" if st.get("chart") else "")
             + (f"; {st.get('trump_skips', 0)} went against a fresh Trump post" if st.get("trump_skips") else "")
@@ -1179,19 +1359,31 @@ def summary(day: Day, full: dict, args, cfg: dict) -> None:
         ws = [t for t in closed if t.worker == w]
         if ws:
             lines.append(f"{w}: {len(ws)} trades, {money(sum(t.pnl for t in ws))}")
+    wl = [t.pnl for t in closed if t.pnl > 0]
+    ll = [t.pnl for t in closed if t.pnl <= 0]
+    if wl and ll:
+        lines.append(f"Average win {money(sum(wl) / len(wl))} vs average loss {money(sum(ll) / len(ll))}")
     log = STATE / "scalper_log.csv"
-    new = not log.exists()
     STATE.mkdir(exist_ok=True)
-    with open(log, "a", newline="") as fh:
+    rows = []
+    if log.exists():  # one row per day, even if the summary is sent twice
+        with open(log, newline="") as fh:
+            rows = [r for r in csv.reader(fh)][1:]
+        rows = [r for r in rows if r and r[0] != day.date]
+    rows.append([day.date, len(closed), wins, round(total, 2)])
+    with open(log, "w", newline="") as fh:
         wr = csv.writer(fh)
-        if new:
-            wr.writerow(["date", "trades", "won", "pnl"])
-        wr.writerow([day.date, len(closed), wins, round(total, 2)])
+        wr.writerow(["date", "trades", "won", "pnl"])
+        wr.writerows(rows)
     hist = pd.read_csv(log)
     traded = hist[hist["trades"] > 0]
     if len(traded) > 1:
         lines.append(f"All paper days with trades so far: {len(traded)} days, {money(traded['pnl'].sum())}, "
                      f"{(traded['pnl'] > 0).sum()} winning days")
+    considered = st.get("considered", [])
+    if considered:
+        lines.append(f"<blockquote expandable>Every trade it weighed up today ({len(considered)}):\n"
+                     + "\n".join(bot.esc(c) for c in considered) + "</blockquote>")
     say(full, "\n".join(lines), args)
 
 
