@@ -57,6 +57,8 @@ DEFAULTS = {
     "account_size": 5000.0,           # sizing is based on this, not Alpaca's $100k paper balance
     "account_currency": "USD",        # the currency account_size is in; messages show money in it too
     "hod_after": "10:30",             # the "hod" trigger (new high/low of the day) only counts from this time
+    "chart_read": False,              # read the candles, wicks, highs/lows and wick levels before each trade
+    "chart_min_score": 0,
     "use_trump": True,                # don't trade against a fresh market-moving Trump post
     "trump_minutes": 60,              # ...for this long after it
     "account_start": "",              # YYYY-MM-DD: from this day the account grows and shrinks with the scalper's results
