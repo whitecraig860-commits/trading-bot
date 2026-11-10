@@ -337,15 +337,12 @@ def main() -> int:
     rep = backtest(bars, base, real, only_day=a.day, verbose=True)
     report("that day", pd.DataFrame(rep))
     variants = [
-        ("default (0DTE, target 2R, trail 1.5R, chart read >= -1)", {}),
-        ("no candle read", {"tw_chart_min": None}),
-        ("candle read >= 0", {"tw_chart_min": 0}),
-        ("target 3R", {"tw_target_r": 3.0}),
-        ("target 1.5R", {"tw_target_r": 1.5}),
-        ("no target (trail only)", {"tw_target_r": 99}),
-        ("1DTE", {"tw_dte": 1}),
-        ("bigger day move needed (0.6%)", {"tw_min_day_move_pct": 0.6}),
-        ("entries until 12:00 only", {"tw_last_entry": "12:00"}),
+        ("default (0DTE, option stop -40%)", {}),
+        ("option stop -60%", {"tw_option_stop_pct": 60}),
+        ("share stop only (no option stop)", {"tw_option_stop_pct": 100}),
+        ("1DTE, share stop only", {"tw_dte": 1, "tw_option_stop_pct": 100}),
+        ("1DTE, share stop only, day move 0.6%", {"tw_dte": 1, "tw_option_stop_pct": 100, "tw_min_day_move_pct": 0.6}),
+        ("0DTE, share stop only, day move 0.6%", {"tw_option_stop_pct": 100, "tw_min_day_move_pct": 0.6}),
     ]
     rows = []
     for name, over in variants:
