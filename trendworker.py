@@ -206,7 +206,8 @@ def price_at(s: pd.Series | None, t: pd.Timestamp, stale: int = 5) -> float | No
     return float(w.iloc[-1]) if len(w) else None
 
 
-def backtest(bars: pd.DataFrame, cfg: dict, real: RealOptions, only_day: str | None = None, verbose: bool = False) -> list[dict]:
+def backtest(bars: pd.DataFrame, cfg: dict, real: RealOptions, only_day: str | None = None, verbose: bool = False,
+             sym: str = "QQQ", step_k: float = 1.0) -> list[dict]:
     """bars: QQQ 1-minute bars (any hours, NY time). Returns closed trades with real-option P&L in dollars."""
     import scalper
 
@@ -228,6 +229,7 @@ def backtest(bars: pd.DataFrame, cfg: dict, real: RealOptions, only_day: str | N
         if dte and di + dte >= len(days):
             continue
         expiry = days[di + dte] if dte else day
+        exp_found = None  # funds without an expiry every day (e.g. GLD): the nearest one that exists
         s5 = scalper.to_bars(d1, 5)
         ind = scalper.session_indicators(s5, {**scalper.DEFAULTS, "signal_minutes": 5, **cfg})
         open_t, last_exit, n_tr, n_loss = None, None, 0, 0
@@ -240,10 +242,17 @@ def backtest(bars: pd.DataFrame, cfg: dict, real: RealOptions, only_day: str | N
                 if sig:
                     side, stop, why = sig
                     u0 = float(d1["Open"].get(now, np.nan)) if now in d1.index else float(ind["Close"].iloc[i])
-                    atm = round(u0)
-                    step = 1 if side == "call" else -1
+                    atm = round(u0 / step_k) * step_k
+                    step = step_k if side == "call" else -step_k
                     strikes = [float(atm + step * k) for k in range(-1, 5)]
-                    opts = real.day("QQQ", day, expiry, side, strikes)
+                    if exp_found is None:
+                        for e in [expiry] + [d for d in days[di + 1:di + 6]]:
+                            probe = real.day(sym, day, e, side, strikes)
+                            if any(len(v) for v in probe.values()):
+                                exp_found = e
+                                break
+                        exp_found = exp_found or expiry
+                    opts = real.day(sym, day, exp_found, side, strikes)
                     pick = None
                     for k in [float(atm + step * j) for j in range(0, 5)]:  # nearest first, then cheaper (out of the money)
                         px = price_at(opts.get(k), now - pd.Timedelta(minutes=1))  # last real price before entry
@@ -304,7 +313,7 @@ def backtest(bars: pd.DataFrame, cfg: dict, real: RealOptions, only_day: str | N
     return trades
 
 
-def report(name: str, t: pd.DataFrame, gbp: float = 0.75) -> None:
+def report(name: str, t: pd.DataFrame, gbp: float = 0.75, n_days: int = 0) -> None:
     if t.empty:
         print(f"{name}: no trades")
         return
@@ -314,6 +323,8 @@ def report(name: str, t: pd.DataFrame, gbp: float = 0.75) -> None:
     eq = days.cumsum()
     print(f"{name}: {len(t)} trades on {len(days)} days, {len(w) / len(t):.0%} won, avg win £{w.pnl.mean() * gbp if len(w) else 0:.0f}, "
           f"avg loss £{lo.pnl.mean() * gbp if len(lo) else 0:.0f}, profit factor {pf:.2f}, total £{t.pnl.sum() * gbp:,.0f}")
+    print(f"    per market day (incl. days with no trade): £{t.pnl.sum() * gbp / max(1, n_days):+.1f}; "
+          f"days with £30+: {(days >= 30).sum()} of {n_days} market days")
     print(f"    per trading day it traded: average £{days.mean():+.0f}, median £{days.median():+.0f}, "
           f"{(days > 0).mean():.0%} of days up, days ≥ £50: {(days >= 50).mean():.0%}, best £{days.max():.0f}, "
           f"worst £{days.min():.0f}, deepest fall £{(eq - eq.cummax()).min():.0f}")
@@ -325,47 +336,38 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2024-03-01")
     ap.add_argument("--end", default=pd.Timestamp.now(tz=NY).strftime("%Y-%m-%d"))
-    ap.add_argument("--day", default="2026-11-09")
+    ap.add_argument("--symbols", default="GLD,QQQ,SPY,IWM,NVDA,TSLA")
     ap.add_argument("--cache", default="/tmp/tw_cache")
     a = ap.parse_args()
     cache = Path(a.cache)
     cache.mkdir(parents=True, exist_ok=True)
-    bars = optionbt.load_bars(["QQQ"], a.start, a.end, cache / "qqq.pkl")["QQQ"]
+    steps = {"TSLA": 2.5}
     real = RealOptions(cache / "options")
-    base = {"account_size": 1000, "risk_per_trade_pct": 10, "max_premium_pct": 35, "flat_by": "15:50"}
-    print(f"\n=== Replay of {a.day} (default settings, real option prices) ===")
-    rep = backtest(bars, base, real, only_day=a.day, verbose=True)
-    report("that day", pd.DataFrame(rep))
-    variants = [
-        ("default (0DTE, option stop -40%)", {}),
-        ("option stop -60%", {"tw_option_stop_pct": 60}),
-        ("share stop only (no option stop)", {"tw_option_stop_pct": 100}),
-        ("1DTE, share stop only", {"tw_dte": 1, "tw_option_stop_pct": 100}),
-        ("1DTE, share stop only, day move 0.6%", {"tw_dte": 1, "tw_option_stop_pct": 100, "tw_min_day_move_pct": 0.6}),
-        ("0DTE, share stop only, day move 0.6%", {"tw_option_stop_pct": 100, "tw_min_day_move_pct": 0.6}),
-    ]
+    base = {"account_size": 1000, "risk_per_trade_pct": 10, "max_premium_pct": 35, "flat_by": "15:50",
+            "tw_option_stop_pct": 100}
+    # ONE pre-set pair of settings for every market: no tuning per market (that would only find luck)
+    variants = [("day move 0.6% (the settings now in config)", {"tw_min_day_move_pct": 0.6}),
+                ("day move 0.3%", {"tw_min_day_move_pct": 0.3})]
     rows = []
-    for name, over in variants:
-        t = pd.DataFrame(backtest(bars, {**base, **over}, real))
-        print(f"\n=== {name} ===")
-        if t.empty:
-            print("no trades")
+    for sym in [x.strip().upper() for x in a.symbols.split(",") if x.strip()]:
+        try:
+            bars = optionbt.load_bars([sym], a.start, a.end, cache / f"{sym}.pkl")[sym]
+        except Exception as exc:
+            print(f"{sym}: no price data ({exc})")
             continue
-        report("ALL", t)
-        report("  2024-25 (choose)", t[t.day < "2026-01-01"])
-        report("  2026 (check, unseen)", t[t.day >= "2026-01-01"])
-        rows.append(t.assign(variant=name))
+        n_days = len(set(bars.between_time("09:30", "15:59").index.normalize()))
+        for name, over in variants:
+            t = pd.DataFrame(backtest(bars, {**base, **over}, real, sym=sym, step_k=steps.get(sym, 1.0)))
+            print(f"\n=== {sym}: {name} ===")
+            if t.empty:
+                print("no trades")
+                continue
+            report("ALL", t, n_days=n_days)
+            report("  2024-25", t[t.day < "2026-01-01"], n_days=int(n_days * 0.68))
+            report("  2026", t[t.day >= "2026-01-01"], n_days=int(n_days * 0.32))
+            rows.append(t.assign(variant=name, sym=sym))
     if rows:
-        allt = pd.concat(rows)
-        allt.drop(columns=["series"], errors="ignore").to_csv("trendworker_trades.csv", index=False)
-        d = allt[allt.variant == variants[0][0]]
-        if len(d):
-            print("\nDefault by exit reason:")
-            for r, g in d.groupby("reason"):
-                print(f"  {r}: {len(g)} trades, avg ${g.pnl.mean():+.0f}, total £{g.pnl.sum() * 0.75:,.0f}")
-            print("\nDefault by month:")
-            for mth, g in d.groupby(d.day.str[:7]):
-                print(f"  {mth}: {len(g)} trades, £{g.pnl.sum() * 0.75:+,.0f}")
+        pd.concat(rows).drop(columns=["series"], errors="ignore").to_csv("trendworker_trades.csv", index=False)
     return 0
 
 
