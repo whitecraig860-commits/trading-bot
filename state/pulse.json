@@ -38,7 +38,7 @@
      "sessions": 50
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
    "last_bar": "2026-11-09 16:55:00-05:00",
    "brief_day": "2026-11-09",
    "stance": "up|None",
@@ -89,7 +89,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
    "last_bar": "2026-11-09 15:55:00-05:00",
    "brief_day": "2026-11-09",
    "stance": "up|None",
@@ -126,10 +126,10 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 203,
-     "win_rate": 0.2019704433497537,
-     "avg_r": -0.0997846227969228,
-     "total_r": -20.256278427775328,
+     "trades": 202,
+     "win_rate": 0.20297029702970298,
+     "avg_r": -0.09774204781289678,
+     "total_r": -19.74389365820515,
      "sessions": 60
     },
     "late": {
@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
    "last_bar": "2026-11-09 15:55:00-05:00",
    "brief_day": "2026-11-09",
    "stance": "up|None",
@@ -191,7 +191,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
    "last_bar": "2026-11-09 15:55:00-05:00",
    "brief_day": "2026-11-09",
    "stance": "up|None",
@@ -242,7 +242,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
    "last_bar": "2026-11-09 16:10:00+00:00",
    "brief_day": "2026-11-09",
    "stance": "up|None",
@@ -258,17 +258,17 @@
   "BTC-USD": {
    "record": {
     "trend": {
-     "trades": 259,
-     "win_rate": 0.3204633204633205,
-     "avg_r": -0.6620565794268477,
-     "total_r": -171.47265407155356,
+     "trades": 261,
+     "win_rate": 0.3218390804597701,
+     "avg_r": -0.658007557325214,
+     "total_r": -171.73997246188085,
      "sessions": 60
     },
     "orb": {
-     "trades": 96,
-     "win_rate": 0.2604166666666667,
-     "avg_r": -0.827295808766895,
-     "total_r": -79.42039764162192,
+     "trades": 97,
+     "win_rate": 0.25773195876288657,
+     "avg_r": -0.8333367054424157,
+     "total_r": -80.83366042791432,
      "sessions": 60
     },
     "fade": {
@@ -279,32 +279,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 577,
-     "win_rate": 0.1923743500866551,
-     "avg_r": -0.7922027942660883,
-     "total_r": -457.1010122915329,
+     "trades": 578,
+     "win_rate": 0.19204152249134948,
+     "avg_r": -0.7928156403595201,
+     "total_r": -458.24744012780263,
      "sessions": 60
     },
     "late": {
-     "trades": 20,
-     "win_rate": 0.3,
-     "avg_r": -0.7208411205476981,
-     "total_r": -14.416822410953962,
+     "trades": 21,
+     "win_rate": 0.2857142857142857,
+     "avg_r": -0.6878641504098848,
+     "total_r": -14.44514715860758,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-10T00:10:40.000754+00:00",
-   "last_bar": "2026-11-10 00:15:00+00:00",
+   "record_at": "2026-11-10T04:25:40.000310+00:00",
+   "last_bar": "2026-11-10 05:10:00+00:00",
    "brief_day": "2026-11-10",
-   "stance": "none|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-09": 3
+    "2026-11-10": 1
    },
-   "stance_desc": "MIXED: no clear direction",
-   "last_change_at": "2026-11-09T14:35:40.000977+00:00"
+   "stance_desc": "LEANING DOWN, not trending cleanly",
+   "last_change_at": "2026-11-10T00:55:40.000307+00:00"
   }
  },
  "trades": [],
@@ -459,62 +459,32 @@
   "https://www.trumpstruth.org/statuses/43534",
   "https://www.trumpstruth.org/statuses/43535",
   "https://www.trumpstruth.org/statuses/43536",
-  "https://www.trumpstruth.org/statuses/43537"
+  "https://www.trumpstruth.org/statuses/43537",
+  "https://www.trumpstruth.org/statuses/43538",
+  "https://www.trumpstruth.org/statuses/43539"
  ],
- "trump_checks": [
-  {
-   "id": "https://www.trumpstruth.org/statuses/43537",
-   "text": "I had an excellent conversation with Sheikh Mohammed bin Abdulrahman bin Jassim ",
-   "at": "2026-11-09T22:26:04.798995+00:00",
-   "markets": [
-    {
-     "market": "BZ=F",
-     "direction": 1,
-     "p0": 92.16999816894531,
-     "open": false,
-     "topic": "Iran / war / strikes"
-    },
-    {
-     "market": "GC=F",
-     "direction": 1,
-     "p0": 4149.5,
-     "open": false,
-     "topic": "Iran / war / strikes"
-    },
-    {
-     "market": "SPY",
-     "direction": -1,
-     "p0": 752.6099853515625,
-     "open": false,
-     "topic": "Iran / war / strikes"
-    }
-   ],
-   "done": [
-    30
-   ]
-  }
- ],
+ "trump_checks": [],
  "trump_seeded": true,
  "briefing_day": "2026-11-05",
  "scalper": {
-  "day": "2026-11-09",
-  "tries": 1,
-  "last_try": 1794233742.5968642,
-  "warned": true,
+  "day": "2026-11-10",
+  "tries": 0,
+  "last_try": 0.0,
+  "warned": false,
   "watched_session": true
  },
  "jobs": {
   "insider catch-up": {
-   "day": "2026-11-09",
+   "day": "2026-11-10",
    "tries": 1,
    "done": true,
-   "last": 1794200441.4833102
+   "last": 1794286841.7934089
   },
   "nightly scan": {
-   "day": "2026-11-09",
+   "day": "2026-11-10",
    "tries": 1,
    "done": true,
-   "last": 1794190365.237225
+   "last": 1794270341.9930973
   },
   "weekly learning": {
    "day": "2026-11-06",
@@ -529,11 +499,11 @@
    "last": 1794205841.8323328
   }
  },
- "scan_day": "2026-11-09",
+ "scan_day": "2026-11-10",
  "trump_record": {
   "Iran / war / strikes": [
    1,
-   5
+   7
   ]
  }
 }
