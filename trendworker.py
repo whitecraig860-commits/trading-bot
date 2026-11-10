@@ -329,6 +329,7 @@ def main() -> int:
     ap.add_argument("--cache", default="/tmp/tw_cache")
     a = ap.parse_args()
     cache = Path(a.cache)
+    cache.mkdir(parents=True, exist_ok=True)
     bars = optionbt.load_bars(["QQQ"], a.start, a.end, cache / "qqq.pkl")["QQQ"]
     real = RealOptions(cache / "options")
     base = {"account_size": 1000, "risk_per_trade_pct": 10, "max_premium_pct": 35, "flat_by": "15:50"}

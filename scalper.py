@@ -47,6 +47,7 @@ import charts  # chart pictures for Telegram
 import intraday  # the 5-minute trend reading shared with "bot.py pulse"
 import lessons  # the trade journal that learns
 import orderflow  # buying vs selling from Alpaca's IEX trades and quotes (a small sample, said so)
+import trendworker  # the QQQ trend-day worker (mode = "trend")
 import trump  # reads Trump's posts for market-moving topics
 
 BASE = Path(__file__).resolve().parent
@@ -648,7 +649,7 @@ class Alpaca:
             time.sleep(1)
         return fallback
 
-    def pick_contract(self, sym: str, side: str, price: float, dte: int = 0):
+    def pick_contract(self, sym: str, side: str, price: float, dte: int = 0, all_: bool = False):
         """The nearest-strike option expiring today (dte 0) or on the dte-th trading day after today."""
         from alpaca.trading.requests import GetOptionContractsRequest
         from alpaca.trading.enums import ContractType
@@ -675,7 +676,13 @@ class Alpaca:
             k = float(c.strike_price)
             itm = (k <= price) if side == "call" else (k >= price)
             return (abs(k - price), 0 if itm else 1)
-        return sorted(cons, key=dist)[0]
+        ranked = sorted(cons, key=dist)
+        if all_:  # the nearest, then cheaper ones further out of the money (for a small account)
+            near = ranked[0]
+            otm = sorted([c for c in cons if (float(c.strike_price) - price) * (1 if side == "call" else -1) > 0
+                          and c is not near], key=lambda c: abs(float(c.strike_price) - price))
+            return [near] + otm[:4]
+        return ranked[0]
 
     def quote(self, contract: str):
         from alpaca.data.requests import OptionLatestQuoteRequest
@@ -1122,7 +1129,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         u_r = None
         if t.u_entry and t.worker in bars and len(bars[t.worker]):
             u_now = float(bars[t.worker]["Close"].iloc[-1])
-            u_risk = max(abs(t.u_entry - t.u_stop), t.u_entry * 0.0015)
+            u_risk = max(abs(t.u_entry - t.u_stop), t.u_entry * (0.0008 if cfg.get("mode") == "trend" else 0.0015))
             u_r = ((u_now - t.u_entry) if t.side == "call" else (t.u_entry - u_now)) / u_risk
             t.best_r = max(t.best_r, u_r)
         floor = profit_floor(t.best_r, cfg)
@@ -1136,6 +1143,8 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
         elif cfg.get("lock_profits") and best_gain >= float(cfg.get("lock_after_pct", 15)) and \
                 chg <= float(cfg.get("lock_floor_pct", 3)):
             reason = f"locked in profit: the option was up {best_gain:.0f}% and came back ({chg:+.0f}%)"
+        elif u_r is not None and cfg.get("mode") == "trend" and u_r <= -1:
+            reason = f"stop: the share went back through the pullback's low ({chg:+.0f}%)"
         elif chg <= -float(cfg["stop_loss_pct"]):
             reason = f"stop loss ({chg:.0f}%)"
         elif chg >= float(cfg["take_profit_pct"]):
@@ -1217,7 +1226,13 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             continue
         ind = session_indicators(df, cfg)
         used = set(day.orb_used.get(sym, []))
-        sig = signal_at(ind, len(ind) - 1, cfg, used, day.stats)
+        trend_stop = None
+        if cfg.get("mode") == "trend":
+            tsig = trendworker.signal(ind, len(ind) - 1, cfg)
+            sig = (tsig[0], tsig[2]) if tsig else None
+            trend_stop = tsig[1] if tsig else None
+        else:
+            sig = signal_at(ind, len(ind) - 1, cfg, used, day.stats)
         ctx = None
 
         def picture_now():
@@ -1244,7 +1259,7 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
             continue
         side, why = sig
         day.stats["signals"] = day.stats.get("signals", 0) + 1
-        if cfg.get("trend_filter"):
+        if cfg.get("trend_filter") and cfg.get("mode") != "trend":  # the trend worker checks the trend itself
             direction, kind = trend_now((history5 or {}).get(sym), to_bars(df1, 5, now), sym)
             if not trend_allows(side, direction, kind):
                 print(f"{now:%H:%M} {sym}: {side} signal ({'; '.join(why)}) skipped: trend is {direction}/{kind}")
@@ -1294,43 +1309,52 @@ def tick(api: Alpaca, day: Day, bars: dict, cfg: dict, full: dict, args, now, fo
                     consider(day, now, sym, side, f"skipped, {a['decision'][len('NO TRADE: '):]}")
                     continue
                 why = why + [f"{a['setup']}, chart {a['score']:+d}"]
-        con = api.pick_contract(sym, side, price, int(cfg.get("dte", 0)))
-        if not con:
+        if cfg.get("mode") == "trend":
+            cands = api.pick_contract(sym, side, price, int(cfg.get("dte", 0)), all_=True) or []
+        else:
+            one = api.pick_contract(sym, side, price, int(cfg.get("dte", 0)))
+            cands = [one] if one else []
+        if not cands:
             print(f"{sym}: no {side} found for the chosen expiry")
             consider(day, now, sym, side, "skipped, no option found for the chosen expiry")
             continue
-        q = api.quote(con.symbol)
-        if not q:
-            continue
-        bid, ask = q
-        mid = (bid + ask) / 2 if bid > 0 else ask
-        if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
-            print(f"{sym}: {con.symbol} spread too wide ({bid}/{ask}), skipped")
-            day.stats["spread"] = day.stats.get("spread", 0) + 1
-            consider(day, now, sym, side, f"skipped, the option's spread was too wide ({bid}/{ask})")
-            continue
-        # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
-        # traders found most of their losses came from trading costs (the bid/ask spread).
-        limit = round(min(ask, mid + float(cfg.get("entry_offset_pct", 25)) / 100 * (ask - mid)) + 0.004, 2)
         acct = account_usd(cfg)
         risk_cash = acct * cfg["risk_per_trade_pct"] / 100
-        per_contract_risk = limit * 100 * cfg["stop_loss_pct"] / 100
-        max_spend = acct * cfg["max_premium_pct"] / 100
         # never spend more than the account has free: what's already in open or waiting trades is in use
         in_use = sum(x.entry_price * 100 * x.qty for x in trades if x.status in {"open", "pending"})
-        max_spend = min(max_spend, acct - in_use)
-        qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100))) if max_spend > 0 else 0
-        if qty < 1:
-            print(f"{sym}: one contract ({money(limit * 100)}) is over your limits, skipped")
-            day.stats["too_dear"] = day.stats.get("too_dear", 0) + 1
-            consider(day, now, sym, side, "skipped, one contract costs more than the account allows")
+        max_spend = min(acct * cfg["max_premium_pct"] / 100, acct - in_use)
+        pick, why_not = None, "no quote"
+        for con in cands:
+            q = api.quote(con.symbol)
+            if not q:
+                continue
+            bid, ask = q
+            mid = (bid + ask) / 2 if bid > 0 else ask
+            if bid <= 0 or (ask - bid) / mid * 100 > float(cfg["max_spread_pct"]):
+                why_not = f"the option's spread was too wide ({bid}/{ask})"
+                continue
+            # Bid a little above the middle instead of paying the full asking price: research on retail 0DTE
+            # traders found most of their losses came from trading costs (the bid/ask spread).
+            limit = round(min(ask, mid + float(cfg.get("entry_offset_pct", 25)) / 100 * (ask - mid)) + 0.004, 2)
+            per_contract_risk = limit * 100 * cfg["stop_loss_pct"] / 100
+            qty = int(min(risk_cash / per_contract_risk, max_spend / (limit * 100))) if max_spend > 0 else 0
+            if qty >= 1:
+                pick = (con, bid, ask, limit, per_contract_risk, qty)
+                break
+            why_not = f"one contract ({money(limit * 100)}) costs more than the account allows"
+        if not pick:
+            key = "too_dear" if "costs" in why_not else "spread"
+            print(f"{sym}: no affordable {side}: {why_not}")
+            day.stats[key] = day.stats.get(key, 0) + 1
+            consider(day, now, sym, side, f"skipped, {why_not}")
             continue
+        con, bid, ask, limit, per_contract_risk, qty = pick
         if any("opening range" in w for w in why):
             day.orb_used[sym] = sorted(used | {side})
         o = api.buy(con.symbol, qty, limit)
         t = Trade(worker=sym, side=side, contract=con.symbol, qty=qty, entry_price=limit, entry_time=str(now),
                   why="; ".join(why), order_id=str(o.id), status="pending", u_entry=price,
-                  u_stop=float(ind["vwap"].iloc[-1]), conds=json.dumps(conds),
+                  u_stop=float(trend_stop if trend_stop is not None else ind["vwap"].iloc[-1]), conds=json.dumps(conds),
                   risk_cash=qty * per_contract_risk, explain=explain, q_bid=bid, q_ask=ask, limit_px=limit)
         consider(day, now, sym, side, f"BOUGHT {qty} at {limit:.2f}")
         trades.append(t)
