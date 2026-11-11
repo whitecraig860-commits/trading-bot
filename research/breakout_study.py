@@ -48,12 +48,18 @@ def sp500_membership() -> dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]]:
     html = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", timeout=30,
                         headers={"User-Agent": "Mozilla/5.0 (research script)"}).text
     tables = pd.read_html(io.StringIO(html))
-    cur = tables[0]
-    current = {str(s).strip().upper() for s in cur["Symbol"]}
-    ch = tables[1]
-    ch.columns = [" ".join(str(x) for x in c if "Unnamed" not in str(x)).strip() if isinstance(c, tuple) else str(c)
-                  for c in ch.columns]
-    dcol = [c for c in ch.columns if c.lower().startswith("date")][0]
+    def flat(df):
+        df = df.copy()
+        df.columns = [" ".join(str(x) for x in c if "Unnamed" not in str(x)).strip() if isinstance(c, tuple) else str(c)
+                      for c in df.columns]
+        return df
+
+    tables = [flat(x) for x in tables]
+    cur = next(x for x in tables if "Symbol" in x.columns)
+    current = {str(s).strip().upper().replace(".", "-") for s in cur["Symbol"]}
+    ch = next(x for x in tables if any("added" in c.lower() for c in x.columns) and any("removed" in c.lower() for c in x.columns))
+    print("change table columns:", list(ch.columns))
+    dcol = [c for c in ch.columns if "date" in c.lower()][0]
     acol = [c for c in ch.columns if "added" in c.lower() and "ticker" in c.lower()][0]
     rcol = [c for c in ch.columns if "removed" in c.lower() and "ticker" in c.lower()][0]
     ev = pd.DataFrame({"date": pd.to_datetime(ch[dcol], errors="coerce"), "add": ch[acol], "rem": ch[rcol]}).dropna(subset=["date"])
@@ -66,8 +72,8 @@ def sp500_membership() -> dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]]:
     current_end = {s: end for s in members}
     for _, r in ev.iterrows():
         d = r["date"]
-        add = str(r["add"]).strip().upper() if pd.notna(r["add"]) else ""
-        rem = str(r["rem"]).strip().upper() if pd.notna(r["rem"]) else ""
+        add = str(r["add"]).strip().upper().replace(".", "-") if pd.notna(r["add"]) else ""
+        rem = str(r["rem"]).strip().upper().replace(".", "-") if pd.notna(r["rem"]) else ""
         if add and add != "NAN" and add in members:
             spans.setdefault(add, []).append((d, current_end.pop(add, end)))
             members.discard(add)
