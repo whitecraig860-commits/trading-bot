@@ -20,7 +20,7 @@ fractional_units = true     # true if your broker sells fractions of a share (Tr
 [scan]
 interval = "1d"             # "1d" = daily bars (recommended), "1h" = hourly
 history = "2y"              # how much price history each scan loads
-alert_min_score = 70        # only message you about setups scoring at least this
+alert_min_score = 101   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 # Per-setup minimum scores (for alerts AND paper trades). The 10-year test on the watchlist found breakouts
 # scoring 50-69 did as well as those scoring 70+ (+0.78R a trade vs about +0.4R), so they get a lower bar.
 setup_min_score = { breakout = 50 }
@@ -30,7 +30,7 @@ allow_shorts = false        # The 10-year test: daily SHORTS lost money (breakou
                             # "auto" = also go short, but only when the wider market is in a downtrend too;
                             # true = shorts everywhere; false = longs only. Shorts need a spread bet, CFD or margin account.
 earnings_warning_days = 7   # flag shares that report earnings within this many days
-daily_summary = true        # send a short "scan done" message every run
+daily_summary = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 
 [setups]
 breakout_lookback = 55        # breakout = a close above the highest high of this many bars
@@ -78,7 +78,7 @@ max_risk_pct = 15.0
 # company gets an alert saying which markets it could move and which way, then a check 30 and 120 minutes later
 # of what really happened. Paper only. A free feed is minutes late, so fast traders move first: the checks show
 # whether anything is left to catch.
-enabled = true
+enabled = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on (the trend worker still reads Trump's posts)
 every_minutes = 5
 max_markets = 4
 
@@ -123,7 +123,7 @@ summary_lines = 3           # how many lines stay visible before the fold
 
 [leaders]
 top_n = 5                   # weekly momentum ranking: how many to list
-send_on_weekday = 0         # 0 = Monday ... 6 = Sunday; -1 turns it off
+send_on_weekday = -1   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 
 [movers]
 # Each scan also checks Yahoo Finance's lists of the day's most traded shares, biggest risers and
@@ -144,7 +144,7 @@ max_age_hours = 72          # ignore stories older than this
 event_warning_days = 2      # warn in alerts when a big event is this many days away or less
 yahoo_calendar = true       # also look up big US and UK releases on Yahoo's economic calendar
 timezone = "Europe/London"  # times are shown in this time zone
-crypto_news = true          # send the day's top crypto headlines with each nightly scan
+crypto_news = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 crypto_symbols = ["BTC-USD", "ETH-USD", "SOL-USD"]
 # Big scheduled events (UK time). Add your own; the bot warns you when one is near.
 events = [
@@ -178,11 +178,11 @@ events = [
 
 [watch]
 # "python bot.py watch" is a quick check during market hours (the GitHub schedule runs it every 30 minutes).
-big_move_pct = 3            # flag any market 3% or more away from yesterday's close
+big_move_pct = 1000   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 big_move_atr = 2.5          # ...or moving more than 2.5x a normal day for that market
-breakouts_in_progress = true  # flag breakouts happening during the day (confirmed only at the close)
+breakouts_in_progress = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 stop_warnings = true        # tell you when a paper trade's stop is hit during the day
-held_news = true            # send new headlines on markets the paper account holds
+held_news = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 
 [history]
 enabled = true              # add each setup's own past record on that market to its alert
@@ -204,7 +204,7 @@ daily_loss_limit_pct = 10   # no new trades once today's closed losses reach 10%
 weekly_loss_limit_pct = 25  # ...or this week's reach 25% (£250)
 max_open_risk_pct = 30      # total that can still be lost across all open trades (£300). With £1,000 of cash it's
                             # usually the cash that limits, not this: "python bot.py backtest --portfolio" shows both.
-max_new_trades_per_day = 5  # nightly queue plus insider copy trades in the day (with £1,000 the cash limits it anyway)
+max_new_trades_per_day = 0   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 low_confidence_budget_pct = 50  # LOW confidence trades can only use the first half of the risk budget, so they can't
                                 # crowd out stronger ones. New signals are also ranked each night (breakouts first, then
                                 # copy trades, then pullbacks; within each, HIGH confidence first), and open trades count
@@ -215,7 +215,7 @@ min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average 
 # "python bot.py analyse" reads the market: each market's trend, momentum and volatility, the fear gauge,
 # how many watchlist markets are above their 200-day average, and whether that favours longs or shorts.
 enabled = true
-send_with_scan = true       # send a short market read with every nightly scan
+send_with_scan = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 markets = ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"]   # your group benchmarks are added too
 fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 
@@ -228,12 +228,12 @@ fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 markets = ["GC=F", "SPY", "QQQ", "IWM", "^FTSE", "BTC-USD"]   # gold, S&P 500, Nasdaq, Russell 2000, FTSE 100, Bitcoin
 every_minutes = 5
 run_scan = true             # the pulse runs the nightly scan itself at 00:25 UTC (GitHub's schedule ran it up to 6.5 hours late)
-send_open_brief = true      # a summary when each market opens
-send_changes = true         # a message when a market switches between trending and choppy, or changes direction
+send_open_brief = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
+send_changes = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 confirm_bars = 3            # ...only once the change has lasted 3 bars (15 minutes), to stop flip-flopping
 min_minutes_between_changes = 60  # ...and at least an hour after the last one for that market
 max_changes_per_market = 3  # ...and at most 3 change messages per market per day
-send_signals = true         # signals for the best approach (only if it has made money there lately)
+send_signals = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 max_signals_per_market = 4  # per day
 min_trades = 15             # an approach needs this many recent trades before it can be called "working"
 min_edge_r = 0.1            # ...and must have made at least +0.1R a trade after costs (in the real-data test,
@@ -250,7 +250,7 @@ costs = { "SPY" = 0.005, "QQQ" = 0.005, "IWM" = 0.01, "GC=F" = 0.01, "^FTSE" = 0
 # market over the following months. "python bot.py insiders" reads the filings (GitHub does it every morning);
 # the nightly scan then scores the strongest ones as "Copy the insiders" trades and paper-trades them.
 # US shares only. Insider SALES are ignored: people sell for many reasons that say nothing about the company.
-enabled = true
+enabled = false   # INACTIVE (10 Nov): only the QQQ trend worker trades now; set back to turn on
 live = true                 # also read EDGAR's live feed every 10 minutes while the pulse runs (alerts within minutes)
 trade_now = true            # score a fresh insider cluster on the chart at once and copy it on paper straight away
                             # (at the live price while the US market is open, otherwise at the next open)
@@ -280,7 +280,7 @@ benchmark = "SPY"
 # Alpaca keys go in GitHub secrets ALPACA_KEY and ALPACA_SECRET (or in alpaca_key / alpaca_secret here
 # if you run it on your own computer).
 enabled = true
-symbols = ["SPY", "QQQ", "IWM"]   # one "worker" each
+symbols = ["QQQ"]   # trend worker
 account_size = 1000         # the scalper's own account (Alpaca paper starts at $100,000, but it only uses this)
 account_currency = "GBP"    # account_size is in pounds; messages show £ (converted at today's rate)
 account_start = "2026-11-06" # from this day the account grows and shrinks with the scalper's results, and every
@@ -303,30 +303,30 @@ candle_filter = true        # read the candle: only strong candles in the trade'
 min_body_pct = 50           # the candle's body must be at least half its full range
 close_zone_pct = 30         # ...and close in the top 30% (calls) or bottom 30% (puts) of it
 max_chase_atr = 1.5         # skip if price is more than 1.5 normal bars away from VWAP already
-max_losses_per_worker = 2   # a symbol stops for the day after 2 losing trades
-learn_from_journal = true   # skip setups the journal has proven lose (30+ trades, beats luck)
+max_losses_per_worker = 3   # trend worker
+learn_from_journal = false   # trend worker
 lesson_min_trades = 30
-loss_cooldown_minutes = 30  # and waits 30 minutes after any loss
-first_entry = "09:45"       # New York time (14:45 UK most of the year)
-last_entry = "11:30"         # no new trades after this: last month, trades started 11:30-15:00 made nothing
+loss_cooldown_minutes = 5   # trend worker
+first_entry = "09:40"   # trend worker
+last_entry = "15:00"   # trend worker
                             # (midday chop: 35 trades, 0.00R), and 6 Nov's -£55 QQQ call was bought at 11:55
 flat_by = "15:50"           # everything sold by then: 0DTE options expire worthless at the close
-stop_loss_pct = 30
-take_profit_pct = 50
-trail_after_pct = 25
+stop_loss_pct = 90   # trend worker
+take_profit_pct = 1000   # trend worker
+trail_after_pct = 1000   # trend worker
 trail_giveback_pct = 15
-max_hold_minutes = 30
+max_hold_minutes = 400   # trend worker
 # Taking profits (last month of real prices, 20 days): selling at a 1R move of the share, never letting a trade that
 # was 0.5R up turn into a loss, and trailing 0.4R behind once 0.8R up took the win rate from 49% to 73% and the
 # winning days from 12 to 15 of 20, with the worst day -1.4R instead of -2.1R. It makes a bit less in total
 # (+19.0R vs +24.3R), because the odd big runner is sold early: smaller, steadier wins.
 lock_profits = true
-target_r = 1.0              # sell when the share has moved 1R your way (R = its distance to VWAP at entry)
-be_after_r = 0.5            # once 0.5R up, it may not come back below +0.05R
-be_lock_r = 0.05
-trail_after_r = 0.8         # once 0.8R up, sell if it gives back 0.4R from its best
-trail_gap_r = 0.4
-lock_after_pct = 15         # and on the option itself: once it has been up 15%, sell if it drops back to +3%
+target_r = 2.0   # trend worker
+be_after_r = 1.0   # trend worker
+be_lock_r = 0.1   # trend worker
+trail_after_r = 1.5   # trend worker
+trail_gap_r = 0.75   # trend worker
+lock_after_pct = 1000   # trend worker
 lock_floor_pct = 3
 # THE HONEST TEST ("python optionbt.py --explore": real 1-minute prices Jan 2025 - Nov 2026, option prices modelled
 # with time decay, spreads and fees, settings CHOSEN on 2025 and CHECKED on 2026): the scalper as it was lost money in
@@ -335,9 +335,9 @@ lock_floor_pct = 3
 # Together: -£237 in 2025, +£400 in 2026, 237 trades, 54% won, avg win £26 vs avg loss £30: about break-even.
 # It has NOT shown a real edge, so it stays on paper. Don't put real money in it unless months of forward paper
 # results are clearly positive.
-dte = 1                     # 1 = options expiring the next trading day (sold the same day, so never held overnight)
-exit_on_reverse_cross = false  # selling when price closed back across VWAP lost on all 114 such trades in the test
-brain = true                # the multi-timeframe chart brain (brain.py) can turn trades down, not just explain them
+dte = 0   # trend worker
+exit_on_reverse_cross = false   # trend worker
+brain = false   # trend worker
 brain_min_score = 2
 brain_veto_15m = true       # never against clear 15-minute highs and lows
 brain_veto_1h = false       # (vetoing against the 1-hour trend too made it slightly worse)
@@ -354,11 +354,11 @@ chart_veto_structure = true # never trade against clear higher-highs/higher-lows
 chart_veto_room = false     # "no room before a wall of wicks" counts -2 in the score instead of a flat no
 day_agree = true            # never buy calls while the share is down on the day, or puts while it's up
                             # (last month: +24.3R vs +21.2R, 14 vs 12 winning days, worst day -1.5R vs -2.1R)
-max_trades_per_day = 6
-max_open_positions = 2
+max_trades_per_day = 10   # trend worker
+max_open_positions = 1   # trend worker
 daily_loss_limit_pct = 20   # stops for the day after losing 20% (£200, two full losses). Its record so far is about
                             # break-even, so at £100 a trade a bad day costs a fifth of the account: see the README.
-cooldown_minutes = 10
+cooldown_minutes = 5   # trend worker
 max_spread_pct = 10
 event_blackout_minutes = 30 # no new trades 30 min either side of Fed, jobs and inflation releases
 
@@ -368,6 +368,9 @@ event_blackout_minutes = 30 # no new trades 30 min either side of Fed, jobs and 
 # Yahoo Finance symbols: US shares like AAPL; London shares end in .L (priced in pence);
 # crypto like BTC-USD; currency pairs like GBPUSD=X; gold futures GC=F; indexes start with ^.
 # Exchange data for crypto (needs ccxt installed): "kraken:BTC/GBP".
+mode = "trend"   # trend worker
+tw_option_stop_pct = 100   # trend worker
+tw_min_day_move_pct = 0.6   # trend worker
 
 [groups.us]
 benchmark = "SPY"
