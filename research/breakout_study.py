@@ -42,51 +42,39 @@ MAIN_COST = 0.0025
 
 
 def sp500_membership() -> dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]]:
-    """{ticker: [(from, to)]} rebuilt from Wikipedia's current S&P 500 list and its table of changes."""
+    """{ticker: [(from, to)]}: S&P 500 membership on every date, from the public dataset github.com/fja05680/sp500
+    (a CSV of the index's members after every change since 1996, removed companies included)."""
+    import re
+
     import requests
 
-    html = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", timeout=30,
-                        headers={"User-Agent": "Mozilla/5.0 (research script)"}).text
-    tables = pd.read_html(io.StringIO(html))
-    def flat(df):
-        df = df.copy()
-        df.columns = [" ".join(str(x) for x in c if "Unnamed" not in str(x)).strip() if isinstance(c, tuple) else str(c)
-                      for c in df.columns]
-        return df
+    files = requests.get("https://api.github.com/repos/fja05680/sp500/contents", timeout=30).json()
+    cands = sorted(f["name"] for f in files if f["name"].startswith("S&P 500 Historical Components") and f["name"].endswith(".csv"))
+    url = next(f["download_url"] for f in files if f["name"] == cands[-1])
+    hist = pd.read_csv(io.StringIO(requests.get(url, timeout=60).text))
+    hist["date"] = pd.to_datetime(hist["date"])
+    hist = hist.sort_values("date")
 
-    tables = [flat(x) for x in tables]
-    for k, x in enumerate(tables[:4]):
-        print(f"wikipedia table {k}: {x.shape} columns {list(x.columns)[:8]}")
-    cur = next(x for x in tables if "Symbol" in x.columns)
-    current = {str(s).strip().upper().replace(".", "-") for s in cur["Symbol"]}
-    ch = next(x for x in tables if any("added" in c.lower() for c in x.columns) and any("removed" in c.lower() for c in x.columns))
-    print("change table columns:", list(ch.columns))
-    dcol = [c for c in ch.columns if "date" in c.lower()][0]
-    acol = [c for c in ch.columns if "added" in c.lower() and "ticker" in c.lower()][0]
-    rcol = [c for c in ch.columns if "removed" in c.lower() and "ticker" in c.lower()][0]
-    ev = pd.DataFrame({"date": pd.to_datetime(ch[dcol], errors="coerce"), "add": ch[acol], "rem": ch[rcol]}).dropna(subset=["date"])
-    ev = ev.sort_values("date", ascending=False)
-    end = pd.Timestamp("2100-01-01")
+    def norm(t: str) -> str:
+        t = t.strip().upper().replace(".", "-")
+        return re.sub(r"-\d{6}$", "", t)  # old tickers later reused carry a -YYYYMM suffix in the dataset
 
     spans: dict[str, list] = {}
-    members = set(current)
-    # walk back in time: at each change, an added ticker's membership started then; a removed one ended then
-    current_end = {s: end for s in members}
-    for _, r in ev.iterrows():
+    open_since: dict[str, pd.Timestamp] = {}
+    prev: set = set()
+    for _, r in hist.iterrows():
+        cur = {norm(x) for x in str(r["tickers"]).split(",") if x.strip()}
         d = r["date"]
-        add = str(r["add"]).strip().upper().replace(".", "-") if pd.notna(r["add"]) else ""
-        rem = str(r["rem"]).strip().upper().replace(".", "-") if pd.notna(r["rem"]) else ""
-        if add and add != "NAN" and add in members:
-            spans.setdefault(add, []).append((d, current_end.pop(add, end)))
-            members.discard(add)
-        if rem and rem != "NAN" and rem not in members:
-            members.add(rem)
-            current_end[rem] = d
-    start = pd.Timestamp("1990-01-01")
-    for s in members:
-        spans.setdefault(s, []).append((start, current_end.get(s, end)))
-    print(f"Universe: {len(current)} current members, {len(spans)} tickers ever in the index since the change history "
-          f"starts ({ev['date'].min():%Y-%m-%d}), {len(spans) - len(current)} of them since removed")
+        for t in cur - prev:
+            open_since[t] = d
+        for t in prev - cur:
+            spans.setdefault(t, []).append((open_since.pop(t), d))
+        prev = cur
+    end = pd.Timestamp("2100-01-01")
+    for t in prev:
+        spans.setdefault(t, []).append((open_since.pop(t), end))
+    print(f"Universe: {cands[-1]}: {len(prev)} current members, {len(spans)} tickers in the index at some point since "
+          f"{hist['date'].min():%Y-%m-%d}")
     return spans
 
 
