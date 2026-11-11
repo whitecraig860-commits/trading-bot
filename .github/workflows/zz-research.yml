@@ -1,0 +1,37 @@
+name: TEMP research run (delete before merging)
+on:
+  push:
+    branches: ["claude/research-*"]
+permissions:
+  contents: read
+jobs:
+  study2-breakout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt lxml html5lib beautifulsoup4
+      - name: Study 2 - swing breakout, point-in-time S&P 500
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        run: python -W ignore research/breakout_study.py
+  study1-trend-signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Study 1 - trend signal on the share
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        run: python -W ignore research/trend_signal_check.py
