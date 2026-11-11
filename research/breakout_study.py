@@ -55,6 +55,8 @@ def sp500_membership() -> dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]]:
         return df
 
     tables = [flat(x) for x in tables]
+    for k, x in enumerate(tables[:4]):
+        print(f"wikipedia table {k}: {x.shape} columns {list(x.columns)[:8]}")
     cur = next(x for x in tables if "Symbol" in x.columns)
     current = {str(s).strip().upper().replace(".", "-") for s in cur["Symbol"]}
     ch = next(x for x in tables if any("added" in c.lower() for c in x.columns) and any("removed" in c.lower() for c in x.columns))
