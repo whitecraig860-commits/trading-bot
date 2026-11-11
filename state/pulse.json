@@ -38,7 +38,7 @@
      "sessions": 50
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
    "last_bar": "2026-11-10 16:55:00-05:00",
    "brief_day": "2026-11-10",
    "stance": "down|None",
@@ -75,10 +75,10 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 199,
-     "win_rate": 0.21105527638190955,
-     "avg_r": -0.11631410559759012,
-     "total_r": -23.146507013920434,
+     "trades": 196,
+     "win_rate": 0.21428571428571427,
+     "avg_r": -0.10991961409354233,
+     "total_r": -21.544244362334297,
      "sessions": 60
     },
     "late": {
@@ -89,7 +89,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
    "last_bar": "2026-11-10 15:55:00-05:00",
    "brief_day": "2026-11-10",
    "stance": "up|None",
@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
    "last_bar": "2026-11-10 15:55:00-05:00",
    "brief_day": "2026-11-10",
    "stance": "up|None",
@@ -191,7 +191,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
    "last_bar": "2026-11-10 15:55:00-05:00",
    "brief_day": "2026-11-10",
    "stance": "up|None",
@@ -242,7 +242,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
    "last_bar": "2026-11-10 16:10:00+00:00",
    "brief_day": "2026-11-10",
    "stance": "none|None",
@@ -265,10 +265,10 @@
      "sessions": 60
     },
     "orb": {
-     "trades": 95,
-     "win_rate": 0.2631578947368421,
-     "avg_r": -0.8028428004029324,
-     "total_r": -76.27006603827859,
+     "trades": 97,
+     "win_rate": 0.25773195876288657,
+     "avg_r": -0.815637302655226,
+     "total_r": -79.11681835755692,
      "sessions": 60
     },
     "fade": {
@@ -279,10 +279,10 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 562,
-     "win_rate": 0.19395017793594305,
-     "avg_r": -0.7605660198245925,
-     "total_r": -427.438103141421,
+     "trades": 564,
+     "win_rate": 0.19326241134751773,
+     "avg_r": -0.7636013631258076,
+     "total_r": -430.6711688029555,
      "sessions": 60
     },
     "late": {
@@ -293,18 +293,18 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-11T00:05:40.000972+00:00",
-   "last_bar": "2026-11-11 00:15:00+00:00",
+   "record_at": "2026-11-11T02:10:40.000296+00:00",
+   "last_bar": "2026-11-11 02:50:00+00:00",
    "brief_day": "2026-11-11",
-   "stance": "down|None",
+   "stance": "range|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-11": 1
+    "2026-11-11": 3
    },
-   "stance_desc": "LEANING DOWN, not trending cleanly",
-   "last_change_at": "2026-11-11T00:20:40.001001+00:00"
+   "stance_desc": "RANGE-BOUND (choppy)",
+   "last_change_at": "2026-11-11T02:55:40.000269+00:00"
   }
  },
  "trades": [],
@@ -468,7 +468,9 @@
   "https://www.trumpstruth.org/statuses/43543",
   "https://www.trumpstruth.org/statuses/43545",
   "https://www.trumpstruth.org/statuses/43544",
-  "https://www.trumpstruth.org/statuses/43546"
+  "https://www.trumpstruth.org/statuses/43546",
+  "https://www.trumpstruth.org/statuses/43547",
+  "https://www.trumpstruth.org/statuses/43548"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -488,10 +490,10 @@
    "last": 1794286841.7934089
   },
   "nightly scan": {
-   "day": "2026-11-10",
+   "day": "2026-11-11",
    "tries": 1,
    "done": true,
-   "last": 1794270341.9930973
+   "last": 1794356749.354158
   },
   "weekly learning": {
    "day": "2026-11-06",
@@ -506,11 +508,11 @@
    "last": 1794292241.6800902
   }
  },
- "scan_day": "2026-11-10",
+ "scan_day": "2026-11-11",
  "trump_record": {
   "Iran / war / strikes": [
-   1,
-   7
+   2,
+   9
   ]
  }
 }
