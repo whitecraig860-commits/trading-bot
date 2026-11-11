@@ -1454,6 +1454,10 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     cfg, full = load_cfg(args.config)
     show_in(str(cfg.get("account_currency", "USD")))
+    if cfg.get("retired") and args.command == "run":
+        print("Scalper is RETIRED ([scalper] retired = true): it failed its pre-registered test (research/REPORT.md). "
+              "Nothing to do. Remove 'retired' only after a new, separately validated study.")
+        return 0
     if not cfg.get("enabled", True) and args.command == "run":
         print("Scalper is switched off in config.toml ([scalper] enabled = false).")
         return 0
