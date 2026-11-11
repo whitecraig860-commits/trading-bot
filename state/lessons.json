@@ -770,6 +770,27 @@
 "findings": [
 "gapped through the stop"
 ]
+},
+{
+"id": "QED.L|breakout|2026-11-09",
+"kind": "daily",
+"setup": "breakout",
+"symbol": "QED.L",
+"r": -1.286699144424134,
+"conditions": [
+"2-3 ATR from the 20-day average (stretched)",
+"signal day was a normal-sized move",
+"heavy volume (1.5x+)",
+"strong trend (ADX 30+)",
+"wild market (4%+ a day)",
+"score 80+",
+"regime: market agrees",
+"confidence: HIGH"
+],
+"date": "2026-11-11",
+"findings": [
+"gapped through the stop"
+]
 }
 ],
 "pending": [
@@ -820,26 +841,95 @@
 "reason": "stop (gapped through)",
 "r": -0.28330389983802484,
 "setup": "pullback"
+},
+{
+"id": "QED.L|breakout|2026-11-09",
+"symbol": "QED.L",
+"exit_date": "2026-11-11",
+"entry": 2.1500000953674316,
+"stop": 1.603174482810065,
+"exit": 1.4500000476837158,
+"long": true,
+"reason": "stop (gapped through)",
+"r": -1.286699144424134,
+"setup": "breakout"
 }
 ],
 "paper_tables": {
 "daily|breakout": {
 "all": {
+"n": 2,
+"avg": -1.1536165314580578,
+"win": 0.0,
+"sd": 0.18820723617267457
+},
+"cond": {
+"2-3 ATR from the 20-day average (stretched)": {
 "n": 1,
-"avg": -1.0205339184919815,
+"avg": -1.286699144424134,
 "win": 0.0,
 "sd": 0.0
 },
-"cond": {},
+"signal day was a normal-sized move": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"heavy volume (1.5x+)": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"strong trend (ADX 30+)": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"wild market (4%+ a day)": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"score 80+": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"regime: market agrees": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+},
+"confidence: HIGH": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
+}
+},
 "symbol": {
 "GKOS": {
 "n": 1,
 "avg": -1.0205339184919815,
 "win": 0.0,
 "sd": 0.0
+},
+"QED.L": {
+"n": 1,
+"avg": -1.286699144424134,
+"win": 0.0,
+"sd": 0.0
 }
 },
-"finding": {}
+"finding": {
+"gapped through the stop": 1
+}
 },
 "daily|pullback": {
 "all": {
