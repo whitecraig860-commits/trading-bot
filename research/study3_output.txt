@@ -1,0 +1,554 @@
+Study 3, diversified ETF trend following. Protocol: research/TREND_FOLLOWING_PROTOCOL.md. Data up to (not including) 2026-11-01.
+
+====================================================================================================
+DATA QUALITY (§22) - checked before any result
+====================================================================================================
+SPY  first 1993-01-29   8497 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+QQQ  first 1999-03-10   6955 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+IWM  first 2000-05-26   6647 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+EFA  first 2001-08-27   6332 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+EEM  first 2003-04-14   5926 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+IEF  first 2002-07-30   6104 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+TLT  first 2002-07-30   6104 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+LQD  first 2002-07-30   6104 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+TIP  first 2003-12-05   5762 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+GLD  first 2004-11-18   5522 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+DBC  first 2006-02-06   5217 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+VNQ  first 2004-09-29   5558 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 0  stale runs (5+ equal closes): 0  OK
+SLV  first 2006-04-28   5160 days  filled   0 values (longest gap 0 d)  price<=0: 0  |moves|>25%: 1  stale runs (5+ equal closes): 0  OK
+       move 2026-01-30 -28.5%
+Cash rate: Yahoo ^IRX, median 2.17%, 21 NYSE days carried forward (§22.5); covers 1993-01-29 to 2026-10-30
+  SPY eligible from 1994-02-28
+  QQQ eligible from 2000-04-28
+  IWM eligible from 2001-06-29
+  EFA eligible from 2002-09-30
+  EEM eligible from 2004-05-28
+  IEF eligible from 2003-08-29
+  TLT eligible from 2003-08-29
+  LQD eligible from 2003-08-29
+  TIP eligible from 2005-01-31
+  GLD eligible from 2005-12-30
+  DBC eligible from 2007-03-30
+  VNQ eligible from 2005-10-31
+  SLV eligible from 2007-05-31
+Evaluation starts at month-end 2004-05-28 with 8 eligible ETFs (§3)
+  Alpaca vs Yahoo SPY: 129 months, median |difference| 0.002 pp  OK
+  Alpaca vs Yahoo QQQ: 129 months, median |difference| 0.001 pp  OK
+  Alpaca vs Yahoo IWM: 129 months, median |difference| 0.003 pp  OK
+  Alpaca vs Yahoo EFA: 129 months, median |difference| 0.006 pp  OK
+  Alpaca vs Yahoo EEM: 129 months, median |difference| 0.012 pp  OK
+  Alpaca vs Yahoo IEF: 129 months, median |difference| 0.003 pp  OK
+  Alpaca vs Yahoo TLT: 129 months, median |difference| 0.003 pp  OK
+  Alpaca vs Yahoo LQD: 129 months, median |difference| 0.004 pp  OK
+  Alpaca vs Yahoo TIP: 129 months, median |difference| 0.003 pp  OK
+  Alpaca vs Yahoo GLD: 129 months, median |difference| 0.000 pp  OK
+  Alpaca vs Yahoo DBC: 129 months, median |difference| 0.015 pp  OK
+  Alpaca vs Yahoo VNQ: 129 months, median |difference| 0.005 pp  OK
+  Alpaca vs Yahoo SLV: 129 months, median |difference| 0.000 pp  OK
+Cross-check: 0 ETF(s) flagged [] -> data quality confirmed
+
+====================================================================================================
+RESULTS, full period 2004-05-28 to 2026-10-30 (USD). Strategies: A B3 B6 B12 C D E; rest are benchmarks
+====================================================================================================
+
+--- NET of base-case costs (§13)
+                 CAGR        Vol     Sharpe    Sortino      MaxDD LongestDD_     Calmar  PosMonths       Best      Worst   Worst12m       Skew   Exposure Turnover_y CostDrag_y
+A               6.0%       6.4%       0.67       1.10     -12.7%      33.81       0.47      63.9%       5.8%      -5.0%      -9.6%      -0.01      69.0%     100.0%       0.5% 
+B3              5.0%       6.2%       0.55       0.88     -14.0%      70.48       0.36      62.5%       6.3%      -4.3%     -10.9%       0.09      60.6%     152.4%       0.7% 
+B6              5.6%       6.4%       0.62       1.04     -12.2%      36.71       0.46      62.1%       6.0%      -5.0%      -7.0%       0.12      62.7%     110.8%       0.5% 
+B12             6.0%       6.7%       0.66       1.06     -14.0%      28.00       0.43      63.9%       5.8%      -7.8%      -7.2%      -0.20      65.8%      78.3%       0.4% 
+C               4.5%       5.4%       0.54       0.82     -10.8%      38.57       0.41      63.6%       5.1%      -7.0%      -8.7%      -0.43      47.9%      74.9%       0.3% 
+D               5.3%       7.0%       0.53       0.82     -18.2%      31.86       0.29      59.9%       6.2%      -6.2%     -15.1%      -0.23      88.0%     171.0%       0.8% 
+E               5.0%       6.7%       0.51       0.77     -15.1%      31.81       0.33      61.3%       5.5%      -6.9%     -12.5%      -0.35      91.5%     177.7%       0.8% 
+BH-SPY         10.9%      14.6%       0.67       1.00     -55.2%      58.24       0.20      66.5%      12.7%     -16.6%     -43.5%      -0.56     100.0%       2.2%       0.0% 
+BH-QQQ         14.9%      18.4%       0.76       1.21     -53.5%      37.29       0.28      61.3%      15.7%     -15.6%     -43.1%      -0.33     100.0%       2.2%       0.0% 
+BH-DIV          8.0%      10.7%       0.62       0.93     -36.0%      30.00       0.22      62.1%       8.1%     -15.7%     -28.8%      -0.69      99.9%      18.1%       0.1% 
+60/40           8.1%       9.0%       0.73       1.10     -32.6%      33.81       0.25      67.3%       8.1%     -10.3%     -26.0%      -0.59     100.0%      12.7%       0.1% 
+CASH            1.7%       0.5%       0.00       0.00       0.0%       0.00        nan      76.2%       0.5%       0.0%       0.0%       0.65       0.0%       0.0%       0.0% 
+BH-IEF          3.3%       6.5%       0.27       0.41     -24.0%      74.67       0.14      54.3%       7.8%      -4.7%     -16.4%       0.16     100.2%       2.2%       0.0% 
+SMA-SPY         7.9%      10.5%       0.62       0.94     -25.3%      33.00       0.31      67.7%      10.9%     -10.5%     -21.3%      -0.49      81.6%      78.1%       0.3% 
+TSM-SPY         9.1%      11.6%       0.67       1.04     -33.8%      29.10       0.27      70.6%      10.9%     -12.5%     -14.6%      -0.30      84.2%      33.5%       0.1% 
+
+--- GROSS (no costs)
+                 CAGR        Vol     Sharpe    Sortino      MaxDD LongestDD_     Calmar  PosMonths       Best      Worst   Worst12m       Skew   Exposure Turnover_y CostDrag_y
+A               6.5%       6.4%       0.74       1.24     -12.4%      29.90       0.52      64.7%       5.8%      -5.0%      -9.2%      -0.02      69.0%      99.9%       0.0% 
+B3              5.7%       6.2%       0.66       1.10     -12.0%      46.43       0.48      62.5%       6.4%      -4.2%     -10.2%       0.10      60.6%     152.3%       0.0% 
+B6              6.1%       6.4%       0.71       1.19     -12.1%      34.00       0.51      63.6%       6.0%      -5.0%      -6.5%       0.11      62.7%     110.8%       0.0% 
+B12             6.4%       6.8%       0.71       1.16     -14.0%      27.57       0.46      65.1%       5.8%      -7.7%      -6.8%      -0.20      65.8%      78.2%       0.0% 
+C               4.9%       5.4%       0.60       0.93     -10.7%      37.05       0.46      64.3%       5.2%      -7.0%      -8.4%      -0.43      48.0%      74.9%       0.0% 
+D               6.1%       7.1%       0.64       1.02     -17.1%      30.14       0.36      62.5%       6.3%      -6.1%     -14.0%      -0.23      88.0%     170.9%       0.0% 
+E               5.9%       6.7%       0.64       0.99     -14.7%      26.24       0.40      63.6%       5.6%      -6.6%     -11.5%      -0.34      91.5%     177.6%       0.0% 
+BH-SPY         10.9%      14.6%       0.67       1.01     -55.2%      58.24       0.20      66.5%      12.7%     -16.5%     -43.4%      -0.56     100.0%       2.2%       0.0% 
+BH-QQQ         14.9%      18.4%       0.76       1.21     -53.4%      37.19       0.28      61.3%      15.7%     -15.6%     -43.1%      -0.33     100.0%       2.2%       0.0% 
+BH-DIV          8.1%      10.7%       0.62       0.95     -35.9%      30.00       0.23      62.1%       8.1%     -15.7%     -28.7%      -0.68      99.9%      18.0%       0.0% 
+60/40           8.2%       9.0%       0.73       1.12     -32.5%      33.76       0.25      67.3%       8.1%     -10.3%     -26.0%      -0.59     100.0%      12.7%       0.0% 
+CASH            1.7%       0.5%       0.00       0.00       0.0%       0.00        nan      76.2%       0.5%       0.0%       0.0%       0.65       0.0%       0.0%       0.0% 
+BH-IEF          3.3%       6.5%       0.27       0.41     -23.9%      74.67       0.14      54.3%       7.8%      -4.7%     -16.4%       0.16     100.0%       2.2%       0.0% 
+SMA-SPY         8.3%      10.5%       0.65       0.99     -24.3%      32.76       0.34      69.1%      10.9%     -10.3%     -20.6%      -0.49      81.4%      78.1%       0.0% 
+TSM-SPY         9.2%      11.6%       0.68       1.06     -33.7%      29.10       0.27      71.0%      10.9%     -12.5%     -14.0%      -0.31      84.0%      33.5%       0.0% 
+
+--- STRESS costs (3x spread+slippage, 0.5% FX)
+                 CAGR        Vol     Sharpe    Sortino      MaxDD LongestDD_     Calmar  PosMonths       Best      Worst   Worst12m       Skew   Exposure Turnover_y CostDrag_y
+A               4.9%       6.5%       0.51       0.80     -13.8%      62.86       0.35      61.7%       5.7%      -5.0%     -10.3%       0.01      69.0%     100.2%       1.5% 
+B3              3.4%       6.2%       0.29       0.44     -19.2%     102.00       0.17      60.2%       6.0%      -4.5%     -12.6%       0.09      60.6%     152.7%       2.3% 
+B6              4.4%       6.4%       0.44       0.70     -12.3%      46.52       0.36      59.9%       6.0%      -5.0%      -8.0%       0.14      62.7%     111.0%       1.7% 
+B12             5.2%       6.7%       0.54       0.85     -14.1%      31.48       0.37      61.3%       5.7%      -7.8%      -7.9%      -0.19      65.9%      78.5%       1.2% 
+C               3.7%       5.4%       0.39       0.58     -11.2%      46.52       0.33      61.3%       5.1%      -7.1%      -9.4%      -0.43      48.0%      75.0%       1.1% 
+D               3.5%       7.0%       0.28       0.41     -22.0%      45.86       0.16      58.0%       6.1%      -6.2%     -17.6%      -0.24      88.0%     171.1%       2.6% 
+E               3.1%       6.7%       0.24       0.33     -18.4%      45.76       0.17      59.9%       5.4%      -7.4%     -14.9%      -0.38      91.5%     177.9%       2.7% 
+BH-SPY         10.9%      14.6%       0.67       1.00     -55.2%      58.24       0.20      66.5%      12.7%     -16.5%     -43.4%      -0.56     100.0%       2.2%       0.0% 
+BH-QQQ         14.9%      18.4%       0.76       1.21     -53.4%      37.19       0.28      61.3%      15.7%     -15.6%     -43.1%      -0.33     100.0%       2.2%       0.0% 
+BH-DIV          7.8%      10.7%       0.60       0.90     -36.1%      30.10       0.22      62.1%       8.1%     -15.7%     -29.1%      -0.69      99.9%      18.1%       0.3% 
+60/40           8.0%       9.0%       0.72       1.08     -32.7%      33.90       0.24      67.3%       8.0%     -10.3%     -26.2%      -0.59     100.0%      12.7%       0.2% 
+CASH            1.7%       0.5%       0.00       0.00       0.0%       0.00        nan      76.2%       0.5%       0.0%       0.0%       0.65       0.0%       0.0%       0.0% 
+BH-IEF          3.2%       6.5%       0.26       0.40     -23.9%      74.67       0.13      54.3%       7.8%      -4.7%     -16.4%       0.16     100.0%       2.2%       0.0% 
+SMA-SPY         7.1%      10.6%       0.54       0.81     -27.6%      34.29       0.26      66.2%      10.9%     -11.0%     -22.9%      -0.51      81.4%      78.4%       1.1% 
+TSM-SPY         8.7%      11.6%       0.64       0.99     -33.7%      29.33       0.26      69.5%      10.9%     -12.5%     -15.8%      -0.29      84.0%      33.6%       0.5% 
+
+--- Sensitivity variants (§5), net. Reported, never picked
+                 CAGR        Vol     Sharpe    Sortino      MaxDD LongestDD_     Calmar  PosMonths       Best      Worst   Worst12m       Skew   Exposure Turnover_y CostDrag_y
+A6              5.7%       6.3%       0.64       1.07     -11.0%      31.19       0.51      61.3%       6.1%      -4.7%      -9.9%       0.12      64.5%     137.1%       0.6% 
+A8              5.8%       6.5%       0.63       1.04     -14.3%      37.57       0.40      62.8%       5.8%      -5.0%     -10.8%       0.06      67.7%     113.5%       0.5% 
+A12             6.0%       6.4%       0.68       1.13     -11.1%      30.00       0.55      65.1%       5.8%      -5.0%      -7.6%       0.03      69.9%      91.3%       0.4% 
+A200d           6.2%       6.5%       0.70       1.16     -13.3%      33.71       0.47      64.7%       5.4%      -5.0%     -10.3%      -0.01      69.9%      95.6%       0.4% 
+D8              5.0%       6.6%       0.52       0.80     -16.5%      31.95       0.30      60.6%       5.5%      -5.6%     -13.4%      -0.25      83.7%     160.1%       0.7% 
+D12             5.4%       7.2%       0.54       0.83     -18.6%      34.57       0.29      59.9%       6.8%      -6.2%     -15.6%      -0.19      89.7%     176.7%       0.8% 
+E8              4.7%       6.2%       0.50       0.76     -15.1%      31.62       0.31      61.3%       5.5%      -6.1%     -11.3%      -0.36      86.9%     167.5%       0.8% 
+E12             5.2%       6.9%       0.52       0.79     -15.6%      31.95       0.33      61.0%       5.5%      -6.9%     -12.9%      -0.31      93.5%     183.1%       0.9% 
+
+--- Pre-holdout (to 2017-12) and holdout (2018-01 on), net
+[PRE]
+                 CAGR        Vol     Sharpe      MaxDD     Calmar   Worst12m
+A               5.6%       6.3%       0.72     -12.7%       0.44      -9.6% 
+B3              4.6%       6.1%       0.59     -14.0%       0.33     -10.9% 
+B6              5.4%       6.2%       0.70      -9.2%       0.59      -7.0% 
+B12             6.3%       6.7%       0.78     -10.9%       0.58      -7.2% 
+C               4.0%       5.5%       0.55     -10.8%       0.37      -8.7% 
+D               6.5%       6.7%       0.81     -13.6%       0.48      -8.1% 
+E               5.5%       6.4%       0.70     -15.1%       0.36     -11.4% 
+BH-DIV          7.7%      10.4%       0.66     -36.0%       0.21     -28.8% 
+BH-SPY          8.8%      13.5%       0.61     -55.2%       0.16     -43.5% 
+60/40           7.5%       7.8%       0.83     -32.6%       0.23     -26.0% 
+[HOLDOUT]
+                 CAGR        Vol     Sharpe      MaxDD     Calmar   Worst12m
+A               6.5%       6.7%       0.60      -9.1%       0.72      -4.4% 
+B3              5.6%       6.4%       0.48      -8.4%       0.66      -5.4% 
+B6              5.9%       6.6%       0.51     -12.2%       0.49      -4.1% 
+B12             5.6%       6.8%       0.46     -14.0%       0.40      -6.1% 
+C               5.2%       5.1%       0.52      -9.7%       0.54      -2.4% 
+D               3.5%       7.5%       0.15     -18.2%       0.19     -15.1% 
+E               4.2%       7.1%       0.26     -14.7%       0.29     -12.5% 
+BH-DIV          8.4%      11.2%       0.55     -22.4%       0.38     -17.8% 
+BH-SPY         14.2%      16.2%       0.75     -33.7%       0.42     -18.2% 
+60/40           9.1%      10.6%       0.63     -21.2%       0.43     -16.6% 
+
+--- NET, in GBP (a UK investor's pounds), from 2004
+                 CAGR        Vol     Sharpe      MaxDD     Calmar   Worst12m
+A               7.5%       8.7%       0.67     -17.8%       0.42      -9.4% 
+B3              6.5%       8.5%       0.58     -17.4%       0.37     -10.4% 
+B6              7.1%       8.8%       0.63     -18.1%       0.39      -6.8% 
+B12             7.5%       8.6%       0.69     -19.3%       0.39      -8.6% 
+C               6.0%       8.3%       0.54     -19.9%       0.30      -8.8% 
+D               6.8%       9.2%       0.57     -21.1%       0.32     -11.0% 
+E               6.5%       8.8%       0.56     -18.3%       0.35      -7.6% 
+BH-SPY         12.4%      13.2%       0.83     -35.0%       0.36     -21.3% 
+BH-QQQ         16.5%      17.1%       0.88     -34.4%       0.48     -24.5% 
+BH-DIV          9.5%       9.7%       0.81     -18.5%       0.52      -7.6% 
+60/40           9.6%       9.3%       0.85     -16.6%       0.58      -6.6% 
+CASH            3.1%       8.6%       0.21     -19.6%       0.16     -13.2% 
+BH-IEF          4.7%      11.0%       0.32     -26.0%       0.18     -17.9% 
+SMA-SPY         9.5%      11.8%       0.68     -25.8%       0.37     -14.5% 
+TSM-SPY        10.6%      12.0%       0.76     -26.0%       0.41     -15.6% 
+(Sharpe in GBP is measured over USD T-bills, so treat it as indicative.)
+
+--- Walk-forward selection (§17.1): each January pick the best of A,B3,B6,B12,C,D on the last 60 months
+picks: 2010:B6, 2011:B6, 2012:B3, 2013:D, 2014:D, 2015:D, 2016:D, 2017:B12, 2018:B12, 2019:B6, 2020:A, 2021:A, 2022:A, 2023:A, 2024:A, 2025:B6, 2026:C
+                 CAGR        Vol     Sharpe      MaxDD     Calmar
+WF              4.8%       6.8%       0.52      -9.5%       0.51 
+E               4.8%       6.6%       0.54     -14.7%       0.33 
+BH-DIV          7.8%      10.2%       0.66     -22.4%       0.35 
+
+====================================================================================================
+STATISTICAL TESTS (§18)
+====================================================================================================
+Family PBO (CSCV, 16 blocks, 15 configurations): 0.54  (pass line <= 0.50)
+A    mean excess +0.36%/mo  NW t  3.17 (HLZ t>3: yes)  p 0.0008  Holm p 0.0046  Sharpe 95% CI [0.29, 1.05]  vs BH-DIV diff CI [-0.22, +0.30] p 0.387  DSR 0.995
+B3   mean excess +0.28%/mo  NW t  2.43 (HLZ t>3: no)  p 0.0076  Holm p 0.0146  Sharpe 95% CI [0.12, 0.95]  vs BH-DIV diff CI [-0.39, +0.21] p 0.705  DSR 0.976
+B6   mean excess +0.33%/mo  NW t  2.97 (HLZ t>3: no)  p 0.0015  Holm p 0.0075  Sharpe 95% CI [0.26, 0.98]  vs BH-DIV diff CI [-0.31, +0.31] p 0.528  DSR 0.991
+B12  mean excess +0.37%/mo  NW t  3.28 (HLZ t>3: yes)  p 0.0005  Holm p 0.0037  Sharpe 95% CI [0.28, 1.03]  vs BH-DIV diff CI [-0.25, +0.31] p 0.435  DSR 0.992
+C    mean excess +0.24%/mo  NW t  2.72 (HLZ t>3: no)  p 0.0033  Holm p 0.0131  Sharpe 95% CI [0.17, 0.90]  vs BH-DIV diff CI [-0.42, +0.23] p 0.708  DSR 0.968
+D    mean excess +0.31%/mo  NW t  2.58 (HLZ t>3: no)  p 0.0049  Holm p 0.0146  Sharpe 95% CI [0.12, 0.96]  vs BH-DIV diff CI [-0.43, +0.22] p 0.713  DSR 0.969
+E    mean excess +0.29%/mo  NW t  2.53 (HLZ t>3: no)  p 0.0057  Holm p 0.0146  Sharpe 95% CI [0.10, 0.94]  vs BH-DIV diff CI [-0.38, +0.16] p 0.782  DSR 0.961
+BH-DIV Sharpe 95% CI [0.18, 1.09]
+
+Random-timing null (§18.4): 1000 placebos per strategy, exposures shuffled in 3-month blocks
+A    real Sharpe 0.67 vs placebo median 0.51, 95th pct 0.64 -> percentile 98.6%;  max DD -12.7% worse-than-real placebos 100.0%  (7s)
+B3   real Sharpe 0.55 vs placebo median 0.46, 95th pct 0.59 -> percentile 85.0%;  max DD -14.0% worse-than-real placebos 99.8%  (7s)
+B6   real Sharpe 0.62 vs placebo median 0.50, 95th pct 0.62 -> percentile 95.2%;  max DD -12.2% worse-than-real placebos 100.0%  (7s)
+B12  real Sharpe 0.66 vs placebo median 0.52, 95th pct 0.64 -> percentile 96.5%;  max DD -14.0% worse-than-real placebos 100.0%  (7s)
+C    real Sharpe 0.54 vs placebo median 0.48, 95th pct 0.63 -> percentile 70.5%;  max DD -10.8% worse-than-real placebos 100.0%  (7s)
+D    real Sharpe 0.53 vs placebo median 0.43, 95th pct 0.54 -> percentile 92.9%;  max DD -18.2% worse-than-real placebos 100.0%  (9s)
+E    real Sharpe 0.51 vs placebo median 0.45, 95th pct 0.53 -> percentile 89.6%;  max DD -15.1% worse-than-real placebos 100.0%  (9s)
+
+====================================================================================================
+PASS / FAIL (§19)
+====================================================================================================
+
+A: PROMISING (not built)  (7/8)
+   PASS  1 significance (Holm p<0.05)
+   PASS  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   PASS  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.67 vs BH-DIV 0.62; maxDD -12.7% vs line -27.0%; holdout Sharpe 0.60, DD -9.1% vs BH-DIV -22.4%; sub-period CAGR +8.1%, +3.9%, +6.5%; stress Sharpe 0.51; biggest single-ETF share of profit 15%
+
+B3: FAILED  (5/8)
+   PASS  1 significance (Holm p<0.05)
+   fail  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   fail  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.55 vs BH-DIV 0.62; maxDD -14.0% vs line -27.0%; holdout Sharpe 0.48, DD -8.4% vs BH-DIV -22.4%; sub-period CAGR +7.2%, +2.9%, +5.6%; stress Sharpe 0.29; biggest single-ETF share of profit 19%
+
+B6: PROMISING (not built)  (7/8)
+   PASS  1 significance (Holm p<0.05)
+   PASS  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   PASS  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.62 vs BH-DIV 0.62; maxDD -12.2% vs line -27.0%; holdout Sharpe 0.51, DD -12.2% vs BH-DIV -22.4%; sub-period CAGR +7.6%, +3.9%, +5.9%; stress Sharpe 0.44; biggest single-ETF share of profit 14%
+
+B12: PROMISING (not built)  (7/8)
+   PASS  1 significance (Holm p<0.05)
+   PASS  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   PASS  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.66 vs BH-DIV 0.62; maxDD -14.0% vs line -27.0%; holdout Sharpe 0.46, DD -14.0% vs BH-DIV -22.4%; sub-period CAGR +7.5%, +5.5%, +5.6%; stress Sharpe 0.54; biggest single-ETF share of profit 18%
+
+C: FAILED  (5/8)
+   PASS  1 significance (Holm p<0.05)
+   fail  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   fail  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.54 vs BH-DIV 0.62; maxDD -10.8% vs line -27.0%; holdout Sharpe 0.52, DD -9.7% vs BH-DIV -22.4%; sub-period CAGR +5.4%, +3.1%, +5.2%; stress Sharpe 0.39; biggest single-ETF share of profit 14%
+
+D: FAILED  (5/8)
+   PASS  1 significance (Holm p<0.05)
+   fail  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   fail  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.53 vs BH-DIV 0.62; maxDD -18.2% vs line -27.0%; holdout Sharpe 0.15, DD -18.2% vs BH-DIV -22.4%; sub-period CAGR +6.7%, +6.3%, +3.5%; stress Sharpe 0.28; biggest single-ETF share of profit 18%
+
+E: FAILED  (5/8)
+   PASS  1 significance (Holm p<0.05)
+   fail  2 Sharpe>=BH-DIV and DD<=0.75xBH-DIV
+   PASS  3 holdout Sharpe>0 and DD<=BH-DIV
+   fail  4 beats 95% of random timing
+   fail  5 DSR>=0.95 and PBO<=0.5
+   PASS  6 positive CAGR in >=2 of 3 sub-periods
+   PASS  7 Sharpe>0 at stress costs
+   PASS  8 no ETF >50% of profit
+   detail: Sharpe 0.51 vs BH-DIV 0.62; maxDD -15.1% vs line -27.0%; holdout Sharpe 0.26, DD -14.7% vs BH-DIV -22.4%; sub-period CAGR +5.6%, +5.5%, +4.2%; stress Sharpe 0.24; biggest single-ETF share of profit 17%
+
+====================================================================================================
+BY DECADE, net (CAGR / Sharpe / max DD)
+====================================================================================================
+[2000s]
+                 CAGR     Sharpe      MaxDD
+A               8.1%       0.81     -12.7% 
+B3              7.2%       0.72     -12.5% 
+B6              7.6%       0.77      -9.1% 
+B12             7.5%       0.78      -9.9% 
+C               5.4%       0.57      -8.5% 
+D               6.7%       0.58     -13.6% 
+E               5.6%       0.45     -15.1% 
+BH-DIV          8.5%       0.52     -36.0% 
+BH-SPY          1.9%       0.04     -55.2% 
+60/40           3.7%       0.17     -32.6% 
+[2010s]
+                 CAGR     Sharpe      MaxDD
+A               3.7%       0.59      -9.4% 
+B3              2.9%       0.45     -14.0% 
+B6              3.4%       0.53      -9.2% 
+B12             4.9%       0.68     -10.9% 
+C               2.9%       0.47     -10.8% 
+D               4.6%       0.64     -18.0% 
+E               4.5%       0.66     -13.8% 
+BH-DIV          7.1%       0.77     -12.8% 
+BH-SPY         13.4%       1.04     -19.3% 
+60/40          10.1%       1.39     -10.5% 
+[2020s]
+                 CAGR     Sharpe      MaxDD
+A               7.5%       0.66      -9.1% 
+B3              6.3%       0.53      -8.4% 
+B6              7.2%       0.63     -12.2% 
+B12             6.5%       0.53     -14.0% 
+C               6.1%       0.60      -9.7% 
+D               5.2%       0.35     -17.1% 
+E               5.3%       0.38     -14.7% 
+BH-DIV          9.0%       0.55     -22.4% 
+BH-SPY         14.9%       0.75     -33.7% 
+60/40           9.0%       0.58     -21.2% 
+
+====================================================================================================
+BY CALENDAR YEAR, net return
+====================================================================================================
+year         A      B3      B6     B12       C       D       E  BH-DIV  BH-SPY  BH-QQQ   60/40    CASH
+2004      8.0%    5.4%    5.0%   11.3%    8.1%    8.5%    7.6%   12.7%    8.9%   10.9%    7.5%    0.9%
+2005      4.7%    2.7%    1.5%    5.7%    5.1%    3.2%    2.8%    7.8%    4.8%    1.6%    4.1%    3.1%
+2006     12.2%   12.1%   11.5%   12.4%   10.7%   13.3%    9.9%   14.7%   15.9%    7.1%   10.4%    4.7%
+2007     11.7%    8.2%   11.2%    9.9%    7.1%   10.1%    8.5%   12.3%    5.1%   19.1%    7.4%    4.3%
+2008     -4.2%   -3.1%   -0.0%   -2.3%   -1.9%    2.3%    0.5%  -19.0%  -36.9%  -41.8%  -18.0%    1.3%
+2009     13.7%   15.9%   14.1%    5.4%    1.6%    0.7%    2.0%   24.2%   26.4%   54.7%   12.7%    0.1%
+2010     10.0%   11.4%    8.9%   18.4%   11.7%   14.4%   12.8%   20.8%   15.1%   20.1%   13.5%    0.0%
+2011      3.5%    7.9%    3.9%    2.2%   -1.1%    7.4%    8.7%    4.6%    1.9%    3.5%    7.6%    0.0%
+2012      0.9%    0.8%   -0.6%    5.0%    2.4%    7.1%    4.1%   12.0%   16.0%   18.1%   11.2%    0.0%
+2013      5.4%    2.7%    5.2%    7.0%    6.2%    7.9%    6.9%    0.4%   32.3%   36.6%   15.5%    0.0%
+2014      1.9%   -1.2%    3.7%    4.6%    3.0%    6.3%    4.5%    3.5%   13.5%   19.2%   11.8%    0.0%
+2015     -3.3%   -7.6%   -5.4%   -0.3%   -1.6%   -1.7%   -6.9%   -4.7%    1.2%    9.4%    1.7%    0.0%
+2016      4.3%    1.7%    5.8%   -2.5%   -4.1%   -2.5%    2.6%    9.6%   12.0%    7.1%    7.7%    0.2%
+2017      9.0%    8.3%   10.4%   11.4%    9.2%   13.0%   12.6%   13.6%   21.7%   32.7%   13.7%    0.8%
+2018     -1.3%   -1.6%   -1.6%   -4.0%   -0.4%  -13.3%   -8.2%   -5.6%   -4.6%   -0.1%   -2.0%    1.8%
+2019      8.0%    8.1%    4.8%    9.7%    5.1%   10.4%   10.1%   20.3%   31.2%   39.0%   21.9%    2.0%
+2020     13.4%   11.2%   12.2%    7.1%    4.6%    8.1%   10.2%   18.3%   18.3%   48.4%   16.3%    0.3%
+2021      9.1%    7.4%   10.9%    8.4%    7.4%    7.4%    8.1%   10.1%   28.7%   27.4%   15.0%    0.0%
+2022     -4.4%   -3.8%   -4.1%   -4.9%   -2.2%  -11.4%  -12.5%  -14.6%  -18.2%  -32.6%  -16.6%    1.9%
+2023      1.4%   -0.3%    3.9%    3.2%    4.7%    2.9%    6.7%   12.3%   26.2%   54.9%   16.8%    5.0%
+2024      7.9%    5.9%    5.4%    6.0%    5.3%    8.3%    6.6%    9.3%   24.9%   25.6%   14.1%    5.0%
+2025     21.0%   19.2%   16.9%   21.5%   16.5%   17.2%   15.6%   24.9%   17.7%   20.8%   13.9%    4.0%
+2026      4.8%    5.2%    5.3%    4.9%    6.0%    5.0%    4.1%    5.5%   11.7%   12.8%    6.3%    3.0%
+
+====================================================================================================
+CRISIS WINDOWS (§20.2): return over the window / worst drawdown inside it
+====================================================================================================
+                                    A             B3             B6            B12              C              D              E         BH-DIV         BH-SPY
+GFC                     -1.9%/-12.7%   -1.8%/-12.5%   +1.4%/ -8.0%   -0.3%/ -9.9%   -1.0%/ -8.4%   +4.1%/-13.6%   +0.7%/-15.1%  -22.0%/-36.0%  -46.0%/-55.2%
+Euro crisis             -6.2%/ -9.4%   -2.4%/ -6.1%   -5.9%/ -9.2%   -6.3%/-10.9%   -9.3%/-10.8%   -0.0%/ -4.9%   +0.1%/ -4.4%   -3.1%/-11.2%   -7.1%/-18.6%
+China/oil               -4.0%/ -5.1%   -7.2%/ -8.7%   -2.6%/ -4.5%   -2.5%/ -3.4%   -2.4%/ -2.8%   -5.3%/ -7.2%   -7.4%/-10.6%   -4.4%/ -8.8%   -7.0%/-12.8%
+Q4 2018                 -3.2%/ -3.9%   -2.7%/ -3.9%   -3.0%/ -3.7%   -5.2%/ -6.4%   -2.6%/ -3.1%  -12.6%/-15.7%   -8.9%/-11.5%   -5.9%/ -8.5%  -13.5%/-19.2%
+COVID                   -3.2%/ -9.1%   -2.8%/ -8.4%   -5.4%/-12.2%   -6.6%/-14.0%   -3.6%/ -9.7%   -5.5%/-15.2%   -4.3%/-13.8%  -12.4%/-22.4%  -19.4%/-33.7%
+2022 inflation bear     -4.2%/ -5.1%   -3.7%/ -4.9%   -4.7%/ -5.6%   -5.4%/ -6.6%   -2.7%/ -3.8%  -11.6%/-13.4%  -12.3%/-14.6%  -18.4%/-21.0%  -17.7%/-24.5%
+2025 tariff shock       +0.9%/ -5.5%   +1.2%/ -5.5%   +0.0%/ -2.9%   +0.6%/ -7.5%   +1.1%/ -3.0%   +1.1%/ -8.9%   +0.7%/ -6.9%   +0.2%/ -9.4%   -7.6%/-18.8%
+
+====================================================================================================
+REGIMES (§20.3): mean monthly return, Sharpe, months
+====================================================================================================
+[bull (SPY 12m >= 0)]
+   A       mean +0.56%/mo  Sharpe  0.77  months 218
+   B3      mean +0.47%/mo  Sharpe  0.64  months 218
+   B6      mean +0.50%/mo  Sharpe  0.67  months 218
+   B12     mean +0.58%/mo  Sharpe  0.74  months 218
+   C       mean +0.44%/mo  Sharpe  0.63  months 218
+   D       mean +0.53%/mo  Sharpe  0.67  months 218
+   E       mean +0.49%/mo  Sharpe  0.64  months 218
+   BH-DIV  mean +0.68%/mo  Sharpe  0.70  months 218
+   BH-SPY  mean +1.01%/mo  Sharpe  0.81  months 218
+   60/40   mean +0.71%/mo  Sharpe  0.90  months 218
+[bear (SPY 12m < 0)]
+   A       mean +0.14%/mo  Sharpe  0.04  months 39
+   B3      mean +0.14%/mo  Sharpe  0.03  months 39
+   B6      mean +0.37%/mo  Sharpe  0.49  months 39
+   B12     mean +0.03%/mo  Sharpe -0.25  months 39
+   C       mean -0.03%/mo  Sharpe -0.54  months 39
+   D       mean -0.04%/mo  Sharpe -0.24  months 39
+   E       mean +0.03%/mo  Sharpe -0.14  months 39
+   BH-DIV  mean +0.66%/mo  Sharpe  0.37  months 39
+   BH-SPY  mean +0.74%/mo  Sharpe  0.31  months 39
+   60/40   mean +0.56%/mo  Sharpe  0.34  months 39
+[NBER recession]
+   A       mean -0.25%/mo  Sharpe -0.67  months 20
+   B3      mean -0.08%/mo  Sharpe -0.26  months 20
+   B6      mean -0.10%/mo  Sharpe -0.31  months 20
+   B12     mean -0.29%/mo  Sharpe -0.68  months 20
+   C       mean -0.24%/mo  Sharpe -0.80  months 20
+   D       mean -0.15%/mo  Sharpe -0.25  months 20
+   E       mean -0.14%/mo  Sharpe -0.25  months 20
+   BH-DIV  mean -0.75%/mo  Sharpe -0.47  months 20
+   BH-SPY  mean -1.88%/mo  Sharpe -0.85  months 20
+   60/40   mean -0.81%/mo  Sharpe -0.64  months 20
+[expansion]
+   A       mean +0.56%/mo  Sharpe  0.77  months 249
+   B3      mean +0.46%/mo  Sharpe  0.62  months 249
+   B6      mean +0.52%/mo  Sharpe  0.70  months 249
+   B12     mean +0.57%/mo  Sharpe  0.76  months 249
+   C       mean +0.43%/mo  Sharpe  0.63  months 249
+   D       mean +0.50%/mo  Sharpe  0.63  months 249
+   E       mean +0.47%/mo  Sharpe  0.61  months 249
+   BH-DIV  mean +0.81%/mo  Sharpe  0.84  months 249
+   BH-SPY  mean +1.18%/mo  Sharpe  0.96  months 249
+   60/40   mean +0.81%/mo  Sharpe  0.99  months 249
+[inflation > 4%]
+   A       mean +0.05%/mo  Sharpe -0.27  months 43
+   B3      mean +0.03%/mo  Sharpe -0.28  months 43
+   B6      mean +0.19%/mo  Sharpe  0.02  months 43
+   B12     mean +0.02%/mo  Sharpe -0.32  months 43
+   C       mean +0.21%/mo  Sharpe  0.05  months 43
+   D       mean -0.09%/mo  Sharpe -0.49  months 43
+   E       mean -0.09%/mo  Sharpe -0.48  months 43
+   BH-DIV  mean -0.25%/mo  Sharpe -0.46  months 43
+   BH-SPY  mean -0.28%/mo  Sharpe -0.33  months 43
+   60/40   mean -0.18%/mo  Sharpe -0.38  months 43
+[inflation <= 4%]
+   A       mean +0.58%/mo  Sharpe  0.83  months 225
+   B3      mean +0.49%/mo  Sharpe  0.70  months 225
+   B6      mean +0.52%/mo  Sharpe  0.72  months 225
+   B12     mean +0.60%/mo  Sharpe  0.81  months 225
+   C       mean +0.41%/mo  Sharpe  0.61  months 225
+   D       mean +0.55%/mo  Sharpe  0.71  months 225
+   E       mean +0.52%/mo  Sharpe  0.71  months 225
+   BH-DIV  mean +0.87%/mo  Sharpe  0.84  months 225
+   BH-SPY  mean +1.18%/mo  Sharpe  0.89  months 225
+   60/40   mean +0.85%/mo  Sharpe  1.03  months 225
+
+====================================================================================================
+DIVERSIFICATION (§20.1)
+====================================================================================================
+Monthly correlation of the 13 ETFs, all months:
+      SPY   QQQ   IWM   EFA   EEM   IEF   TLT   LQD   TIP   GLD   DBC   VNQ   SLV
+SPY  1.00  0.90  0.88  0.86  0.74 -0.08 -0.09  0.43  0.31  0.09  0.44  0.73  0.26
+QQQ  0.90  1.00  0.78  0.74  0.69 -0.06 -0.07  0.38  0.27  0.06  0.32  0.60  0.24
+IWM  0.88  0.78  1.00  0.77  0.69 -0.13 -0.14  0.36  0.23  0.04  0.41  0.74  0.22
+EFA  0.86  0.74  0.77  1.00  0.85 -0.01 -0.05  0.49  0.36  0.22  0.50  0.70  0.35
+EEM  0.74  0.69  0.69  0.85  1.00 -0.04 -0.07  0.41  0.33  0.33  0.52  0.60  0.44
+IEF -0.08 -0.06 -0.13 -0.01 -0.04  1.00  0.92  0.66  0.71  0.31 -0.27  0.13  0.13
+TLT -0.09 -0.07 -0.14 -0.05 -0.07  0.92  1.00  0.63  0.62  0.22 -0.32  0.15  0.06
+LQD  0.43  0.38  0.36  0.49  0.41  0.66  0.63  1.00  0.72  0.27  0.07  0.52  0.30
+TIP  0.31  0.27  0.23  0.36  0.33  0.71  0.62  0.72  1.00  0.43  0.20  0.42  0.37
+GLD  0.09  0.06  0.04  0.22  0.33  0.31  0.22  0.27  0.43  1.00  0.30  0.13  0.79
+DBC  0.44  0.32  0.41  0.50  0.52 -0.27 -0.32  0.07  0.20  0.30  1.00  0.29  0.42
+VNQ  0.73  0.60  0.74  0.70  0.60  0.13  0.15  0.52  0.42  0.13  0.29  1.00  0.20
+SLV  0.26  0.24  0.22  0.35  0.44  0.13  0.06  0.30  0.37  0.79  0.42  0.20  1.00
+
+Same, SPY's worst 10% of months only (27 months):
+      SPY   QQQ   IWM   EFA   EEM   IEF   TLT   LQD   TIP   GLD   DBC   VNQ   SLV
+SPY  1.00  0.46  0.83  0.78  0.68  0.12  0.10  0.41  0.63  0.35  0.63  0.71  0.28
+QQQ  0.46  1.00  0.26  0.20  0.34  0.04  0.05  0.32  0.42  0.02  0.22  0.08  0.03
+IWM  0.83  0.26  1.00  0.62  0.59 -0.13 -0.12  0.20  0.45  0.27  0.67  0.76  0.31
+EFA  0.78  0.20  0.62  1.00  0.88  0.04  0.00  0.30  0.45  0.42  0.61  0.61  0.43
+EEM  0.68  0.34  0.59  0.88  1.00 -0.07 -0.17  0.22  0.44  0.45  0.63  0.53  0.54
+IEF  0.12  0.04 -0.13  0.04 -0.07  1.00  0.93  0.63  0.61  0.44 -0.31  0.03  0.10
+TLT  0.10  0.05 -0.12  0.00 -0.17  0.93  1.00  0.54  0.50  0.21 -0.37  0.03 -0.14
+LQD  0.41  0.32  0.20  0.30  0.22  0.63  0.54  1.00  0.69  0.27  0.04  0.08  0.31
+TIP  0.63  0.42  0.45  0.45  0.44  0.61  0.50  0.69  1.00  0.55  0.34  0.48  0.37
+GLD  0.35  0.02  0.27  0.42  0.45  0.44  0.21  0.27  0.55  1.00  0.23  0.30  0.82
+DBC  0.63  0.22  0.67  0.61  0.63 -0.31 -0.37  0.04  0.34  0.23  1.00  0.51  0.30
+VNQ  0.71  0.08  0.76  0.61  0.53  0.03  0.03  0.08  0.48  0.30  0.51  1.00  0.17
+SLV  0.28  0.03  0.31  0.43  0.54  0.10 -0.14  0.31  0.37  0.82  0.30  0.17  1.00
+Average pairwise correlation: all months 0.36, stress months 0.34
+
+Strategy correlation / beta to SPY: all months | SPY-down months | stress months
+   A       +0.58 / +0.25 | +0.24 / +0.12 | -0.02 / -0.01
+   B3      +0.54 / +0.23 | +0.15 / +0.08 | -0.02 / -0.02
+   B6      +0.58 / +0.25 | +0.21 / +0.10 | -0.07 / -0.05
+   B12     +0.62 / +0.29 | +0.31 / +0.17 | +0.21 / +0.16
+   C       +0.54 / +0.20 | +0.23 / +0.11 | +0.07 / +0.05
+   D       +0.59 / +0.28 | +0.36 / +0.24 | +0.36 / +0.35
+   E       +0.61 / +0.28 | +0.35 / +0.22 | +0.30 / +0.28
+   BH-DIV  +0.83 / +0.61 | +0.73 / +0.64 | +0.82 / +1.01
+   60/40   +0.96 / +0.59 | +0.89 / +0.60 | +0.82 / +0.65
+
+====================================================================================================
+CONTRIBUTION TO NET PROFIT, by asset class and ETF (share of total profit; cash interest separate)
+====================================================================================================
+A       total profit per $1: +2.66  | Bonds: +10%  Intl equity: +18%  Real assets: +31%  US equity: +33%  cash: +9%
+        QQQ +15%  SPY +10%  EEM +9%  SLV +9%  GLD +9%  EFA +9%  IWM +7%  DBC +7%  VNQ +5%  LQD +3%  TIP +3%  TLT +2%  IEF +2%
+B3      total profit per $1: +1.99  | Bonds: +8%  Intl equity: +22%  Real assets: +18%  US equity: +37%  cash: +15%
+        QQQ +19%  EEM +14%  SPY +13%  EFA +8%  GLD +8%  DBC +6%  IWM +6%  VNQ +5%  TLT +3%  TIP +2%  LQD +2%  IEF +2%  SLV -1%
+B6      total profit per $1: +2.39  | Bonds: +6%  Intl equity: +14%  Real assets: +36%  US equity: +30%  cash: +13%
+        QQQ +14%  SLV +11%  GLD +11%  SPY +9%  DBC +8%  EFA +8%  IWM +7%  EEM +7%  VNQ +6%  LQD +2%  TIP +2%  TLT +1%  IEF +1%
+B12     total profit per $1: +2.73  | Bonds: +9%  Intl equity: +16%  Real assets: +24%  US equity: +38%  cash: +12%
+        QQQ +18%  SPY +13%  GLD +10%  EEM +10%  DBC +7%  IWM +7%  EFA +6%  SLV +5%  LQD +3%  IEF +2%  VNQ +2%  TLT +2%  TIP +1%
+C       total profit per $1: +1.68  | Bonds: +7%  Intl equity: +15%  Real assets: +28%  US equity: +27%  cash: +23%
+        QQQ +14%  GLD +12%  SPY +10%  EEM +9%  SLV +8%  EFA +6%  DBC +5%  IWM +4%  VNQ +3%  LQD +2%  IEF +2%  TIP +1%  TLT +1%
+D       total profit per $1: +2.18  | Bonds: +23%  Intl equity: +17%  Real assets: +16%  US equity: +38%  cash: +6%
+        QQQ +18%  SPY +15%  GLD +12%  LQD +9%  EFA +9%  EEM +8%  IEF +7%  IWM +5%  TLT +4%  TIP +4%  DBC +3%  SLV +1%  VNQ -1%
+E       total profit per $1: +1.99  | Bonds: +25%  Intl equity: +18%  Real assets: +22%  US equity: +32%  cash: +3%
+        QQQ +17%  GLD +14%  SPY +11%  EFA +10%  EEM +8%  LQD +7%  TLT +6%  TIP +6%  IEF +6%  DBC +4%  IWM +3%  SLV +3%  VNQ +2%
+BH-DIV  total profit per $1: +4.61  | Bonds: +10%  Intl equity: +16%  Real assets: +35%  US equity: +40%  cash: +0%
+        QQQ +16%  SPY +13%  IWM +11%  SLV +10%  GLD +10%  EEM +8%  EFA +8%  VNQ +8%  DBC +7%  LQD +3%  TIP +3%  IEF +2%  TLT +2%
+
+====================================================================================================
+ROLLING 60-MONTH WINDOWS (§17.2): share of windows beating BH-DIV
+====================================================================================================
+   A    210 windows: higher Sharpe in 62%, smaller max drawdown in 100%
+   B3   210 windows: higher Sharpe in 36%, smaller max drawdown in 76%
+   B6   210 windows: higher Sharpe in 56%, smaller max drawdown in 100%
+   B12  210 windows: higher Sharpe in 54%, smaller max drawdown in 87%
+   C    210 windows: higher Sharpe in 25%, smaller max drawdown in 87%
+   D    210 windows: higher Sharpe in 50%, smaller max drawdown in 79%
+   E    210 windows: higher Sharpe in 37%, smaller max drawdown in 76%
+
+SPY-only supplementary from 1994 (§3; does not count toward pass/fail):
+                 CAGR        Vol     Sharpe      MaxDD     Calmar   Worst12m
+BH-SPY         10.8%      14.9%       0.61     -55.2%       0.20     -43.5% 
+SMA-SPY         9.3%      10.9%       0.66     -25.3%       0.37     -21.3% 
+TSM-SPY        10.3%      11.7%       0.70     -33.8%       0.31     -14.6% 
+
+====================================================================================================
+CAPITAL AND THE £30-A-DAY QUESTION (§23), net GBP returns, block bootstrap, 20 years
+====================================================================================================
+Best-scoring primary strategy: A (PROMISING (not built)).  £630/month withdrawn, +2.5%/yr.
+
+[A] historical GBP: CAGR 7.5%; losing calendar years 4/22; worst year -4.0% (2023)
+   start £ 25,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-995; typical £/trading day ≈ £7
+   start £ 50,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-1,990; typical £/trading day ≈ £15
+   start £100,000: ISA: runs out 44%, median £10,324, bad-case(10%) £0 | GIA basic 18%: runs out 60%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 66%, median £0, bad-case(10%) £0 | worst year ≈ £-3,981; typical £/trading day ≈ £30
+   start £150,000: ISA: runs out 1%, median £219,109, bad-case(10%) £74,983 | GIA basic 18%: runs out 1%, median £151,620, bad-case(10%) £51,561 | GIA higher 24%: runs out 1%, median £132,558, bad-case(10%) £44,574 | worst year ≈ £-5,971; typical £/trading day ≈ £44
+   start £250,000: ISA: runs out 0%, median £636,668, bad-case(10%) £349,061 | GIA basic 18%: runs out 0%, median £479,127, bad-case(10%) £282,201 | GIA higher 24%: runs out 0%, median £434,379, bad-case(10%) £262,613 | worst year ≈ £-9,952; typical £/trading day ≈ £74
+
+[BH-DIV] historical GBP: CAGR 9.5%; losing calendar years 3/22; worst year -4.4% (2022)
+   start £ 25,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-1,089; typical £/trading day ≈ £9
+   start £ 50,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-2,178; typical £/trading day ≈ £19
+   start £100,000: ISA: runs out 15%, median £103,409, bad-case(10%) £0 | GIA basic 18%: runs out 25%, median £45,803, bad-case(10%) £0 | GIA higher 24%: runs out 31%, median £30,837, bad-case(10%) £0 | worst year ≈ £-4,355; typical £/trading day ≈ £38
+   start £150,000: ISA: runs out 0%, median £411,647, bad-case(10%) £185,742 | GIA basic 18%: runs out 0%, median £272,991, bad-case(10%) £128,624 | GIA higher 24%: runs out 0%, median £235,674, bad-case(10%) £112,597 | worst year ≈ £-6,533; typical £/trading day ≈ £57
+   start £250,000: ISA: runs out 0%, median £1,031,016, bad-case(10%) £576,130 | GIA basic 18%: runs out 0%, median £727,794, bad-case(10%) £438,304 | GIA higher 24%: runs out 0%, median £645,582, bad-case(10%) £399,137 | worst year ≈ £-10,889; typical £/trading day ≈ £94
+
+[60/40] historical GBP: CAGR 9.6%; losing calendar years 2/22; worst year -6.6% (2022)
+   start £ 25,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-1,658; typical £/trading day ≈ £10
+   start £ 50,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-3,316; typical £/trading day ≈ £19
+   start £100,000: ISA: runs out 11%, median £112,145, bad-case(10%) £0 | GIA basic 18%: runs out 21%, median £51,846, bad-case(10%) £0 | GIA higher 24%: runs out 26%, median £36,280, bad-case(10%) £0 | worst year ≈ £-6,631; typical £/trading day ≈ £38
+   start £150,000: ISA: runs out 0%, median £427,754, bad-case(10%) £213,384 | GIA basic 18%: runs out 0%, median £283,622, bad-case(10%) £147,044 | GIA higher 24%: runs out 0%, median £244,814, bad-case(10%) £128,553 | worst year ≈ £-9,947; typical £/trading day ≈ £57
+   start £250,000: ISA: runs out 0%, median £1,059,190, bad-case(10%) £633,666 | GIA basic 18%: runs out 0%, median £744,958, bad-case(10%) £477,144 | GIA higher 24%: runs out 0%, median £660,000, bad-case(10%) £432,499 | worst year ≈ £-16,578; typical £/trading day ≈ £96
+
+[BH-SPY] historical GBP: CAGR 12.4%; losing calendar years 2/22; worst year -14.4% (2008)
+   start £ 25,000: ISA: runs out 100%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 100%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 100%, median £0, bad-case(10%) £0 | worst year ≈ £-3,601; typical £/trading day ≈ £12
+   start £ 50,000: ISA: runs out 93%, median £0, bad-case(10%) £0 | GIA basic 18%: runs out 99%, median £0, bad-case(10%) £0 | GIA higher 24%: runs out 99%, median £0, bad-case(10%) £0 | worst year ≈ £-7,203; typical £/trading day ≈ £25
+   start £100,000: ISA: runs out 6%, median £336,038, bad-case(10%) £46,727 | GIA basic 18%: runs out 9%, median £178,770, bad-case(10%) £4,597 | GIA higher 24%: runs out 11%, median £139,888, bad-case(10%) £0 | worst year ≈ £-14,405; typical £/trading day ≈ £49
+   start £150,000: ISA: runs out 0%, median £861,115, bad-case(10%) £336,577 | GIA basic 18%: runs out 0%, median £532,756, bad-case(10%) £221,869 | GIA higher 24%: runs out 0%, median £449,849, bad-case(10%) £191,188 | worst year ≈ £-21,608; typical £/trading day ≈ £74
+   start £250,000: ISA: runs out 0%, median £1,921,803, bad-case(10%) £899,979 | GIA basic 18%: runs out 0%, median £1,247,858, bad-case(10%) £643,085 | GIA higher 24%: runs out 0%, median £1,074,746, bad-case(10%) £572,359 | worst year ≈ £-36,013; typical £/trading day ≈ £123
+
+Notes: ISA contributions are capped at £20,000 a year. 'GIA' taxes each year's gain above £3,000 as a capital gain (income is not separated out, so this understates tax for higher-rate payers). US-listed ETFs are usually non-reporting funds for UK tax (gains taxed as income); a UK investor would use UCITS equivalents (§24.4-5).
+
+====================================================================================================
+SUMMARY
+====================================================================================================
+A    PROMISING (not built)    7/8  net Sharpe 0.67  CAGR 6.0%  max DD -12.7%
+B3   FAILED                   5/8  net Sharpe 0.55  CAGR 5.0%  max DD -14.0%
+B6   PROMISING (not built)    7/8  net Sharpe 0.62  CAGR 5.6%  max DD -12.2%
+B12  PROMISING (not built)    7/8  net Sharpe 0.66  CAGR 6.0%  max DD -14.0%
+C    FAILED                   5/8  net Sharpe 0.54  CAGR 4.5%  max DD -10.8%
+D    FAILED                   5/8  net Sharpe 0.53  CAGR 5.3%  max DD -18.2%
+E    FAILED                   5/8  net Sharpe 0.51  CAGR 5.0%  max DD -15.1%
+BH-DIV                               net Sharpe 0.62  CAGR 8.0%  max DD -36.0%
+Data: data quality confirmed. Family PBO 0.54.
