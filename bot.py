@@ -1787,6 +1787,8 @@ def _score(base: int, checks: list[Check], index) -> pd.Series:
 def min_score_for(setup: str, cfg: dict, which: str = "alert") -> int:
     """The score a setup needs to alert ("alert") or be paper-traded ("paper"). Per-setup values in
     [scan] setup_min_score override both, e.g. breakouts, where the 10-year test found the score didn't help."""
+    if setup in (cfg["scan"].get("retired_setups", []) or []):
+        return 10_000  # RETIRED after failing its pre-registered test (research/REPORT.md): never alerts or trades
     per = cfg["scan"].get("setup_min_score", {}) or {}
     if setup in per:
         return int(per[setup])
@@ -4494,7 +4496,10 @@ def health_lines() -> list[str]:
         sc = [x for x in runs("scalper.yml", 10) if pd.Timestamp(x["createdAt"]) > since]
         long_runs = [x for x in sc if (pd.Timestamp(x["updatedAt"]) - pd.Timestamp(x["createdAt"])).total_seconds() >= 1800
                      or x["status"] != "completed"]
-        if pd.Timestamp.now(tz="America/New_York").weekday() in (1, 2, 3, 4) or long_runs:
+        retired = bool(load_config("config.toml").get("scalper", {}).get("retired", False))
+        if retired:
+            out.append("➖ scalper retired (failed its tests; research/REPORT.md)")
+        elif pd.Timestamp.now(tz="America/New_York").weekday() in (1, 2, 3, 4) or long_runs:
             out.append("✅ scalper ran through the last US session" if long_runs else
                        "⚠️ the scalper did not run through the last US session")
     except Exception:
@@ -4570,7 +4575,7 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
     # 1) Keep the 0DTE scalper running through the US session (starts it, and restarts it if it dies)
-    if pc.get("start_scalper", True):
+    if pc.get("start_scalper", True) and not cfg.get("scalper", {}).get("retired", False):
         try:
             msgs += scalper_supervisor(ps, str(cfg.get("scalper", {}).get("last_entry", "11:30")))
         except Exception as exc:
