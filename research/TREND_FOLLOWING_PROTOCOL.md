@@ -359,4 +359,8 @@ This section is analysis only, run on the net GBP monthly returns of the best-sc
 
 ## Amendments
 
-(none)
+**2026-11-11, #1: before any real data was downloaded.** Found while smoke-testing the code on synthetic prices. Only the walk-forward start date changes.
+- The rule in §3 (at least 8 eligible ETFs, including international equity) puts the evaluation start at about 2004-05, not 2003-08. EEM only becomes eligible 13 months after its April 2003 launch.
+- So in December 2008 there are fewer than the 60 months of history that §17.1 needs.
+- **Change:** the walk-forward selection starts at the first January that has a full 60 months behind it, about January 2010, instead of "January 2009".
+- No other rule changes.
