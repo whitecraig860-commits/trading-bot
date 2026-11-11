@@ -24,6 +24,8 @@ alert_min_score = 70        # only message you about setups scoring at least thi
 # Per-setup minimum scores (for alerts AND paper trades). The 10-year test on the watchlist found breakouts
 # scoring 50-69 did as well as those scoring 70+ (+0.78R a trade vs about +0.4R), so they get a lower bar.
 setup_min_score = { breakout = 50 }
+retired_setups = ["breakout"]   # RETIRED 11 Nov 2026: failed its pre-registered out-of-sample test (research/REPORT.md,
+                                # PR #20). Never alerts or paper-trades while listed here. Code and results are kept.
 strong_score = 80           # setups at or above this are labelled STRONG
 allow_shorts = false        # The 10-year test: daily SHORTS lost money (breakouts -0.27R, pullbacks -0.04R a trade) even
                             # with "auto". Shorting still happens in the 5-minute pulse and the scalper's puts.
@@ -220,6 +222,7 @@ markets = ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"]   # your group bench
 fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 
 [pulse]
+start_scalper = false       # the scalper is retired (see [scalper] retired)
 # "python bot.py pulse --every 5" reads these markets every 5 minutes on 5-minute bars (GitHub runs it on weekdays,
 # 07:00-21:35 UTC). For each one it works out: trending up, trending down or choppy; which of four day-trading
 # approaches has actually made money on that market over the last 60 days; and whether that approach has a signal
@@ -276,6 +279,9 @@ block_chase_pct = 30        # don't copy at all if it's 30% above
 benchmark = "SPY"
 
 [scalper]
+retired = true              # RETIRED 11 Nov 2026: the intraday/options scalper failed its tests (research/REPORT.md,
+                            # PR #20: the signal lost on the share itself, -0.23R over 3,318 trades). While true it
+                            # never trades, whatever "enabled" says, and the pulse never starts it. Code kept.
 # The 0DTE options day-trader (scalper.py). PAPER ONLY: it is hard-wired to Alpaca's paper account.
 # Alpaca keys go in GitHub secrets ALPACA_KEY and ALPACA_SECRET (or in alpaca_key / alpaca_secret here
 # if you run it on your own computer).
