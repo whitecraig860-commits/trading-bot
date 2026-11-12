@@ -24,6 +24,7 @@ import pandas as pd
 
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
+TRADE_MESSAGES = True   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
 GBP = 0.76
@@ -58,7 +59,7 @@ def send_telegram(text: str) -> bool:
 
         r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
                           data={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": "true"},
-                          timeout=20)
+                          timeout=8)
         return r.ok
     except Exception as exc:
         print(f"Telegram: {type(exc).__name__}")  # never print the exception text: it can contain the token
@@ -164,6 +165,8 @@ class PaperBot:
                     self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": float(round(px)),
                                       "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2)}
                     print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
+                    self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
+                               f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
             self._summaries(now)
 
@@ -173,6 +176,8 @@ class PaperBot:
         self.s["trades"].append(dict(o, exit=bid, exit_t=now.strftime("%Y-%m-%d %H:%M:%S"), why=why, pnl=round(pnl, 2)))
         self.s["open"] = None
         print(f"{now:%H:%M:%S} SOLD @ {bid:.2f} ({why}) {pnl:+.0f}")
+        self._tell(f"🔴 <b>SOLD</b> 1× QQQ {int(o['strike'])} {'CALL' if o['type'] == 'C' else 'PUT'} @ {bid:.2f}\n"
+                   f"<b>{'+' if pnl >= 0 else '−'}${abs(pnl):,.0f}</b> ({(bid / o['entry'] - 1):+.1%}) · {now:%a %m/%d · %I:%M:%S %p} ET · {why}")
         self.save()
 
     def finish(self, now: datetime, rows: list[dict]):
@@ -184,6 +189,13 @@ class PaperBot:
             self._close(now, bid, "recorder restart")
         self._summaries(now)
         self.save()
+
+    def _tell(self, text: str):
+        if TRADE_MESSAGES:
+            try:
+                self.say(text)
+            except Exception:
+                pass  # a failed message must never stop the bot
 
     # ------------------------------------------------------------------ summaries
     def summary(self, title: str, upto: str | None = None) -> str:
