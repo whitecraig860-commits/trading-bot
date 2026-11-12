@@ -3,7 +3,8 @@ Honest scorecard for the Discord group's posted QQQ option trades
 =================================================================
 Reads the trades as posted (state/discord_trades.csv) and the recorded bid/ask history (state/quotes), and re-prices
 every trade the way a real order would fill: BUY at the ask, SELL at the bid, using the first recorded quote at or
-after the posted time (no more than 2 minutes later). Trades on days with no recorded quotes are counted, not guessed.
+after the posted time (no more than 2 minutes later). The free quote feed is Alpaca's 'indicative' one: close to,
+but not exactly, the real exchange quotes, and the scorecard says which feed each price came from. Trades on days with no recorded quotes are counted, not guessed.
 
   python tracker/scorecard.py
 """
@@ -24,24 +25,25 @@ def quotes_for(day: str) -> pd.DataFrame | None:
     if not files:
         return None
     q = pd.concat([pd.read_csv(f) for f in files])
-    q["poll_time"] = pd.to_datetime(q["poll_time"])
-    return q
+    # 'when' is the time the quote was made, not when we fetched it (free quotes can arrive 15 minutes late)
+    q["when"] = pd.to_datetime(q["quote_time"])
+    return q.dropna(subset=["when", "bid", "ask"]).drop_duplicates(["contract", "when"])
 
 
 def fill(q: pd.DataFrame, expiry_hint, typ: str, strike: float, when: pd.Timestamp, side: str):
-    c = q[(q["type"] == typ) & (q["strike"] == strike) & (q["poll_time"] >= when) &
-          (q["poll_time"] <= when + pd.Timedelta(minutes=2))]
+    c = q[(q["type"] == typ) & (q["strike"] == strike) & (q["when"] >= when) &
+          (q["when"] <= when + pd.Timedelta(minutes=2))]
     if expiry_hint:
         c = c[c["expiry"] == expiry_hint]
     if c.empty:
         return None
-    first = c[c["poll_time"] == c["poll_time"].min()]
+    first = c[c["when"] == c["when"].min()]
     return first, ("ask" if side == "buy" else "bid")
 
 
 def main() -> int:
     path = ROOT / "state" / "discord_trades.csv"
-    t = pd.read_csv(path, dtype={"expiry": str}).fillna("")
+    t = pd.read_csv(path, dtype={"expiry": str, "trader": str}).fillna({"expiry": "", "trader": ""})
     rows = []
     for _, r in t.iterrows():
         posted = (r.sell - r.buy) * 100 * r.qty
