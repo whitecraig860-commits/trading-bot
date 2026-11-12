@@ -1,0 +1,40 @@
+name: Option price recorder (read-only)
+
+on:
+  schedule:
+    # Two starts per session (US summer and winter clocks); the script only runs the one near the session start.
+    - cron: "5 13,14 * * 1-5"    # morning session, 09:30-12:45 New York time
+    - cron: "20 16,17 * * 1-5"   # afternoon session, 12:45-16:00 New York time
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 250
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Record bid and ask prices (market data only; no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        run: |
+          if [ "$(date -u +%H)" -lt 15 ]; then python tracker/recorder.py --session am; else python tracker/recorder.py --session pm; fi
+      - name: Save the recorded prices
+        if: always()
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add state/quotes
+          if ! git diff --cached --quiet; then
+            git commit -m "Option quotes $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
