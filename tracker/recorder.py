@@ -5,12 +5,11 @@ Why: Alpaca keeps no history of option quotes, so there was no way to test a fas
 fills (buy at the ask, sell at the bid). This saves that history from now on. It only READS market data: it never
 places an order and never touches the trading account.
 
-Each minute it saves, for QQQ options expiring today and on the next expiry, with strikes within $10 of the share
+Every 5 seconds it saves, for QQQ options expiring today and on the next expiry, with strikes within $6 of the share
 price: bid, ask, sizes, the time of that quote, the last trade, and the QQQ share price.
 
-  python tracker/recorder.py --session am     09:30-13:05 New York time
-  python tracker/recorder.py --session pm     12:45-16:20 New York time
-  python tracker/recorder.py --test           3 quick polls right now, printed, nothing saved
+  python tracker/recorder.py           record from now (or the 09:30 open) for up to 200 minutes, or until 16:20
+  python tracker/recorder.py --test    3 quick polls right now, printed, nothing saved
 """
 
 from __future__ import annotations
@@ -25,13 +24,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 NY = ZoneInfo("America/New_York")
-# Free Alpaca option quotes can arrive up to 15 minutes late, so each session runs 20 minutes past its end and
-# the two overlap; every row keeps the time the quote was actually made (quote_time).
-SESSIONS = {"am": ((9, 30), (13, 5)), "pm": ((12, 45), (16, 20))}
+MAX_MINUTES = 200   # one run; the workflow starts the next one, so a whole day is covered within GitHub's time limit
+EVERY = 5           # seconds between polls
 OUT = Path(__file__).resolve().parent.parent / "state" / "quotes"
 FIELDS = ["poll_time", "contract", "expiry", "type", "strike", "bid", "ask", "bid_size", "ask_size", "quote_time",
           "last", "last_time", "qqq", "feed"]
-WIDTH = 10  # dollars either side of the share price
+WIDTH = 6  # dollars either side of the share price
 
 
 def parse(contract: str) -> tuple[str, str, float]:
@@ -95,7 +93,6 @@ def rows(feed: Feed, now: datetime) -> list[dict]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--session", choices=list(SESSIONS))
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args()
     now = datetime.now(NY)
@@ -108,20 +105,19 @@ def main() -> int:
                 print("  ", x["contract"], "bid", x["bid"], "ask", x["ask"], "quoted", x["quote_time"])
             time.sleep(5)
         return 0
-    (h0, m0), (h1, m1) = SESSIONS[a.session]
-    start = now.replace(hour=h0, minute=m0, second=0, microsecond=0)
-    end = now.replace(hour=h1, minute=m1, second=0, microsecond=0)
     if now.weekday() >= 5:
         print("Weekend: nothing to record.")
         return 0
-    # Two start times are scheduled (US summer and winter clocks); only the one near the session start runs.
-    if not (start - timedelta(minutes=30) <= now <= start + timedelta(minutes=25)):
-        print(f"Started at {now:%H:%M} New York time, not near {start:%H:%M}: leaving it to the other scheduled start.")
+    open_, close = now.replace(hour=9, minute=30, second=0, microsecond=0), now.replace(hour=16, minute=20, second=0, microsecond=0)
+    if now < open_ - timedelta(minutes=40) or now >= close - timedelta(minutes=5):
+        print(f"{now:%H:%M} New York time is outside recording hours (09:30-16:20).")
         return 0
-    while datetime.now(NY) < start:
+    while datetime.now(NY) < open_:
         time.sleep(5)
+    begin = datetime.now(NY)
+    end = min(begin + timedelta(minutes=MAX_MINUTES), close)
     OUT.mkdir(parents=True, exist_ok=True)
-    path = OUT / f"{now:%Y-%m-%d}-{a.session}.csv.gz"
+    path = OUT / f"{begin:%Y-%m-%d-%H%M}.csv.gz"
     polls = errors = saved = 0
     seen_today = False
     with gzip.open(path, "wt", newline="") as f:
@@ -133,7 +129,7 @@ def main() -> int:
                 r = rows(feed, t)
                 today = t.strftime("%Y-%m-%d")
                 seen_today = seen_today or any(x["quote_time"].startswith(today) for x in r)
-                if polls >= 30 and not seen_today:
+                if polls >= 360 and not seen_today:
                     print("No quotes dated today after 30 minutes (market holiday?): stopping.")
                     break
                 w.writerows(r)
@@ -142,11 +138,10 @@ def main() -> int:
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
-            nxt = (datetime.now(NY) + timedelta(minutes=1)).replace(second=2, microsecond=0)
-            time.sleep(max(1.0, (nxt - datetime.now(NY)).total_seconds()))
+            time.sleep(max(0.5, EVERY - (datetime.now(NY) - t).total_seconds()))
     if saved == 0 or not seen_today:
         path.unlink(missing_ok=True)
-    print(f"Session {a.session}: {polls} polls, {errors} failed, {saved} rows saved, feed {feed.feed}.")
+    print(f"Recorded {begin:%H:%M}-{datetime.now(NY):%H:%M}: {polls} polls, {errors} failed, {saved} rows saved, feed {feed.feed}.")
     return 0
 
 

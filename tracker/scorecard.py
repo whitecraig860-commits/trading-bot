@@ -2,8 +2,8 @@
 Honest scorecard for the Discord group's posted QQQ option trades
 =================================================================
 Reads the trades as posted (state/discord_trades.csv) and the recorded bid/ask history (state/quotes), and re-prices
-every trade the way a real order would fill: BUY at the ask, SELL at the bid, using the first recorded quote at or
-after the posted time (no more than 2 minutes later). The free quote feed is Alpaca's 'indicative' one: close to,
+every trade the way a real order would fill: BUY at the ask, SELL at the bid, using the recorded quote nearest to
+the posted time (no more than 15 seconds away). The free quote feed is Alpaca's 'indicative' one: close to,
 but not exactly, the real exchange quotes, and the scorecard says which feed each price came from. Trades on days with no recorded quotes are counted, not guessed.
 
   python tracker/scorecard.py
@@ -31,13 +31,14 @@ def quotes_for(day: str) -> pd.DataFrame | None:
 
 
 def fill(q: pd.DataFrame, expiry_hint, typ: str, strike: float, when: pd.Timestamp, side: str):
-    c = q[(q["type"] == typ) & (q["strike"] == strike) & (q["when"] >= when) &
-          (q["when"] <= when + pd.Timedelta(minutes=2))]
+    """The recorded quote nearest in time to the posted fill, no more than 15 seconds away."""
+    c = q[(q["type"] == typ) & (q["strike"] == strike) & ((q["when"] - when).abs() <= pd.Timedelta(seconds=15))]
     if expiry_hint:
         c = c[c["expiry"] == expiry_hint]
     if c.empty:
         return None
-    first = c[c["when"] == c["when"].min()]
+    c = c.assign(gap=(c["when"] - when).abs())
+    first = c[c["gap"] == c["gap"].min()]
     return first, ("ask" if side == "buy" else "bid")
 
 
@@ -56,7 +57,7 @@ def main() -> int:
             b = fill(q, r.expiry, r.type, float(r.strike), pd.Timestamp(f"{r.date} {r.buy_time}"), "buy")
             s = fill(q, r.expiry, r.type, float(r.strike), pd.Timestamp(f"{r.date} {r.sell_time}"), "sell")
             if not b or not s:
-                row["note"] = "no quote within 2 minutes"
+                row["note"] = "no quote within 15 seconds"
             else:
                 # if the expiry isn't known, use the one whose mid price is closest to the posted buy price
                 bq, sq = b[0], s[0]
