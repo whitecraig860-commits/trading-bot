@@ -120,6 +120,13 @@ def main() -> int:
     path = OUT / f"{begin:%Y-%m-%d-%H%M}.csv.gz"
     polls = errors = saved = 0
     seen_today = False
+    bot, last_rows = None, []
+    try:  # the paper bot rides on the same prices; if it breaks, recording carries on without it
+        import qqqbot
+
+        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin)
+    except Exception as exc:
+        print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -135,10 +142,21 @@ def main() -> int:
                 w.writerows(r)
                 f.flush()
                 saved += len(r)
+                last_rows = r
+                if bot and seen_today:
+                    try:
+                        bot.on_poll(t, r)
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} paper bot: {type(exc).__name__}: {str(exc)[:120]}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
             time.sleep(max(0.5, EVERY - (datetime.now(NY) - t).total_seconds()))
+    if bot and seen_today:
+        try:
+            bot.finish(datetime.now(NY), last_rows)
+        except Exception as exc:
+            print(f"Paper bot finish: {type(exc).__name__}: {str(exc)[:120]}")
     if saved == 0 or not seen_today:
         path.unlink(missing_ok=True)
     print(f"Recorded {begin:%H:%M}-{datetime.now(NY):%H:%M}: {polls} polls, {errors} failed, {saved} rows saved, feed {feed.feed}.")

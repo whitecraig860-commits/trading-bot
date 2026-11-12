@@ -32,7 +32,7 @@ allow_shorts = false        # The 10-year test: daily SHORTS lost money (breakou
                             # "auto" = also go short, but only when the wider market is in a downtrend too;
                             # true = shorts everywhere; false = longs only. Shorts need a spread bet, CFD or margin account.
 earnings_warning_days = 7   # flag shares that report earnings within this many days
-daily_summary = true        # send a short "scan done" message every run
+daily_summary = false       # send a short "scan done" message every run
 
 [setups]
 breakout_lookback = 55        # breakout = a close above the highest high of this many bars
@@ -80,12 +80,13 @@ max_risk_pct = 15.0
 # company gets an alert saying which markets it could move and which way, then a check 30 and 120 minutes later
 # of what really happened. Paper only. A free feed is minutes late, so fast traders move first: the checks show
 # whether anything is left to catch.
+only = "QQQ"                # only alert on posts that could move QQQ (US shares in general, or a big Nasdaq company); "" = every market
 enabled = true
 every_minutes = 5
 max_markets = 4
 
 [briefing]
-enabled = true              # a morning briefing on weekdays from 06:30 UK: top news, then indexes, commodities,
+enabled = false             # a morning briefing on weekdays from 06:30 UK: top news, then indexes, commodities,
                             # crypto and currencies, green or red
 
 [lessons]
@@ -125,13 +126,13 @@ summary_lines = 3           # how many lines stay visible before the fold
 
 [leaders]
 top_n = 5                   # weekly momentum ranking: how many to list
-send_on_weekday = 0         # 0 = Monday ... 6 = Sunday; -1 turns it off
+send_on_weekday = -1        # 0 = Monday ... 6 = Sunday; -1 turns it off
 
 [movers]
 # Each scan also checks Yahoo Finance's lists of the day's most traded shares, biggest risers and
 # biggest fallers (like the "most volatile" and "top movers" lists in trading apps).
 # They must pass exactly the same rules as your watchlist: being on a list earns no points.
-enabled = true
+enabled = false
 us_lists = ["most_actives", "day_gainers", "day_losers"]   # also: "small_cap_gainers", "most_shorted_stocks"
 uk = true                   # the biggest London-listed movers too (companies worth over £1bn)
 per_list = 10               # how many from each list
@@ -146,7 +147,7 @@ max_age_hours = 72          # ignore stories older than this
 event_warning_days = 2      # warn in alerts when a big event is this many days away or less
 yahoo_calendar = true       # also look up big US and UK releases on Yahoo's economic calendar
 timezone = "Europe/London"  # times are shown in this time zone
-crypto_news = true          # send the day's top crypto headlines with each nightly scan
+crypto_news = false         # send the day's top crypto headlines with each nightly scan
 crypto_symbols = ["BTC-USD", "ETH-USD", "SOL-USD"]
 # Big scheduled events (UK time). Add your own; the bot warns you when one is near.
 events = [
@@ -184,7 +185,7 @@ big_move_pct = 3            # flag any market 3% or more away from yesterday's c
 big_move_atr = 2.5          # ...or moving more than 2.5x a normal day for that market
 breakouts_in_progress = true  # flag breakouts happening during the day (confirmed only at the close)
 stop_warnings = true        # tell you when a paper trade's stop is hit during the day
-held_news = true            # send new headlines on markets the paper account holds
+held_news = false           # send new headlines on markets the paper account holds
 
 [history]
 enabled = true              # add each setup's own past record on that market to its alert
@@ -218,7 +219,7 @@ min_replay_avg_r = -1       # e.g. 0.1 blocks trades whose time machine average 
 # how many watchlist markets are above their 200-day average, and whether that favours longs or shorts.
 enabled = true
 send_with_scan = true       # send a short market read with every nightly scan
-markets = ["SPY", "QQQ", "IWM", "^FTSE", "BTC-USD", "GC=F"]   # your group benchmarks are added too
+markets = ["QQQ"]   # your group benchmarks are added too
 fear_gauge = "^VIX"         # the US "fear index"; "" turns it off
 
 [pulse]
@@ -228,7 +229,7 @@ start_scalper = false       # the scalper is retired (see [scalper] retired)
 # approaches has actually made money on that market over the last 60 days; and whether that approach has a signal
 # right now. You get a brief when each market opens, a message when its character changes, signals for the
 # approach that's working, and a WON/LOST message for every paper trade it follows.
-markets = ["GC=F", "SPY", "QQQ", "IWM", "^FTSE", "BTC-USD"]   # gold, S&P 500, Nasdaq, Russell 2000, FTSE 100, Bitcoin
+markets = ["QQQ"]   # gold, S&P 500, Nasdaq, Russell 2000, FTSE 100, Bitcoin
 every_minutes = 5
 run_scan = true             # the pulse runs the nightly scan itself at 00:25 UTC (GitHub's schedule ran it up to 6.5 hours late)
 send_open_brief = true      # a summary when each market opens
@@ -253,8 +254,8 @@ costs = { "SPY" = 0.005, "QQQ" = 0.005, "IWM" = 0.01, "GC=F" = 0.01, "^FTSE" = 0
 # market over the following months. "python bot.py insiders" reads the filings (GitHub does it every morning);
 # the nightly scan then scores the strongest ones as "Copy the insiders" trades and paper-trades them.
 # US shares only. Insider SALES are ignored: people sell for many reasons that say nothing about the company.
-enabled = true
-live = true                 # also read EDGAR's live feed every 10 minutes while the pulse runs (alerts within minutes)
+enabled = false
+live = false                # also read EDGAR's live feed every 10 minutes while the pulse runs (alerts within minutes)
 trade_now = true            # score a fresh insider cluster on the chart at once and copy it on paper straight away
                             # (at the live price while the US market is open, otherwise at the next open)
 live_every_minutes = 10
@@ -375,20 +376,9 @@ event_blackout_minutes = 30 # no new trades 30 min either side of Fed, jobs and 
 # crypto like BTC-USD; currency pairs like GBPUSD=X; gold futures GC=F; indexes start with ^.
 # Exchange data for crypto (needs ccxt installed): "kraken:BTC/GBP".
 
+# QQQ-only focus (12 Nov 2026): the watchlist is just QQQ. The other groups (UK shares, crypto, gold and so on) were
+# removed at the owner's request; open paper trades from before are still managed until they close. To bring a
+# group back, add e.g.  [groups.uk]  benchmark = "^FTSE"  symbols = ["ISF.L", "AZN.L"]
 [groups.us]
 benchmark = "SPY"
-symbols = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "JPM", "XOM"]
-
-[groups.uk]
-benchmark = "^FTSE"
-symbols = ["ISF.L", "AZN.L", "SHEL.L", "HSBA.L", "ULVR.L", "RR.L", "BARC.L", "BP.L"]
-
-[groups.crypto]
-benchmark = "BTC-USD"
-symbols = ["BTC-USD", "ETH-USD", "SOL-USD"]
-
-[groups.popular]
-# Gold, silver, Brent oil, the S&P 500, Nasdaq 100 and FTSE 100 indexes, and two currency pairs.
-# Indexes can't be bought directly: trade them through an ETF (like ISF.L or SPY) or a spread bet.
-benchmark = ""
-symbols = ["GC=F", "SI=F", "BZ=F", "^GSPC", "^NDX", "^FTSE", "GBPUSD=X", "EURUSD=X"]
+symbols = ["QQQ"]

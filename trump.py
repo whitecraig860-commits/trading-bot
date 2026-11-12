@@ -48,6 +48,9 @@ RULES = [
 ]
 
 
+# Markets whose moves carry QQQ with them: US shares in general and the biggest Nasdaq-100 companies
+QQQ_PROXIES = {"QQQ", "SPY", "AAPL", "TSLA", "NVDA", "INTC", "AMZN", "META", "GOOGL", "MSFT", "NFLX"}
+
 COMPANIES = {
     "apple": "AAPL", "tesla": "TSLA", "nvidia": "NVDA", "intel": "INTC", "boeing": "BA", "amazon": "AMZN",
     "meta": "META", "facebook": "META", "google": "GOOGL", "microsoft": "MSFT", "exxon": "XOM", "walmart": "WMT",
