@@ -2,18 +2,22 @@ name: Option price recorder (read-only)
 
 on:
   schedule:
-    # Two starts per session (US summer and winter clocks); the script only runs the one near the session start.
-    - cron: "5 13,14 * * 1-5"    # morning session, 09:30-13:05 New York time
-    - cron: "20 16,17 * * 1-5"   # afternoon session, 12:45-16:20 New York time
+    # Backup starts only: the watchdog starts this within minutes of the US open, and each run starts the next.
+    - cron: "5 13,14 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  actions: write   # only to start its own next run
+
+concurrency:
+  group: recorder
+  cancel-in-progress: false
 
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 270
+    timeout-minutes: 260
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -25,8 +29,7 @@ jobs:
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
           ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
-        run: |
-          if [ "$(date -u +%H)" -lt 15 ]; then python tracker/recorder.py --session am; else python tracker/recorder.py --session pm; fi
+        run: python tracker/recorder.py
       - name: Save the recorded prices
         if: always()
         run: |
@@ -38,3 +41,10 @@ jobs:
             git pull --rebase
             git push
           fi
+      - name: Start the next run if the market is still open
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          hm=$((10#$(TZ=America/New_York date +%H%M))); day=$(TZ=America/New_York date +%u)
+          if [ "$day" -le 5 ] && [ "$hm" -ge 930 ] && [ "$hm" -lt 1610 ]; then gh workflow run recorder.yml -R "${{ github.repository }}" --ref main; fi

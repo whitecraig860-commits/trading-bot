@@ -20,6 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Is the option price recorder running during US market hours? If not, start it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          hm=$((10#$(TZ=America/New_York date +%H%M))); day=$(TZ=America/New_York date +%u)
+          if [ "$day" -gt 5 ] || [ "$hm" -lt 905 ] || [ "$hm" -ge 1610 ]; then echo "Outside recording hours."; exit 0; fi
+          n=$(gh run list -R "$REPO" --workflow recorder.yml --limit 10 --json status --jq '[.[] | select(.status!="completed")] | length') || { echo "Couldn't ask GitHub."; exit 0; }
+          if [ "$n" -gt 0 ]; then echo "The recorder is running."; exit 0; fi
+          gh workflow run recorder.yml -R "$REPO" --ref main && echo "Started the recorder." || echo "Could not start the recorder; trying again in 10 minutes."
       - name: Is the market pulse running? If not, restart it and say so
         env:
           GH_TOKEN: ${{ github.token }}
