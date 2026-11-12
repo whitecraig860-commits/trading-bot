@@ -4363,6 +4363,12 @@ def trump_chores(cfg: dict, args, ps: dict) -> list[str]:
         if first_run or (post["when"] is not None and (now - post["when"]).total_seconds() > 90 * 60):
             continue  # old posts aren't news any more
         effects = trump.read_post(post["text"])
+        only = str(tc.get("only", "") or "")
+        if only:  # fold everything that moves US tech shares into the one market being traded; drop the rest
+            net = [h for h in effects if h["market"] in trump.QQQ_PROXIES]
+            score = sum(h["direction"] for h in net)
+            effects = [dict(net[0], market=only, direction=1 if score > 0 else -1,
+                            why="; ".join(dict.fromkeys(h["why"] for h in net)))] if net and score else []
         if not effects:
             continue
         lines = [f"🇺🇸 <b>TRUMP POST</b> · {ago(post['when'])}",
