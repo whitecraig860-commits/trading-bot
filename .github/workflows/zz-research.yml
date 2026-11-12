@@ -1,0 +1,22 @@
+name: TEMP research run (delete before merging)
+on:
+  push:
+    branches: ["claude/research-uk-trend"]
+permissions:
+  contents: read
+jobs:
+  study4-uk-trend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Study 4 - UK investor trend following in GBP (read-only market data; no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        run: python -W ignore research/uk_trend_study.py
