@@ -3,8 +3,8 @@ name: Option price recorder (read-only)
 on:
   schedule:
     # Two starts per session (US summer and winter clocks); the script only runs the one near the session start.
-    - cron: "5 13,14 * * 1-5"    # morning session, 09:30-12:45 New York time
-    - cron: "20 16,17 * * 1-5"   # afternoon session, 12:45-16:00 New York time
+    - cron: "5 13,14 * * 1-5"    # morning session, 09:30-13:05 New York time
+    - cron: "20 16,17 * * 1-5"   # afternoon session, 12:45-16:20 New York time
   workflow_dispatch: {}
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 250
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

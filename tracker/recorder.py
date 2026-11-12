@@ -8,8 +8,8 @@ places an order and never touches the trading account.
 Each minute it saves, for QQQ options expiring today and on the next expiry, with strikes within $10 of the share
 price: bid, ask, sizes, the time of that quote, the last trade, and the QQQ share price.
 
-  python tracker/recorder.py --session am     09:30-12:45 New York time
-  python tracker/recorder.py --session pm     12:45-16:00 New York time
+  python tracker/recorder.py --session am     09:30-13:05 New York time
+  python tracker/recorder.py --session pm     12:45-16:20 New York time
   python tracker/recorder.py --test           3 quick polls right now, printed, nothing saved
 """
 
@@ -25,7 +25,9 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 NY = ZoneInfo("America/New_York")
-SESSIONS = {"am": ((9, 30), (12, 45)), "pm": ((12, 45), (16, 0))}
+# Free Alpaca option quotes can arrive up to 15 minutes late, so each session runs 20 minutes past its end and
+# the two overlap; every row keeps the time the quote was actually made (quote_time).
+SESSIONS = {"am": ((9, 30), (13, 5)), "pm": ((12, 45), (16, 20))}
 OUT = Path(__file__).resolve().parent.parent / "state" / "quotes"
 FIELDS = ["poll_time", "contract", "expiry", "type", "strike", "bid", "ask", "bid_size", "ask_size", "quote_time",
           "last", "last_time", "qqq", "feed"]
@@ -121,6 +123,7 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / f"{now:%Y-%m-%d}-{a.session}.csv.gz"
     polls = errors = saved = 0
+    seen_today = False
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -129,8 +132,9 @@ def main() -> int:
             try:
                 r = rows(feed, t)
                 today = t.strftime("%Y-%m-%d")
-                if polls <= 3 and r and not any(x["quote_time"].startswith(today) for x in r):
-                    print("No quotes dated today (market holiday?): stopping.")
+                seen_today = seen_today or any(x["quote_time"].startswith(today) for x in r)
+                if polls >= 30 and not seen_today:
+                    print("No quotes dated today after 30 minutes (market holiday?): stopping.")
                     break
                 w.writerows(r)
                 f.flush()
@@ -140,7 +144,7 @@ def main() -> int:
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
             nxt = (datetime.now(NY) + timedelta(minutes=1)).replace(second=2, microsecond=0)
             time.sleep(max(1.0, (nxt - datetime.now(NY)).total_seconds()))
-    if saved == 0:
+    if saved == 0 or not seen_today:
         path.unlink(missing_ok=True)
     print(f"Session {a.session}: {polls} polls, {errors} failed, {saved} rows saved, feed {feed.feed}.")
     return 0
