@@ -41,7 +41,7 @@ def alpaca_bars(stock_client):
         df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols="QQQ", timeframe=TimeFrame.Minute,
                                                           start=start, feed=DataFeed.IEX)).df
         if df is None or df.empty:
-            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"], index=pd.DatetimeIndex([]))
         d = df.xs("QQQ", level=0)[["open", "high", "low", "close", "volume"]].astype(float)
         d.index = pd.DatetimeIndex(d.index).tz_convert("America/New_York").tz_localize(None)
         return d.between_time("09:30", "15:59")
@@ -98,7 +98,7 @@ class PaperBot:
                     self.prev = p.tail(300)
                     break
             if self.prev is None:
-                self.prev = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+                self.prev = pd.DataFrame(columns=["open", "high", "low", "close", "volume"], index=pd.DatetimeIndex([]))
         b = self.bars_fn(now)
         b = b[(b.index.normalize() == pd.Timestamp(self.day)) & (b.index <= want)]
         self.bars = b
