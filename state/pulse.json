@@ -294,7 +294,7 @@
     }
    },
    "record_at": "2026-11-12T23:50:40.001065+00:00",
-   "last_bar": "2026-11-13 00:15:00+00:00",
+   "last_bar": "2026-11-13 00:20:00+00:00",
    "brief_day": "2026-11-13",
    "stance": "down|None",
    "pending": null,
@@ -485,7 +485,9 @@
   "https://www.trumpstruth.org/statuses/43560",
   "https://www.trumpstruth.org/statuses/43561",
   "https://www.trumpstruth.org/statuses/43562",
-  "https://www.trumpstruth.org/statuses/43563"
+  "https://www.trumpstruth.org/statuses/43563",
+  "https://www.trumpstruth.org/statuses/43564",
+  "https://www.trumpstruth.org/statuses/43565"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -505,10 +507,10 @@
    "last": 1794459641.3043454
   },
   "nightly scan": {
-   "day": "2026-11-12",
+   "day": "2026-11-13",
    "tries": 1,
    "done": true,
-   "last": 1794443141.8131561
+   "last": 1794529541.402293
   },
   "weekly learning": {
    "day": "2026-11-06",
@@ -523,7 +525,7 @@
    "last": 1794465041.5383055
   }
  },
- "scan_day": "2026-11-12",
+ "scan_day": "2026-11-13",
  "trump_record": {
   "Iran / war / strikes": [
    3,
