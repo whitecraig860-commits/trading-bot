@@ -127,6 +127,15 @@ def main() -> int:
         bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin)
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    shares = None
+    try:  # the separate one-a-day SHARES paper bot; an error here never affects anything else
+        import sharesbot
+
+        if sharesbot.ENABLED:
+            shares = sharesbot.SharesBot(qqqbot.alpaca_bars(feed.stk), lambda n: sharesbot.history_bars(feed.stk, n),
+                                         begin, qqqbot.send_telegram)
+    except Exception as exc:
+        print(f"Shares bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -148,6 +157,11 @@ def main() -> int:
                         bot.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} paper bot: {type(exc).__name__}: {str(exc)[:120]}")
+                if shares and seen_today:
+                    try:
+                        shares.on_poll(t)
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
