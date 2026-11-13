@@ -4258,14 +4258,30 @@ def dispatch_workflow(name: str) -> bool:
         return False
 
 
-def scalper_runs_today() -> list[dict] | None:
-    """The scalper's GitHub runs from the last 24 hours: [{status, minutes, created}] (None if GitHub can't be asked)."""
+def recorder_supervisor(state: dict) -> None:
+    """Keeps the option price recorder and QQQ paper bot (recorder.yml) running through the US session. GitHub's
+    own schedules, the watchdog's included, have run hours late on this repo, so the all-day pulse checks every
+    5 minutes from 09:05 to 16:05 New York time and starts the recorder if no run of it is going."""
+    ny = pd.Timestamp.now(tz="America/New_York")
+    mins = ny.hour * 60 + ny.minute
+    if ny.weekday() >= 5 or not (9 * 60 + 5 <= mins < 16 * 60 + 5) or time.time() - state.get("recorder_check", 0) < 300:
+        return
+    state["recorder_check"] = time.time()
+    runs = scalper_runs_today("recorder.yml")
+    if runs is None:
+        return
+    if not any(r["status"] != "completed" for r in runs):
+        dispatch_workflow("recorder.yml")
+
+
+def scalper_runs_today(workflow: str = "scalper.yml") -> list[dict] | None:
+    """A workflow's GitHub runs from the last 24 hours: [{status, minutes, created}] (None if GitHub can't be asked)."""
     import subprocess
 
     if not (os.environ.get("GH_TOKEN") and os.environ.get("GITHUB_ACTIONS")):
         return None
     try:
-        r = subprocess.run(["gh", "run", "list", "--workflow", "scalper.yml", "--limit", "8", "--json",
+        r = subprocess.run(["gh", "run", "list", "--workflow", workflow, "--limit", "8", "--json",
                             "status,createdAt,updatedAt,conclusion"], capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
             return None
@@ -4586,6 +4602,11 @@ def pulse_chores(cfg: dict, args, ps: dict, state: dict) -> list[str]:
             msgs += scalper_supervisor(ps, str(cfg.get("scalper", {}).get("last_entry", "11:30")))
         except Exception as exc:
             print(f"Scalper supervisor: {exc}")
+    # 1b) Keep the option price recorder and QQQ paper bot running through the US session
+    try:
+        recorder_supervisor(state)
+    except Exception as exc:
+        print(f"Recorder supervisor: {exc}")
     # 2) The daily insider catch-up (every filing from the previous days), once a day
     if cc.get("enabled", True) and not OFFLINE and 5 <= now.hour < 21:
         daily_job(ps, "insider catch-up", today, lambda: update_insiders(cfg, log=print), max_tries=4, gap_minutes=30)
