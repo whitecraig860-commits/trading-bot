@@ -463,6 +463,27 @@
 "findings": [
 "gapped through the stop"
 ]
+},
+{
+"id": "0ILL.L|breakout|2026-11-06",
+"kind": "daily",
+"setup": "breakout",
+"symbol": "0ILL.L",
+"r": -1.0410087179444778,
+"conditions": [
+"3+ ATR from the 20-day average (chasing)",
+"signal day was a huge move (2+ ATR)",
+"heavy volume (1.5x+)",
+"steady trend (ADX 20-30)",
+"lively market (2-4% a day)",
+"score 60-79",
+"regime: market agrees",
+"confidence: NORMAL"
+],
+"date": "2026-11-13",
+"findings": [
+"gave it back"
+]
 }
 ],
 "pending": [
@@ -525,15 +546,27 @@
 "reason": "stop (gapped through)",
 "r": -1.286699144424134,
 "setup": "breakout"
+},
+{
+"id": "0ILL.L|breakout|2026-11-06",
+"symbol": "0ILL.L",
+"exit_date": "2026-11-13",
+"entry": 68.30000305175781,
+"stop": 65.04829691104564,
+"exit": 65.04829691104564,
+"long": true,
+"reason": "stop",
+"r": -1.0410087179444778,
+"setup": "breakout"
 }
 ],
 "paper_tables": {
 "daily|breakout": {
 "all": {
-"n": 2,
-"avg": -1.1536165314580578,
+"n": 3,
+"avg": -1.1160805936201978,
 "win": 0.0,
-"sd": 0.18820723617267457
+"sd": 0.14811421863542176
 },
 "cond": {
 "2-3 ATR from the 20-day average (stretched)": {
@@ -549,10 +582,10 @@
 "sd": 0.0
 },
 "heavy volume (1.5x+)": {
-"n": 1,
-"avg": -1.286699144424134,
+"n": 2,
+"avg": -1.163853931184306,
 "win": 0.0,
-"sd": 0.0
+"sd": 0.1737293666363798
 },
 "strong trend (ADX 30+)": {
 "n": 1,
@@ -573,14 +606,50 @@
 "sd": 0.0
 },
 "regime: market agrees": {
+"n": 2,
+"avg": -1.163853931184306,
+"win": 0.0,
+"sd": 0.1737293666363798
+},
+"confidence: HIGH": {
 "n": 1,
 "avg": -1.286699144424134,
 "win": 0.0,
 "sd": 0.0
 },
-"confidence: HIGH": {
+"3+ ATR from the 20-day average (chasing)": {
 "n": 1,
-"avg": -1.286699144424134,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
+},
+"signal day was a huge move (2+ ATR)": {
+"n": 1,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
+},
+"steady trend (ADX 20-30)": {
+"n": 1,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
+},
+"lively market (2-4% a day)": {
+"n": 1,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
+},
+"score 60-79": {
+"n": 1,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
+},
+"confidence: NORMAL": {
+"n": 1,
+"avg": -1.0410087179444778,
 "win": 0.0,
 "sd": 0.0
 }
@@ -597,10 +666,17 @@
 "avg": -1.286699144424134,
 "win": 0.0,
 "sd": 0.0
+},
+"0ILL.L": {
+"n": 1,
+"avg": -1.0410087179444778,
+"win": 0.0,
+"sd": 0.0
 }
 },
 "finding": {
-"gapped through the stop": 1
+"gapped through the stop": 1,
+"gave it back": 1
 }
 },
 "daily|pullback": {
