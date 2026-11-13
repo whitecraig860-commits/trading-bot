@@ -2751,7 +2751,12 @@
 "0001225208-26-008910": "20261112",
 "0001225208-26-008909": "20261112",
 "0001225208-26-008908": "20261112",
-"0001225208-26-008907": "20261112"
+"0001225208-26-008907": "20261112",
+"0001780649-26-000016": "20261112",
+"0001818383-26-000276": "20261112",
+"0001683168-26-008638": "20261112",
+"0001140361-26-043488": "20261112",
+"0001193125-26-458941": "20261112"
 },
 "buys": [
 {
@@ -36684,6 +36689,48 @@
 "avg_price": 135.50161225386134,
 "increase_pct": 0.0,
 "trade_date": "2026-11-10"
+},
+{
+"symbol": "RDNT",
+"issuer": "RadNet, Inc.",
+"owner": "Patel Mital",
+"owner_id": "0001690084",
+"title": "EVP, Chief Operating Officer",
+"director": false,
+"officer": true,
+"ten_pct": false,
+"top": true,
+"plan": false,
+"filed": "2026-11-12",
+"path": "edgar/data/1690084/0001683168-26-008638.txt",
+"acc": "0001683168-26-008638",
+"kind": "sell",
+"shares": 44661.0,
+"value": 3506335.1100000003,
+"avg_price": 78.51,
+"increase_pct": 0.0,
+"trade_date": "2026-11-11"
+},
+{
+"symbol": "IQV",
+"issuer": "IQVIA HOLDINGS INC.",
+"owner": "Sherbet Eric",
+"owner_id": "0001679512",
+"title": "See Remarks",
+"director": false,
+"officer": true,
+"ten_pct": false,
+"top": false,
+"plan": false,
+"filed": "2026-11-12",
+"path": "edgar/data/1679512/0001193125-26-458941.txt",
+"acc": "0001193125-26-458941",
+"kind": "sell",
+"shares": 4446.0,
+"value": 1239678.18,
+"avg_price": 278.83,
+"increase_pct": 0.0,
+"trade_date": "2026-11-09"
 }
 ],
 "routine": {
@@ -37151,6 +37198,6 @@
 "BLMN": "2026-11-12",
 "EQPT": "2026-11-12"
 },
-"updated": "2026-11-13T00:20:52.684030+00:00",
+"updated": "2026-11-13T00:45:42.894922+00:00",
 "alerts_seeded": true
 }
