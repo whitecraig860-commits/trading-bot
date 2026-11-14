@@ -43,6 +43,12 @@ class Publisher:
             if self.sha is None:
                 r = requests.get(url, headers=h, params={"ref": BRANCH}, timeout=10)
                 self.sha = r.json().get("sha") if r.ok else None
+                if r.status_code == 404:  # first run ever: make the branch from main
+                    api = f"https://api.github.com/repos/{self.repo}/git"
+                    m = requests.get(f"{api}/ref/heads/main", headers=h, timeout=10)
+                    if m.ok:
+                        requests.post(f"{api}/refs", headers=h, timeout=10,
+                                      json={"ref": f"refs/heads/{BRANCH}", "sha": m.json()["object"]["sha"]})
             body = {"message": "live page data", "branch": BRANCH, "committer": {
                 "name": "setup-scanner-bot", "email": "setup-scanner-bot@users.noreply.github.com"},
                 "content": base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()}
