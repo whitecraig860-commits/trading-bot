@@ -24,7 +24,8 @@ import pandas as pd
 
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
-TRADE_MESSAGES = True   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
+TRADE_MESSAGES = True
+MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
 GBP = 0.76
@@ -155,7 +156,17 @@ class PaperBot:
             except Exception as exc:
                 print(f"{tod} bars: {type(exc).__name__}: {str(exc)[:100]}")
                 sig = None
-            if sig and not self.s["open"] and tod < FLAT:
+            run = 0
+            for tr in reversed(self.s["trades"]):
+                if tr["pnl"] >= 0:
+                    break
+                run += 1
+            stopped = bool(MAX_LOSSES_IN_A_ROW) and run >= MAX_LOSSES_IN_A_ROW
+            if stopped and "stopped" not in self.s["sent"]:
+                self.s["sent"].append("stopped")
+                self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
+                self.save()
+            if sig and not self.s["open"] and tod < FLAT and not stopped:
                 side, trig, px = sig
                 today = now.strftime("%Y-%m-%d")
                 exps = sorted({k[0] for k in quotes if k[0] > today})
