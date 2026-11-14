@@ -1,0 +1,19 @@
+Study 7. 670 days, 26,516 signals. Protocol: research/LOSS_PAUSE_PROTOCOL.md
+
+rule   cents  trades   per day  holdout/day  vs BASE/day  paired t
+BASE       1   18201    -95.19      -105.10        +0.00      +nan
+BASE       2   18201   -149.52      -159.11        +0.00      +nan
+W10        1   12628    -63.90       -68.93       +31.30    +14.03
+W10        2   12374    -99.78      -105.94       +49.74    +20.69
+W20        1   10359    -52.62       -55.55       +42.57    +18.46
+W20        2   10065    -81.80       -86.05       +67.73    +26.54
+S2         1    6477    -38.25       -42.52       +56.94    +20.05
+S2         2    6240    -55.86       -60.42       +93.66    +27.64
+S3         1   12082    -65.08       -70.16       +30.11    +13.07
+S3         2   11523    -97.50      -102.70       +52.02    +17.93
+
+ADOPTION (§ adoption line): S2 passes and is adopted
+   W10: PASS (paired t +14.03)
+   W20: PASS (paired t +18.46)
+   S2: PASS (paired t +20.05)
+   S3: PASS (paired t +13.07)
