@@ -65,7 +65,7 @@ class Publisher:
             self.busy = False
 
 
-def payload(now, bot, shares) -> dict:
+def payload(now, bot, shares, original=None) -> dict:
     bars = []
     if bot is not None and getattr(bot, "bars", None) is not None and len(bot.bars):
         bars = [[t.strftime("%H:%M"), round(float(c), 2)] for t, c in bot.bars.close.items()]
@@ -74,4 +74,6 @@ def payload(now, bot, shares) -> dict:
         out["options"] = {"trades": bot.s["trades"], "open": bot.s["open"]}
     if shares is not None:
         out["shares"] = shares.s.get("trade")
+    if original is not None:
+        out["original"] = {"trades": original.s["trades"], "open": original.s["open"]}
     return json.loads(json.dumps(out, default=float))
