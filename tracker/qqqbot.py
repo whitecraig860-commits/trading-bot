@@ -24,7 +24,8 @@ import pandas as pd
 
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
-TRADE_MESSAGES = True   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
+TRADE_MESSAGES = True
+MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
 GBP = 0.76
@@ -67,8 +68,12 @@ def send_telegram(text: str) -> bool:
 
 
 class PaperBot:
-    def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE):
+    def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
+                 max_losses: int | None = None, trade_messages: bool | None = None):
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
+        self.name = name
+        self.max_losses = MAX_LOSSES_IN_A_ROW if max_losses is None else max_losses
+        self.trade_messages = TRADE_MESSAGES if trade_messages is None else trade_messages
         self.day = now.strftime("%Y-%m-%d")
         self.path = self.dir / f"{self.day}.json"
         self.s = {"trades": [], "open": None, "range_done": [], "sent": [], "seen_bars": 0}
@@ -155,7 +160,17 @@ class PaperBot:
             except Exception as exc:
                 print(f"{tod} bars: {type(exc).__name__}: {str(exc)[:100]}")
                 sig = None
-            if sig and not self.s["open"] and tod < FLAT:
+            run = 0
+            for tr in reversed(self.s["trades"]):
+                if tr["pnl"] >= 0:
+                    break
+                run += 1
+            stopped = bool(self.max_losses) and run >= self.max_losses
+            if stopped and "stopped" not in self.s["sent"]:
+                self.s["sent"].append("stopped")
+                self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
+                self.save()
+            if sig and not self.s["open"] and tod < FLAT and not stopped:
                 side, trig, px = sig
                 today = now.strftime("%Y-%m-%d")
                 exps = sorted({k[0] for k in quotes if k[0] > today})
@@ -191,7 +206,7 @@ class PaperBot:
         self.save()
 
     def _tell(self, text: str):
-        if TRADE_MESSAGES:
+        if self.trade_messages:
             try:
                 self.say(text)
             except Exception:
@@ -203,7 +218,7 @@ class PaperBot:
         wins = [t for t in tr if t["pnl"] > 0]
         total = sum(t["pnl"] for t in tr)
         lines = [f"📊 <b>{title}</b> ({pd.Timestamp(self.day):%a %d %b})",
-                 f"QQQ paper bot: {len(tr)} trades · {len(wins)}W / {len(tr) - len(wins)}L · <b>{total:+,.0f} USD</b> (£{total * GBP:+,.0f})"]
+                 f"QQQ paper bot{' (' + self.name + ')' if self.name else ''}: {len(tr)} trades · {len(wins)}W / {len(tr) - len(wins)}L · <b>{total:+,.0f} USD</b> (£{total * GBP:+,.0f})"]
         for trig in ("VWAP", "EMA50", "RANGE"):
             g = [t for t in tr if t["trigger"] == trig]
             if g:
