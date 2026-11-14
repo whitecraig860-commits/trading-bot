@@ -1,0 +1,54 @@
+Study 5. QQQ one-minute bars: 261,014 from 2024-03-01 09:30:00 to 2026-10-30 15:59:00, 670 days. Protocol: research/QQQ_TRIGGERS_PROTOCOL.md. One contract per trade.
+Signals 09:45-15:30: 26,516 (39.6 a day): EMA50 18,988, VWAP 6,637, RANGE 891
+Base run: 18,201 trades, 214 signals skipped for no option price (568s)
+
+=== BASE CASE (all three triggers, target +2.5%, stop -6%, 10-minute limit, conservative ordering) ===
+0 cent(s) per side                  18201 trades (27.2/day)  win  65%  avg win $  7.5  avg loss $ -18.1  per trade $ -1.50  per day $ -40.86 (£-31.05)  t -13.22  total $-27,376
+1 cent(s) per side  <- base         18201 trades (27.2/day)  win  65%  avg win $  5.5  avg loss $ -20.0  per trade $ -3.50  per day $ -95.19 (£-72.35)  t -28.24  total $-63,778
+2 cent(s) per side                  18201 trades (27.2/day)  win  61%  avg win $  3.7  avg loss $ -20.0  per trade $ -5.50  per day $-149.52 (£-113.64)  t -39.90  total $-100,180
+
+Exit reasons: target 11,769, stop 5,384, stop (gap) 777, time 271; median hold 1 min
+
+--- By trigger (1 cent)
+EMA50                               12624 trades (18.8/day)  win  65%  avg win $  5.4  avg loss $ -19.9  per trade $ -3.53  per day $ -66.55 (£-50.58)  t -25.01  total $-44,590
+RANGE                                 883 trades ( 1.3/day)  win  60%  avg win $  6.1  avg loss $ -21.5  per trade $ -4.89  per day $  -6.44 (£ -4.90)  t -11.07  total $-4,316
+VWAP                                 4694 trades ( 7.0/day)  win  66%  avg win $  5.6  avg loss $ -20.3  per trade $ -3.17  per day $ -22.20 (£-16.87)  t -12.01  total $-14,873
+
+--- By side (1 cent)
+calls                                9137 trades (13.6/day)  win  66%  avg win $  5.6  avg loss $ -20.3  per trade $ -3.31  per day $ -45.09 (£-34.27)  t -20.35  total $-30,208
+puts                                 9064 trades (13.5/day)  win  64%  avg win $  5.4  avg loss $ -19.8  per trade $ -3.70  per day $ -50.11 (£-38.08)  t -22.81  total $-33,571
+
+--- By year (1 cent)
+2024                                 5634 trades (26.7/day)  win  65%  avg win $  3.7  avg loss $ -16.1  per trade $ -3.13  per day $ -83.64 (£-63.57)  t -18.97  total $-17,648
+2025                                 6923 trades (27.7/day)  win  65%  avg win $  5.5  avg loss $ -20.0  per trade $ -3.49  per day $ -96.66 (£-73.46)  t -18.50  total $-24,165
+2026                                 5644 trades (27.0/day)  win  64%  avg win $  7.3  avg loss $ -24.0  per trade $ -3.89  per day $-105.10 (£-79.87)  t -14.74  total $-21,965
+
+--- By time of day (1 cent)
+09:45-10:30                          3915 trades ( 5.8/day)  win  63%  avg win $  6.2  avg loss $ -21.9  per trade $ -4.17  per day $ -24.39 (£-18.53)  t -12.52  total $-16,340
+10:30-12:00                          4864 trades ( 7.3/day)  win  66%  avg win $  5.7  avg loss $ -20.8  per trade $ -3.22  per day $ -23.35 (£-17.74)  t -14.79  total $-15,643
+12:00-14:00                          5268 trades ( 7.9/day)  win  64%  avg win $  5.2  avg loss $ -19.1  per trade $ -3.54  per day $ -27.80 (£-21.13)  t -17.34  total $-18,629
+14:00-15:30                          4154 trades ( 6.2/day)  win  65%  avg win $  5.0  avg loss $ -18.5  per trade $ -3.17  per day $ -19.65 (£-14.94)  t -14.54  total $-13,167
+
+--- Holdout (2026 onward)
+0 cent(s) per side                   5644 trades (27.0/day)  win  64%  avg win $  9.3  avg loss $ -22.0  per trade $ -1.89  per day $ -51.09 (£-38.83)  t -8.02  total $-10,677
+1 cent(s) per side                   5644 trades (27.0/day)  win  64%  avg win $  7.3  avg loss $ -24.0  per trade $ -3.89  per day $-105.10 (£-79.87)  t -14.74  total $-21,965
+2 cent(s) per side                   5644 trades (27.0/day)  win  64%  avg win $  5.3  avg loss $ -25.9  per trade $ -5.89  per day $-159.11 (£-120.92)  t -19.75  total $-33,253
+
+=== PASS / FAIL (§7) ===
+   fail  1. mean daily profit > 0 with t >= 2 at 1 cent  ($-95.19, t -28.24, p 1.000)
+   fail  2. positive in the holdout at 1 cent  ($-105.10 a day)
+   fail  3. positive at 2 cents  ($-149.52 a day)
+VERDICT: FAILS
+Days with a loss (1 cent): 93%; best day $+95; worst day $-524; worst run of losses $-63,706
+
+=== SENSITIVITY (1 cent; reported, never picked) ===
+optimistic ordering                 18201 trades (27.2/day)  win  66%  avg win $  5.5  avg loss $ -20.0  per trade $ -3.04  per day $ -82.68 (£-62.84)  t -25.31  total $-55,396
+target 2%                           18905 trades (28.2/day)  win  68%  avg win $  4.0  avg loss $ -20.1  per trade $ -3.63  per day $-102.53 (£-77.92)  t -30.82  total $-68,697
+target 4%                           16697 trades (24.9/day)  win  57%  avg win $ 10.0  avg loss $ -19.8  per trade $ -2.84  per day $ -70.88 (£-53.87)  t -20.78  total $-47,491
+stop 4%                             20667 trades (30.8/day)  win  56%  avg win $  5.5  avg loss $ -14.4  per trade $ -3.21  per day $ -98.88 (£-75.15)  t -33.16  total $-66,252
+stop 10%                            15708 trades (23.4/day)  win  73%  avg win $  5.5  avg loss $ -28.7  per trade $ -3.85  per day $ -90.21 (£-68.56)  t -26.91  total $-60,444
+time limit 5 min                    18717 trades (27.9/day)  win  63%  avg win $  5.5  avg loss $ -18.7  per trade $ -3.42  per day $ -95.61 (£-72.66)  t -28.02  total $-64,058
+time limit 20 min                   18085 trades (27.0/day)  win  65%  avg win $  5.5  avg loss $ -20.5  per trade $ -3.51  per day $ -94.69 (£-71.96)  t -28.06  total $-63,443
+VWAP only                            4916 trades ( 7.3/day)  win  66%  avg win $  5.6  avg loss $ -20.2  per trade $ -3.17  per day $ -23.29 (£-17.70)  t -11.85  total $-15,602
+EMA50 only                          12755 trades (19.0/day)  win  65%  avg win $  5.4  avg loss $ -19.9  per trade $ -3.53  per day $ -67.17 (£-51.05)  t -25.28  total $-45,006
+RANGE only                            885 trades ( 1.3/day)  win  60%  avg win $  6.1  avg loss $ -21.5  per trade $ -4.86  per day $  -6.41 (£ -4.88)  t -11.07  total $-4,298
