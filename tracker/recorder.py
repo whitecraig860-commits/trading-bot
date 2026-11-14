@@ -124,9 +124,31 @@ def main() -> int:
     try:  # the paper bot rides on the same prices; if it breaks, recording carries on without it
         import qqqbot
 
-        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin)
+        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses")
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    original = None
+    try:  # the original rules with no loss stop, run side by side for comparison (summaries only, no trade messages)
+        original = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_original",
+                                   name="original, no loss stop", max_losses=0, trade_messages=False)
+    except Exception as exc:
+        print(f"Original paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    live = None
+    try:  # the live web page; never affects recording or the bots
+        import livepage
+
+        live = livepage.Publisher()
+    except Exception as exc:
+        print(f"Live page not started: {type(exc).__name__}")
+    shares = None
+    try:  # the separate one-a-day SHARES paper bot; an error here never affects anything else
+        import sharesbot
+
+        if sharesbot.ENABLED:
+            shares = sharesbot.SharesBot(qqqbot.alpaca_bars(feed.stk), lambda n: sharesbot.history_bars(feed.stk, n),
+                                         begin, qqqbot.send_telegram)
+    except Exception as exc:
+        print(f"Shares bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -148,10 +170,30 @@ def main() -> int:
                         bot.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} paper bot: {type(exc).__name__}: {str(exc)[:120]}")
+                if original and seen_today:
+                    try:
+                        original.on_poll(t, r)
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} original bot: {type(exc).__name__}: {str(exc)[:120]}")
+                if shares and seen_today:
+                    try:
+                        shares.on_poll(t)
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
+                if live and seen_today and live.due():
+                    try:
+                        live.publish(livepage.payload(t, bot, shares, original))
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
             time.sleep(max(0.5, EVERY - (datetime.now(NY) - t).total_seconds()))
+    if original and seen_today:
+        try:
+            original.finish(datetime.now(NY), last_rows)
+        except Exception as exc:
+            print(f"Original bot finish: {type(exc).__name__}: {str(exc)[:120]}")
     if bot and seen_today:
         try:
             bot.finish(datetime.now(NY), last_rows)
