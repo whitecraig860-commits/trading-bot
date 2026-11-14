@@ -127,6 +127,13 @@ def main() -> int:
         bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin)
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    live = None
+    try:  # the live web page; never affects recording or the bots
+        import livepage
+
+        live = livepage.Publisher()
+    except Exception as exc:
+        print(f"Live page not started: {type(exc).__name__}")
     shares = None
     try:  # the separate one-a-day SHARES paper bot; an error here never affects anything else
         import sharesbot
@@ -162,6 +169,11 @@ def main() -> int:
                         shares.on_poll(t)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
+                if live and seen_today and live.due():
+                    try:
+                        live.publish(livepage.payload(t, bot, shares))
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
