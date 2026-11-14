@@ -68,8 +68,12 @@ def send_telegram(text: str) -> bool:
 
 
 class PaperBot:
-    def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE):
+    def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
+                 max_losses: int | None = None, trade_messages: bool | None = None):
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
+        self.name = name
+        self.max_losses = MAX_LOSSES_IN_A_ROW if max_losses is None else max_losses
+        self.trade_messages = TRADE_MESSAGES if trade_messages is None else trade_messages
         self.day = now.strftime("%Y-%m-%d")
         self.path = self.dir / f"{self.day}.json"
         self.s = {"trades": [], "open": None, "range_done": [], "sent": [], "seen_bars": 0}
@@ -161,7 +165,7 @@ class PaperBot:
                 if tr["pnl"] >= 0:
                     break
                 run += 1
-            stopped = bool(MAX_LOSSES_IN_A_ROW) and run >= MAX_LOSSES_IN_A_ROW
+            stopped = bool(self.max_losses) and run >= self.max_losses
             if stopped and "stopped" not in self.s["sent"]:
                 self.s["sent"].append("stopped")
                 self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
@@ -202,7 +206,7 @@ class PaperBot:
         self.save()
 
     def _tell(self, text: str):
-        if TRADE_MESSAGES:
+        if self.trade_messages:
             try:
                 self.say(text)
             except Exception:
@@ -214,7 +218,7 @@ class PaperBot:
         wins = [t for t in tr if t["pnl"] > 0]
         total = sum(t["pnl"] for t in tr)
         lines = [f"📊 <b>{title}</b> ({pd.Timestamp(self.day):%a %d %b})",
-                 f"QQQ paper bot: {len(tr)} trades · {len(wins)}W / {len(tr) - len(wins)}L · <b>{total:+,.0f} USD</b> (£{total * GBP:+,.0f})"]
+                 f"QQQ paper bot{' (' + self.name + ')' if self.name else ''}: {len(tr)} trades · {len(wins)}W / {len(tr) - len(wins)}L · <b>{total:+,.0f} USD</b> (£{total * GBP:+,.0f})"]
         for trig in ("VWAP", "EMA50", "RANGE"):
             g = [t for t in tr if t["trigger"] == trig]
             if g:
