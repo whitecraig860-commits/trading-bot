@@ -379,3 +379,4 @@ run_utc,bar,symbol,setup,direction,score,alerted
 2026-11-13T00:25:42.662196+00:00,2026-11-12,TRNS,copy,long,68,False
 2026-11-13T00:25:42.662196+00:00,2026-11-12,WW,copy,long,68,False
 2026-11-15T09:53:13.545028+00:00,2026-11-13,IXI.L,pullback,long,100,True
+2026-11-16T02:11:04.591763+00:00,2026-11-13,IXI.L,pullback,long,100,False
