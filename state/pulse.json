@@ -105,17 +105,17 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 46,
-     "win_rate": 0.2608695652173913,
-     "avg_r": -0.14949132074297256,
-     "total_r": -6.876600754176738,
+     "trades": 49,
+     "win_rate": 0.2653061224489796,
+     "avg_r": -0.19672762929137133,
+     "total_r": -9.639653835277196,
      "sessions": 60
     },
     "orb": {
-     "trades": 54,
-     "win_rate": 0.3148148148148148,
-     "avg_r": -0.1633437229324126,
-     "total_r": -8.820561038350279,
+     "trades": 55,
+     "win_rate": 0.3090909090909091,
+     "avg_r": -0.18135825362353167,
+     "total_r": -9.974703949294241,
      "sessions": 60
     },
     "fade": {
@@ -126,32 +126,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 195,
-     "win_rate": 0.2205128205128205,
-     "avg_r": -0.06592192164494899,
-     "total_r": -12.854774720765054,
+     "trades": 176,
+     "win_rate": 0.25,
+     "avg_r": -0.03461278121703226,
+     "total_r": -6.091849494197678,
      "sessions": 60
     },
     "late": {
-     "trades": 51,
-     "win_rate": 0.35294117647058826,
-     "avg_r": -0.17296861697680108,
-     "total_r": -8.821399465816855,
+     "trades": 50,
+     "win_rate": 0.34,
+     "avg_r": -0.19523292935949293,
+     "total_r": -9.761646467974646,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-16T12:40:40.000275+00:00",
-   "last_bar": "2026-11-13 15:55:00-05:00",
-   "brief_day": "2026-11-13",
-   "stance": "range|None",
+   "record_at": "2026-11-16T17:50:40.000353+00:00",
+   "last_bar": "2026-11-16 13:20:00-05:00",
+   "brief_day": "2026-11-16",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-13": 3
+    "2026-11-16": 3
    },
-   "last_change_at": "2026-11-13T18:35:40.000181+00:00",
-   "stance_desc": "RANGE-BOUND (choppy)"
+   "last_change_at": "2026-11-16T17:15:40.000211+00:00",
+   "stance_desc": "TRENDING DOWN"
   },
   "IWM": {
    "record": {
@@ -522,7 +522,10 @@
   "https://www.trumpstruth.org/statuses/43595",
   "https://www.trumpstruth.org/statuses/43598",
   "https://www.trumpstruth.org/statuses/43600",
-  "https://www.trumpstruth.org/statuses/43599"
+  "https://www.trumpstruth.org/statuses/43599",
+  "https://www.trumpstruth.org/statuses/43601",
+  "https://www.trumpstruth.org/statuses/43602",
+  "https://www.trumpstruth.org/statuses/43603"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -564,7 +567,7 @@
  "trump_record": {
   "Iran / war / strikes": [
    3,
-   11
+   12
   ],
   "tariffs raised": [
    0,
