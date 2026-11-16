@@ -5,104 +5,290 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QQQ Paper Bots</title>
 <style>
-:root{--bg:#0e1116;--card:#161b22;--line:#2a313c;--text:#e6edf3;--muted:#8b949e;--up:#3fb950;--down:#f85149;--accent:#58a6ff}
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f6f8fa;--card:#fff;--line:#d0d7de;--text:#1f2328;--muted:#656d76;--up:#1a7f37;--down:#cf222e;--accent:#0969da}}
+:root{--bg:#0d1117;--card:#161b22;--card2:#1c232d;--line:#2a313c;--text:#e6edf3;--muted:#8b949e;--up:#3fb950;--down:#f85149;--accent:#58a6ff;--warn:#d29922;
+--vwap:#e3b341;--e9:#58a6ff;--e20:#bc8cff;--e50:#ff7b72;--vol:#3d4a5c}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f6f8fa;--card:#fff;--card2:#f3f5f8;--line:#d0d7de;--text:#1f2328;--muted:#656d76;--up:#1a7f37;--down:#cf222e;--accent:#0969da;--warn:#9a6700;--vol:#c9d1d9}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-main{max-width:980px;margin:0 auto;padding:16px}
+main{max-width:1100px;margin:0 auto;padding:16px}
 h1{font-size:20px;margin:4px 0 2px}
-.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px}
+h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.sub{color:var(--muted);font-size:13px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-.big{font-size:26px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
-.small{font-size:13px;color:var(--muted)}
-.up{color:var(--up)}.down{color:var(--down)}
-.chartbox{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;height:340px;margin-bottom:12px}
-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
-th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
-th{color:var(--muted);font-weight:500}
-.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
-.note{color:var(--muted);font-size:12px;margin-top:12px}
+.grid{display:grid;gap:10px}
+.g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.label{color:var(--muted);font-size:12px}
+.big{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 12px;font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums}
+.stats div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:2px 0}
+.stats span:first-child{color:var(--muted)}
+.cond{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.cond .card{padding:10px 12px}
+.cond .v{font-size:17px;font-weight:600;margin-top:2px}
+.headline{font-size:15px;margin-top:10px}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+#chart{height:420px}
+.pane{height:120px;margin-top:6px}
+.chartwrap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px}
+.trades{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.t{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:8px;padding:10px 12px;font-size:13px;cursor:pointer}
+.t.win{border-left-color:var(--up)}.t.loss{border-left-color:var(--down)}.t.open{border-left-color:var(--warn)}
+.t.sel{outline:2px solid var(--accent)}
+.t .top{display:flex;justify-content:space-between;font-weight:600;font-size:14px;margin-bottom:4px}
+.t .row{display:flex;justify-content:space-between;color:var(--muted)}
+.t .row b{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.note{color:var(--muted);font-size:12px;margin-top:14px}
 </style>
 </head>
 <body>
 <main>
   <h1>QQQ paper bots · live</h1>
   <div class="sub" id="status">Loading…</div>
-  <div class="cards">
-    <div class="card"><div class="label">Options bot (stops after 2 losses)</div><div class="big" id="optPnl">–</div><div class="small" id="optStats">–</div></div>
-    <div class="card"><div class="label">Options bot now</div><div class="big" id="optOpen" style="font-size:18px">–</div><div class="small" id="optOpenSub"></div></div>
-    <div class="card"><div class="label">Original bot (no loss stop)</div><div class="big" id="orgPnl">–</div><div class="small" id="orgStats">–</div></div>
-    <div class="card"><div class="label">Shares bot (one a day)</div><div class="big" id="shPnl">–</div><div class="small" id="shSub">–</div></div>
+
+  <h2>Market conditions</h2>
+  <div class="card">
+    <div class="cond" id="cond"></div>
+    <div class="headline" id="headline"></div>
   </div>
-  <div class="chartbox"><canvas id="chart"></canvas></div>
-  <div class="tablewrap"><table><thead><tr><th>Time</th><th>Contract</th><th>Rule</th><th>Entry</th><th>Exit</th><th>Why</th><th>P&amp;L</th></tr></thead><tbody id="rows"></tbody></table></div>
-  <div class="note">Paper only: no real money and no orders. Options bot: 1 contract a trade, bought at the real ask and sold at the real bid. Shares bot: a £1,000 pretend account. Updates every 2 minutes while the US market is open.</div>
+
+  <h2>Performance</h2>
+  <div class="grid g3" id="perf"></div>
+
+  <h2>Chart</h2>
+  <div class="toolbar">
+    <span class="label">Trades shown:</span>
+    <div class="tabs" id="botTabs"></div>
+    <span class="sep"></span>
+    <span class="label">Add:</span>
+    <div class="tabs" id="toggles"></div>
+  </div>
+  <div class="chartwrap">
+    <div id="chart"></div>
+    <div id="rsi" class="pane" hidden></div>
+    <div id="macd" class="pane" hidden></div>
+  </div>
+
+  <h2 id="tradesTitle">Trades</h2>
+  <div class="trades" id="trades"></div>
+
+  <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid; target +2.5% and stop −6% of the option price, 10-minute limit. Shares bot: a £1,000 pretend account. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open; times are New York time.</div>
 </main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const URL_ = "https://api.github.com/repos/whitecraig860-commits/trading-bot/contents/live.json?ref=live-data";
-let chart;
+const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", shares: "Shares · one a day"};
+const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 20", "--e20"], ["e50", "EMA 50", "--e50"],
+             ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
+const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+               set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }};
+let on = store.get("ind", {}), bot = store.get("bot", "options"), D = null, selected = null;
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const money = v => (v >= 0 ? "+$" : "−$") + Math.abs(v).toFixed(0);
-const hm = s => s.slice(11, 16);
+const $ = id => document.getElementById(id);
+const usd = (v, d = 0) => (v >= 0 ? "+$" : "−$") + Math.abs(v).toFixed(d);
+const hm = s => s ? s.slice(11, 16) : "–";
+const ts = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +s.slice(11, 13), +s.slice(14, 16)) / 1000;
+
+// ---------- indicators
+function ema(v, n) { const k = 2 / (n + 1); let e = null; return v.map(x => (e = e === null ? x : x * k + e * (1 - k))); }
+function rsi(c, n = 14) { let g = 0, l = 0; const out = [null];
+  for (let i = 1; i < c.length; i++) { const d = c[i] - c[i - 1], up = Math.max(d, 0), dn = Math.max(-d, 0);
+    if (i <= n) { g += up / n; l += dn / n; out.push(i < n ? null : 100 - 100 / (1 + g / (l || 1e-9))); }
+    else { g = (g * (n - 1) + up) / n; l = (l * (n - 1) + dn) / n; out.push(100 - 100 / (1 + g / (l || 1e-9))); } }
+  return out; }
+
+// ---------- chart
+let chart, candles, vol, lines = {}, rsiChart, rsiLine, macdChart, macdS = {};
+function baseOpts(h) { return {height: h, layout: {background: {color: "transparent"}, textColor: css("--muted")},
+  grid: {vertLines: {color: css("--line")}, horzLines: {color: css("--line")}}, rightPriceScale: {borderColor: css("--line")},
+  timeScale: {borderColor: css("--line"), timeVisible: true, secondsVisible: false}, crosshair: {mode: 0}}; }
+function makeCharts() {
+  if (typeof LightweightCharts === "undefined") { $("chart").textContent = "Chart library didn't load (check your connection)."; return false; }
+  chart = LightweightCharts.createChart($("chart"), baseOpts(420));
+  candles = chart.addCandlestickSeries({upColor: css("--up"), downColor: css("--down"), borderVisible: false,
+    wickUpColor: css("--up"), wickDownColor: css("--down")});
+  vol = chart.addHistogramSeries({priceScaleId: "vol", priceFormat: {type: "volume"}, color: css("--vol")});
+  chart.priceScale("vol").applyOptions({scaleMargins: {top: .8, bottom: 0}});
+  for (const [k, , c] of IND.slice(0, 4)) lines[k] = chart.addLineSeries({color: css(c), lineWidth: 2, priceLineVisible: false, lastValueVisible: false});
+  rsiChart = LightweightCharts.createChart($("rsi"), baseOpts(120));
+  rsiLine = rsiChart.addLineSeries({color: css("--accent"), lineWidth: 2, priceLineVisible: false});
+  [30, 70].forEach(p => rsiLine.createPriceLine({price: p, color: css("--muted"), lineStyle: 2, axisLabelVisible: true, lineWidth: 1}));
+  macdChart = LightweightCharts.createChart($("macd"), baseOpts(120));
+  macdS.h = macdChart.addHistogramSeries({priceLineVisible: false});
+  macdS.m = macdChart.addLineSeries({color: css("--accent"), lineWidth: 2, priceLineVisible: false});
+  macdS.s = macdChart.addLineSeries({color: css("--warn"), lineWidth: 2, priceLineVisible: false});
+  const sync = (src, dst) => src.timeScale().subscribeVisibleLogicalRangeChange(r => { if (r) dst.forEach(c => c.timeScale().setVisibleLogicalRange(r)); });
+  sync(chart, [rsiChart, macdChart]);
+  new ResizeObserver(() => [chart, rsiChart, macdChart].forEach(c => c.applyOptions({width: $("chart").clientWidth}))).observe($("chart"));
+  return true;
+}
+
+// ---------- trades in one shape for every bot
+function tradesFor(k) {
+  if (!D) return [];
+  if (k === "shares") { const s = D.shares; if (!s) return [];
+    return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} QQQ shares`, trigger: "one-a-day breakout",
+      entry: s.entry, exit: s.exit, stop: s.entry - 10 * s.atr * s.side, target: "trail after " + (4 * s.atr).toFixed(2) + " in profit",
+      why: s.why, pnl: s.pnl_usd, open: !s.exit, qqqIn: s.entry, unit: "QQQ"}]; }
+  const b = D[k] || {}; const out = (b.trades || []).map(t => ({...t, open: false}));
+  if (b.open) out.push({...b.open, open: true});
+  return out.map(t => ({t: t.t, exit_t: t.exit_t, side: t.type === "C" ? "CALL" : "PUT", label: `QQQ ${t.strike} ${t.type === "C" ? "CALL" : "PUT"}`,
+    trigger: t.trigger, entry: t.entry, exit: t.exit, stop: t.entry * 0.94, target: t.entry * 1.025, why: t.why, pnl: t.pnl, open: t.open, qqqIn: t.qqq, unit: "option"}));
+}
+
+function stats(tr, week) {
+  const done = tr.filter(t => !t.open && t.pnl != null), w = done.filter(t => t.pnl > 0), l = done.filter(t => t.pnl <= 0);
+  const sum = a => a.reduce((x, t) => x + t.pnl, 0);
+  let run = 0, best = 0, peak = 0, eq = 0, dd = 0, cur = 0;
+  for (const t of done) { eq += t.pnl; peak = Math.max(peak, eq); dd = Math.min(dd, eq - peak);
+    if (t.pnl <= 0) { run++; best = Math.max(best, run); } else run = 0; }
+  for (let i = done.length - 1; i >= 0 && done[i].pnl <= 0; i--) cur++;
+  const today = sum(done), wk = Object.values(week || {}).reduce((a, b) => a + b, 0) + today;
+  return {n: done.length, wr: done.length ? w.length / done.length : null, aw: w.length ? sum(w) / w.length : null,
+    al: l.length ? sum(l) / l.length : null, pf: sum(l) ? sum(w) / -sum(l) : (w.length ? Infinity : null), dd, best, cur, today, wk,
+    days: Object.keys(week || {}).length + 1};
+}
+
+function renderPerf() {
+  $("perf").innerHTML = Object.entries(BOTS).map(([k, name]) => {
+    const tr = tradesFor(k), s = stats(tr, (D.week || {})[k]), f = (v, fn) => v === null || v === undefined ? "–" : fn(v);
+    const open = tr.find(t => t.open);
+    return `<div class="card"><div class="label">${name}</div>
+      <div class="big ${s.today >= 0 ? "up" : "down"}">${usd(s.today, k === "shares" ? 2 : 0)} <span class="label">today</span></div>
+      <div class="sub">${open ? `Open: ${open.label} since ${hm(open.t)}` + (k === "shares" && D.bars && D.bars.length ?
+        ` · now ${usd((D.bars[D.bars.length - 1][4] - open.entry) * (open.side === "SHORT" ? -1 : 1) * (D.shares.qty || 0), 2)}` : "") : "No open trade"}</div>
+      <div class="stats">
+        <div><span>Trades</span><span>${s.n}</span></div>
+        <div><span>Win rate</span><span>${f(s.wr, v => (v * 100).toFixed(0) + "%")}</span></div>
+        <div><span>Avg winner</span><span class="up">${f(s.aw, v => usd(v, 1))}</span></div>
+        <div><span>Avg loser</span><span class="down">${f(s.al, v => usd(v, 1))}</span></div>
+        <div><span>Profit factor</span><span>${f(s.pf, v => v === Infinity ? "∞" : v.toFixed(2))}</span></div>
+        <div><span>Max drawdown</span><span class="down">${usd(s.dd, 0)}</span></div>
+        <div><span>Losses in a row (most)</span><span>${s.best}</span></div>
+        <div><span>Losses in a row (now)</span><span>${s.cur}</span></div>
+        <div><span>Today</span><span class="${s.today >= 0 ? "up" : "down"}">${usd(s.today, 0)}</span></div>
+        <div><span>Last 7 days (${s.days} sessions)</span><span class="${s.wk >= 0 ? "up" : "down"}">${usd(s.wk, 0)}</span></div>
+      </div></div>`; }).join("");
+}
+
+function renderConditions(bars, closes, vw, e9, e20, e50, rs) {
+  const n = closes.length - 1; if (n < 1) { $("cond").innerHTML = ""; return; }
+  const last = closes[n], open = bars[0][1], hi = Math.max(...bars.map(b => b[2])), lo = Math.min(...bars.map(b => b[3]));
+  const prevClose = D.prev && D.prev.length ? D.prev[D.prev.length - 1][4] : null;
+  const slope = e20[n] - e20[Math.max(0, n - 10)];
+  const trend = e9[n] > e20[n] && e20[n] > e50[n] && slope > 0 ? ["Bullish", "up"] : e9[n] < e20[n] && e20[n] < e50[n] && slope < 0 ? ["Bearish", "down"] : ["Sideways", "muted"];
+  const crosses = (() => { let c = 0; for (let i = Math.max(1, n - 30); i <= n; i++) if ((closes[i] - e20[i]) * (closes[i - 1] - e20[i - 1]) < 0) c++; return c; })();
+  const tr = bars.slice(-15).map((b, i, a) => i ? Math.max(b[2] - b[3], Math.abs(b[2] - a[i - 1][4]), Math.abs(b[3] - a[i - 1][4])) : b[2] - b[3]);
+  const atr = tr.slice(1).reduce((a, b) => a + b, 0) / 14, atrDay = bars.map(b => b[2] - b[3]).reduce((a, b) => a + b, 0) / bars.length;
+  const volat = atr > atrDay * 1.3 ? "High" : atr < atrDay * 0.7 ? "Low" : "Normal";
+  const pos = hi > lo ? (last - lo) / (hi - lo) : .5, r = rs[n];
+  const cell = (l, v, cls = "", s = "") => `<div class="card"><div class="label">${l}</div><div class="v ${cls}">${v}</div><div class="sub">${s}</div></div>`;
+  $("cond").innerHTML = [
+    cell("Trend", trend[0], trend[1], `EMA 9 / 20 / 50 ${e9[n] > e20[n] ? "▲" : "▼"} · ${crosses} crosses of EMA 20 in 30 min`),
+    cell("Price vs VWAP", last >= vw[n] ? "Above" : "Below", last >= vw[n] ? "up" : "down", `${usd(last - vw[n], 2)} from VWAP ${vw[n].toFixed(2)}`),
+    cell("QQQ", last.toFixed(2), "", prevClose ? `${((last / prevClose - 1) * 100).toFixed(2)}% on the day · ${usd(last - open, 2)} since open` : `${usd(last - open, 2)} since open`),
+    cell("Day range", `${(pos * 100).toFixed(0)}%`, "", `low ${lo.toFixed(2)} · high ${hi.toFixed(2)}`),
+    cell("Volatility", volat, volat === "High" ? "down" : "", `last 15 min ${atr.toFixed(2)} vs day ${atrDay.toFixed(2)} per minute`),
+    cell("RSI (14)", r ? r.toFixed(0) : "–", r > 70 ? "down" : r < 30 ? "up" : "", r > 70 ? "overbought" : r < 30 ? "oversold" : "neutral")].join("");
+  const choppy = trend[0] === "Sideways" || crosses >= 4;
+  $("headline").innerHTML = `<b>In plain words:</b> QQQ is ${trend[0].toLowerCase()} and ${last >= vw[n] ? "above" : "below"} VWAP, volatility ${volat.toLowerCase()}. ` +
+    (choppy ? "Choppy conditions: crossing-signal bots tend to get stopped out more." : `A ${trend[0].toLowerCase()} trend: signals in its direction have more room.`);
+}
+
+function renderTrades() {
+  const tr = tradesFor(bot);
+  $("tradesTitle").textContent = `Trades · ${BOTS[bot]} (${tr.length})`;
+  $("trades").innerHTML = tr.length ? tr.slice().reverse().map((t, i) => {
+    const idx = tr.length - 1 - i, st = t.open ? "open" : t.pnl > 0 ? "win" : "loss", dp = t.unit === "QQQ" ? 2 : 2;
+    const pct = t.exit ? ((t.exit / t.entry - 1) * 100 * (t.side === "SHORT" ? -1 : 1)).toFixed(1) + "%" : "";
+    const hold = t.exit_t ? Math.round((ts(t.exit_t) - ts(t.t)) / 60) : null;
+    return `<div class="t ${st} ${selected === idx ? "sel" : ""}" data-i="${idx}">
+      <div class="top"><span>${t.side} · ${t.label}</span><span class="${st === "win" ? "up" : st === "loss" ? "down" : ""}">${t.open ? "OPEN" : usd(t.pnl, t.unit === "QQQ" ? 2 : 0)}</span></div>
+      <div class="row"><span>Strategy</span><b>${t.trigger}</b></div>
+      <div class="row"><span>Entry</span><b>$${t.entry.toFixed(dp)} at ${hm(t.t)}</b></div>
+      <div class="row"><span>Exit</span><b>${t.exit ? "$" + t.exit.toFixed(dp) + " at " + hm(t.exit_t) : "–"}</b></div>
+      <div class="row"><span>Stop loss</span><b>$${t.stop.toFixed(dp)}</b></div>
+      <div class="row"><span>Take profit</span><b>${typeof t.target === "number" ? "$" + t.target.toFixed(dp) : t.target}</b></div>
+      <div class="row"><span>Reason for exit</span><b>${t.why || "still open"}</b></div>
+      <div class="row"><span>Result</span><b>${t.open ? "open" : (st === "win" ? "Win" : "Loss") + " · " + pct + (hold !== null ? ` · held ${hold} min` : "")}</b></div>
+      ${t.qqqIn ? `<div class="row"><span>QQQ at entry</span><b>${(+t.qqqIn).toFixed(2)}</b></div>` : ""}</div>`; }).join("")
+    : `<div class="sub">No trades yet today.</div>`;
+  document.querySelectorAll(".t").forEach(el => el.onclick = () => { selected = +el.dataset.i; renderTrades(); focusTrade(tr[selected]); });
+}
+
+function focusTrade(t) {
+  if (!chart || !t) return;
+  const a = ts(t.t), b = t.exit_t ? ts(t.exit_t) : a;
+  chart.timeScale().setVisibleRange({from: a - 20 * 60, to: b + 20 * 60});
+  window.scrollTo({top: $("chart").getBoundingClientRect().top + window.scrollY - 60, behavior: "smooth"});
+}
+
+function renderChart() {
+  if (!chart) return;
+  const bars = D.bars || [], all = (D.prev || []).concat(bars);
+  const closes = all.map(b => b[4]), w = (D.prev || []).length;
+  candles.setData(bars.map(b => ({time: ts(b[0]), open: b[1], high: b[2], low: b[3], close: b[4]})));
+  vol.setData(on.vol ? bars.map(b => ({time: ts(b[0]), value: b[5], color: b[4] >= b[1] ? css("--up") + "66" : css("--down") + "66"})) : []);
+  let pv = 0, vv = 0; const vw = bars.map(b => { const tp = (b[2] + b[3] + b[4]) / 3; pv += tp * b[5]; vv += b[5]; return vv ? pv / vv : tp; });
+  const e = {e9: ema(closes, 9).slice(w), e20: ema(closes, 20).slice(w), e50: ema(closes, 50).slice(w)};
+  const line = arr => bars.map((b, i) => ({time: ts(b[0]), value: arr[i]}));
+  lines.vwap.setData(on.vwap ? line(vw) : []);
+  for (const k of ["e9", "e20", "e50"]) lines[k].setData(on[k] ? line(e[k]) : []);
+  const rs = rsi(closes).slice(w);
+  $("rsi").hidden = !on.rsi; rsiLine.setData(on.rsi ? line(rs).filter(p => p.value !== null) : []);
+  const m12 = ema(closes, 12), m26 = ema(closes, 26), macd = m12.map((x, i) => x - m26[i]), sig = ema(macd, 9);
+  $("macd").hidden = !on.macd;
+  if (on.macd) { const mm = macd.slice(w), ss = sig.slice(w);
+    macdS.m.setData(line(mm)); macdS.s.setData(line(ss));
+    macdS.h.setData(bars.map((b, i) => ({time: ts(b[0]), value: mm[i] - ss[i], color: mm[i] >= ss[i] ? css("--up") : css("--down")}))); }
+  // markers: entry arrow (direction) and exit dot (win/loss) with the P&L
+  const mk = [];
+  for (const t of tradesFor(bot)) {
+    const up = t.side === "CALL" || t.side === "LONG";
+    mk.push({time: ts(t.t.slice(0, 16)), position: up ? "belowBar" : "aboveBar", color: up ? css("--up") : css("--down"),
+             shape: up ? "arrowUp" : "arrowDown", text: `${t.side} ${t.trigger}`});
+    if (t.exit_t) mk.push({time: ts(t.exit_t.slice(0, 16)), position: up ? "aboveBar" : "belowBar", color: t.pnl > 0 ? css("--up") : css("--down"),
+             shape: "circle", text: `${usd(t.pnl, t.unit === "QQQ" ? 2 : 0)} ${t.why}`});
+  }
+  mk.sort((a, b) => a.time - b.time);
+  candles.setMarkers(mk);
+  renderConditions(bars, closes.slice(w), vw, e.e9, e.e20, e.e50, rs);
+}
+
+function renderControls() {
+  $("botTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
+  $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
+  document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => { bot = b.dataset.b; store.set("bot", bot); selected = null; render(); });
+  document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { on[b.dataset.k] = !on[b.dataset.k]; store.set("ind", on); render(); });
+}
+
+function render() {
+  renderControls();
+  if (!D) return;
+  const stale = Date.now() / 1000 - (ts(D.updated) + 5 * 3600) > 10 * 60;
+  $("status").textContent = `Updated ${hm(D.updated)} New York time, ${D.updated.slice(0, 10)}` + (stale ? " · not live right now" : " · live");
+  renderPerf(); renderChart(); renderTrades();
+}
+
 async function load() {
+  let data;
   try {
     const r = await fetch(URL_ + "&t=" + Date.now(), {headers: {Accept: "application/vnd.github.raw+json"}});
     if (!r.ok) throw new Error(r.status);
-    var data = await r.json();
-  } catch (e) {
-    document.getElementById("status").textContent = "No live data yet (it appears once the US market opens).";
-    return;
+    data = await r.json();
+  } catch (e) { $("status").textContent = "No live data yet (it appears once the US market opens)."; renderControls(); return; }
+  if ((data.bars || []).length && data.bars[0].length < 6) {
+    // older format (close prices only): show what we can until the bot sends full candles
+    data.bars = (data.bars || []).map(b => [data.updated.slice(0, 10) + " " + b[0], b[1], b[1], b[1], b[1], 0]);
   }
-  render(data);
+  D = data; render();
 }
-function render(d) {
-  const day = d.updated.slice(0, 10), stale = (Date.now() - new Date(d.updated.replace(" ", "T") + "-05:00")) > 10 * 60e3;
-  document.getElementById("status").textContent = `Updated ${d.updated.slice(11, 16)} New York time, ${day}` + (stale ? " · not live right now" : "");
-  const tr = (d.options && d.options.trades) || [];
-  const tot = tr.reduce((a, t) => a + t.pnl, 0), w = tr.filter(t => t.pnl > 0).length;
-  const el = document.getElementById("optPnl"); el.textContent = money(tot); el.className = "big " + (tot >= 0 ? "up" : "down");
-  document.getElementById("optStats").textContent = `${tr.length} trades · ${w}W / ${tr.length - w}L`;
-  const ot = (d.original && d.original.trades) || [], otot = ot.reduce((a, t) => a + t.pnl, 0), ow = ot.filter(t => t.pnl > 0).length;
-  const oe = document.getElementById("orgPnl"); oe.textContent = d.original ? money(otot) : "–"; oe.className = "big " + (otot >= 0 ? "up" : "down");
-  document.getElementById("orgStats").textContent = d.original ? `${ot.length} trades · ${ow}W / ${ot.length - ow}L` : "–";
-  const o = d.options && d.options.open;
-  document.getElementById("optOpen").textContent = o ? `${o.type === "C" ? "CALL" : "PUT"} ${o.strike} @ ${o.entry.toFixed(2)}` : "No open trade";
-  document.getElementById("optOpenSub").textContent = o ? `since ${hm(o.t)} · ${o.trigger}` : "";
-  const s = d.shares, sp = document.getElementById("shPnl");
-  if (!s) { sp.textContent = "No trade yet"; sp.className = "big"; document.getElementById("shSub").textContent = "Checks every 10 minutes, 10am–2pm"; }
-  else {
-    const last = d.bars.length ? d.bars[d.bars.length - 1][1] : s.entry;
-    const pnl = s.exit ? s.pnl_usd : (last - s.entry) * s.side * s.qty;
-    sp.textContent = (pnl >= 0 ? "+£" : "−£") + Math.abs(pnl * 0.76).toFixed(2); sp.className = "big " + (pnl >= 0 ? "up" : "down");
-    document.getElementById("shSub").textContent = `${s.side > 0 ? "Bought" : "Sold short"} at ${s.entry.toFixed(2)} (${hm(s.t)})` + (s.exit ? ` · closed ${hm(s.exit_t)}, ${s.why}` : " · open");
-  }
-  const labels = d.bars.map(b => b[0]), price = d.bars.map(b => b[1]);
-  const at = t => { const i = labels.indexOf(t); return i < 0 ? null : price[i]; };
-  const buys = tr.map(t => ({x: hm(t.t), y: at(hm(t.t))})).filter(p => p.y);
-  const wins = tr.filter(t => t.pnl > 0).map(t => ({x: hm(t.exit_t), y: at(hm(t.exit_t))})).filter(p => p.y);
-  const losses = tr.filter(t => t.pnl <= 0).map(t => ({x: hm(t.exit_t), y: at(hm(t.exit_t))})).filter(p => p.y);
-  const sh = s ? [{x: hm(s.t), y: at(hm(s.t))}].filter(p => p.y) : [];
-  const ds = [
-    {type: "line", label: "QQQ", data: price, borderColor: css("--accent"), borderWidth: 1.5, pointRadius: 0, tension: .1},
-    {type: "scatter", label: "Bought", data: buys, backgroundColor: css("--muted"), pointStyle: "triangle", pointRadius: 5},
-    {type: "scatter", label: "Sold, win", data: wins, backgroundColor: css("--up"), pointRadius: 4},
-    {type: "scatter", label: "Sold, loss", data: losses, backgroundColor: css("--down"), pointRadius: 4},
-    {type: "scatter", label: "Shares bot entry", data: sh, backgroundColor: "#d29922", pointStyle: "rectRot", pointRadius: 8}];
-  document.getElementById("rows").innerHTML = tr.slice().reverse().map(t =>
-    `<tr><td>${hm(t.t)}–${hm(t.exit_t)}</td><td>${t.type === "C" ? "CALL" : "PUT"} ${t.strike}</td><td>${t.trigger}</td>` +
-    `<td>${t.entry.toFixed(2)}</td><td>${t.exit.toFixed(2)}</td><td>${t.why}</td><td class="${t.pnl > 0 ? "up" : "down"}">${money(t.pnl)}</td></tr>`).join("");
-  if (typeof Chart === "undefined") return;
-  if (chart) { chart.data.labels = labels; chart.data.datasets = ds; chart.update("none"); }
-  else chart = new Chart(document.getElementById("chart"), {data: {labels, datasets: ds}, options: {
-    responsive: true, maintainAspectRatio: false, animation: false, interaction: {mode: "nearest", intersect: false},
-    scales: {x: {ticks: {color: css("--muted"), maxTicksLimit: 8}, grid: {color: css("--line")}},
-             y: {ticks: {color: css("--muted")}, grid: {color: css("--line")}}},
-    plugins: {legend: {labels: {color: css("--text"), boxWidth: 10}}}}});
-}
+const ok = makeCharts();
 load(); setInterval(load, 60000);
 </script>
 </body>
