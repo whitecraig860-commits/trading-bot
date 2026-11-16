@@ -65,11 +65,52 @@ class Publisher:
             self.busy = False
 
 
+_WEEK: dict = {}
+
+
+def week_history(today: str) -> dict:
+    """Daily P&L for each bot over the 7 days before today, from the saved state files (read once per run)."""
+    if today in _WEEK:
+        return _WEEK[today]
+    from datetime import date, timedelta
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent / "state"
+    d0 = date.fromisoformat(today)
+    out = {"options": {}, "original": {}, "shares": {}}
+    for k in range(1, 8):
+        day = (d0 - timedelta(days=k)).isoformat()
+        for key, folder in (("options", "qqqbot"), ("original", "qqqbot_original"), ("shares", "sharesbot")):
+            f = root / folder / f"{day}.json"
+            if not f.exists():
+                continue
+            try:
+                st = json.loads(f.read_text())
+                if key == "shares":
+                    t = st.get("trade") or {}
+                    out[key][day] = round(float(t.get("pnl_usd", 0) or 0), 2)
+                else:
+                    out[key][day] = round(sum(float(t["pnl"]) for t in st.get("trades", [])), 2)
+            except Exception:
+                pass
+    _WEEK[today] = out
+    return out
+
+
+def _ohlcv(df) -> list:
+    return [[t.strftime("%Y-%m-%d %H:%M"), round(float(r.open), 2), round(float(r.high), 2), round(float(r.low), 2),
+             round(float(r.close), 2), int(r.volume)] for t, r in df.iterrows()]
+
+
 def payload(now, bot, shares, original=None) -> dict:
-    bars = []
+    """What the live page shows. Built from data the bots already hold: no extra market-data requests."""
+    bars, prev = [], []
     if bot is not None and getattr(bot, "bars", None) is not None and len(bot.bars):
-        bars = [[t.strftime("%H:%M"), round(float(c), 2)] for t, c in bot.bars.close.items()]
-    out = {"updated": now.strftime("%Y-%m-%d %H:%M:%S"), "bars": bars, "options": None, "shares": None}
+        bars = _ohlcv(bot.bars)
+    if bot is not None and getattr(bot, "prev", None) is not None and len(bot.prev):
+        prev = _ohlcv(bot.prev.tail(120))  # yesterday's last two hours: warms up the 50 EMA and MACD
+    out = {"v": 2, "updated": now.strftime("%Y-%m-%d %H:%M:%S"), "bars": bars, "prev": prev,
+           "options": None, "shares": None, "original": None, "week": week_history(now.strftime("%Y-%m-%d"))}
     if bot is not None:
         out["options"] = {"trades": bot.s["trades"], "open": bot.s["open"]}
     if shares is not None:
