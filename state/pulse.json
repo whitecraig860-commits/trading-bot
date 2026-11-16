@@ -105,10 +105,10 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 49,
-     "win_rate": 0.2653061224489796,
-     "avg_r": -0.19672762929137133,
-     "total_r": -9.639653835277196,
+     "trades": 51,
+     "win_rate": 0.29411764705882354,
+     "avg_r": -0.112516550697548,
+     "total_r": -5.738344085574948,
      "sessions": 60
     },
     "orb": {
@@ -126,22 +126,22 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 176,
-     "win_rate": 0.25,
-     "avg_r": -0.03461278121703226,
-     "total_r": -6.091849494197678,
+     "trades": 177,
+     "win_rate": 0.2542372881355932,
+     "avg_r": -0.023304344309105735,
+     "total_r": -4.124868942711715,
      "sessions": 60
     },
     "late": {
-     "trades": 50,
-     "win_rate": 0.34,
-     "avg_r": -0.19523292935949293,
-     "total_r": -9.761646467974646,
+     "trades": 51,
+     "win_rate": 0.3333333333333333,
+     "avg_r": -0.19154567964763816,
+     "total_r": -9.768829662029546,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-16T17:50:40.000353+00:00",
-   "last_bar": "2026-11-16 13:20:00-05:00",
+   "record_at": "2026-11-16T23:00:40.000162+00:00",
+   "last_bar": "2026-11-16 15:55:00-05:00",
    "brief_day": "2026-11-16",
    "stance": "down|None",
    "pending": null,
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-13",
+ "summary_day": "2026-11-16",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -525,7 +525,8 @@
   "https://www.trumpstruth.org/statuses/43599",
   "https://www.trumpstruth.org/statuses/43601",
   "https://www.trumpstruth.org/statuses/43602",
-  "https://www.trumpstruth.org/statuses/43603"
+  "https://www.trumpstruth.org/statuses/43603",
+  "https://www.trumpstruth.org/statuses/43604"
  ],
  "trump_checks": [],
  "trump_seeded": true,
