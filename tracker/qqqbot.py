@@ -25,6 +25,10 @@ import pandas as pd
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
 TRADE_MESSAGES = True
+# The third options bot (comparison only, no trade messages). Settings read off his posted trades on 17 Nov 2026: his
+# two losers were -12% and -14%, so a 12% stop; on +2.5% it keeps the trade and sells 1.5% off the best price
+# (15-minute limit); and it only buys in the day's direction. NOT tested on history yet: research/TREND_TRAIL_PROTOCOL.md.
+TREND_TRAIL = {"stop": 0.12, "trail": 0.015, "hold_min": 15, "with_trend": True}
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
@@ -69,7 +73,12 @@ def send_telegram(text: str) -> bool:
 
 class PaperBot:
     def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
-                 max_losses: int | None = None, trade_messages: bool | None = None):
+                 max_losses: int | None = None, trade_messages: bool | None = None, target: float = TARGET,
+                 stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False):
+        # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
+        # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
+        # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
+        self.target, self.stop, self.hold_min, self.trail, self.with_trend = target, stop, hold_min, trail, with_trend
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
         self.max_losses = MAX_LOSSES_IN_A_ROW if max_losses is None else max_losses
@@ -143,11 +152,18 @@ class PaperBot:
             age = (now.replace(tzinfo=None) - pd.Timestamp(o["t"])).total_seconds() / 60
             why = None
             if bid > 0:
-                if bid >= o["entry"] * (1 + TARGET):
+                if self.trail and bid >= o["entry"] * (1 + self.target):
+                    o["best"] = max(o.get("best", 0.0), bid)
+                if self.trail and o.get("best"):
+                    if bid <= o["best"] * (1 - self.trail):
+                        why = "trail"
+                    elif age >= self.hold_min or tod >= FLAT:
+                        why = "time" if tod < FLAT else "end of day"
+                elif not self.trail and bid >= o["entry"] * (1 + self.target):
                     why = "target"
-                elif bid <= o["entry"] * (1 - STOP):
+                elif bid <= o["entry"] * (1 - self.stop):
                     why = "stop"
-                elif age >= HOLD_MIN:
+                elif age >= self.hold_min:
                     why = "time"
                 elif tod >= FLAT:
                     why = "end of day"
@@ -170,6 +186,10 @@ class PaperBot:
                 self.s["sent"].append("stopped")
                 self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
                 self.save()
+            if sig and self.with_trend and self.bars is not None and len(self.bars):
+                day_open = float(self.bars.open.iloc[0])
+                if (sig[0] == "C" and sig[2] <= day_open) or (sig[0] == "P" and sig[2] >= day_open):
+                    sig = None  # against today's direction: skipped
             if sig and not self.s["open"] and tod < FLAT and not stopped:
                 side, trig, px = sig
                 today = now.strftime("%Y-%m-%d")
@@ -178,7 +198,8 @@ class PaperBot:
                 ask = float(q["ask"]) if q and q["ask"] not in ("", None) else 0.0
                 if ask >= 0.5:
                     self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": float(round(px)),
-                                      "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2)}
+                                      "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2),
+                                      "stop_px": round(ask * (1 - self.stop), 2), "target_px": round(ask * (1 + self.target), 2)}
                     print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
                     self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
@@ -228,8 +249,10 @@ class PaperBot:
             best, worst = max(tr, key=lambda t: t["pnl"]), min(tr, key=lambda t: t["pnl"])
             lines.append(f"Best {best['pnl']:+,.0f} ({best['t'][11:16]} {int(best['strike'])}{best['type']}) · "
                          f"worst {worst['pnl']:+,.0f} ({worst['t'][11:16]} {int(worst['strike'])}{worst['type']})")
-        lines.append("<i>Paper only, 1 contract a trade, bought at the real ask and sold at the real bid. These are the "
-                     "baseline rules, which lost in the history test; filters are being worked out.</i>")
+        lines.append("<i>Paper only, 1 contract a trade, bought at the real ask and sold at the real bid. "
+                     + ("Trend-only entries, trailing exit, 12% stop: being compared, not yet tested on history.</i>"
+                        if self.with_trend or self.trail else
+                        "These are the baseline rules, which lost in the history test; filters are being worked out.</i>"))
         return "\n".join(lines)
 
     def _summaries(self, now: datetime):
