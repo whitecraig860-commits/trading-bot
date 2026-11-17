@@ -105,17 +105,17 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 53,
-     "win_rate": 0.2830188679245283,
-     "avg_r": -0.14313769280358815,
-     "total_r": -7.586297718590171,
+     "trades": 52,
+     "win_rate": 0.2692307692307692,
+     "avg_r": -0.12139961602031432,
+     "total_r": -6.312780033056344,
      "sessions": 60
     },
     "orb": {
-     "trades": 54,
-     "win_rate": 0.2962962962962963,
-     "avg_r": -0.2210926624901679,
-     "total_r": -11.939003774469066,
+     "trades": 55,
+     "win_rate": 0.3090909090909091,
+     "avg_r": -0.17869995225071228,
+     "total_r": -9.828497373789176,
      "sessions": 60
     },
     "fade": {
@@ -126,31 +126,31 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 177,
-     "win_rate": 0.24858757062146894,
-     "avg_r": -0.040646720905227626,
-     "total_r": -7.19446960022529,
+     "trades": 198,
+     "win_rate": 0.20707070707070707,
+     "avg_r": -0.09411718370328981,
+     "total_r": -18.63520237325138,
      "sessions": 60
     },
     "late": {
      "trades": 50,
      "win_rate": 0.32,
-     "avg_r": -0.21802740913982155,
-     "total_r": -10.901370456991078,
+     "avg_r": -0.228584147413035,
+     "total_r": -11.429207370651751,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-17T15:40:40.000332+00:00",
-   "last_bar": "2026-11-17 11:00:00-05:00",
+   "record_at": "2026-11-17T20:50:40.000436+00:00",
+   "last_bar": "2026-11-17 15:55:00-05:00",
    "brief_day": "2026-11-17",
    "stance": "down|None",
-   "pending": null,
-   "pending_n": 0,
+   "pending": "none|None",
+   "pending_n": 1,
    "alerts": {},
    "changes": {
-    "2026-11-16": 3
+    "2026-11-17": 2
    },
-   "last_change_at": "2026-11-16T17:15:40.000211+00:00",
+   "last_change_at": "2026-11-17T19:05:40.000419+00:00",
    "stance_desc": "LEANING DOWN, not trending cleanly"
   },
   "IWM": {
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-16",
+ "summary_day": "2026-11-17",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
