@@ -25,6 +25,12 @@ import pandas as pd
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
 TRADE_MESSAGES = True
+# The main bot's exit. Study 8 (research/TREND_TRAIL_REPORT.md): keeping a winner and selling 1.5% below its best
+# price, instead of selling at +2.5% at once, cut the loss per day from -$38 to -$10 on 2.7 years of real option
+# prices (paired t +16, also better in the 2026 holdout and at 2 cents). Adopted under the pre-set rule.
+# Set MAIN_TRAIL = False to go back to the plain +2.5% exit.
+MAIN_TRAIL = True
+MAIN_EXIT = {"trail": 0.015, "hold_min": 15} if MAIN_TRAIL else {}
 # "His style": the third options bot, fourth bot in all (comparison only, no trade messages). Same entries as the
 # other options bots (they already match his timing), with the exits read off his 57 posted trades (11-17 Nov 2026):
 # his losers were -10% to -14%, so a 12% stop; his winners +0.5% to +16% (median +3.5%), so on +2.5% it keeps the
@@ -254,9 +260,9 @@ class PaperBot:
             lines.append(f"Best {best['pnl']:+,.0f} ({best['t'][11:16]} {int(best['strike'])}{best['type']}) · "
                          f"worst {worst['pnl']:+,.0f} ({worst['t'][11:16]} {int(worst['strike'])}{worst['type']})")
         lines.append("<i>Paper only, 1 contract a trade, bought at the real ask and sold at the real bid. "
-                     + ("Trailing exit and 12% stop like his posted trades: being compared, not yet tested on history.</i>"
-                        if self.with_trend or self.trail else
-                        "These are the baseline rules, which lost in the history test; filters are being worked out.</i>"))
+                     + (f"Exit: keeps a winner from +{self.target:.1%} and sells {self.trail:.1%} below its best; "
+                        f"stop -{self.stop:.0%}. " if self.trail else "Exit: +2.5% target, -6% stop. ")
+                     + "History test: still loses (research/TREND_TRAIL_REPORT.md).</i>")
         return "\n".join(lines)
 
     def _summaries(self, now: datetime):
