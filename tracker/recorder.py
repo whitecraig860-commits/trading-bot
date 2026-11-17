@@ -124,7 +124,8 @@ def main() -> int:
     try:  # the paper bot rides on the same prices; if it breaks, recording carries on without it
         import qqqbot
 
-        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses")
+        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses",
+                              **qqqbot.MAIN_EXIT)
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     original = None
