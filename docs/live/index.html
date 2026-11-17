@@ -19,6 +19,12 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 .g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 .label{color:var(--muted);font-size:12px}
 .big{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
+.calm{margin-top:10px}.calm h3{font-size:14px;margin:6px 0;display:flex;justify-content:space-between}
+.calg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.calg .h{font-size:11px;color:var(--muted);text-align:center}
+.calg .d{background:var(--card2);border:1px solid var(--line);border-radius:6px;min-height:46px;padding:3px 4px;font-size:11px}
+.calg .d b{display:block;font-size:12px;margin-top:4px;font-variant-numeric:tabular-nums}
+.calg .d.today{outline:2px solid var(--accent)}.calg .d.none{opacity:.45}
 .up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 12px;font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums}
 .stats div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:2px 0}
@@ -59,6 +65,13 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 
   <h2>Performance</h2>
   <div class="grid g3" id="perf"></div>
+
+  <h2>Calendar</h2>
+  <div class="card">
+    <div class="tabs" id="calTabs"></div>
+    <div id="calSum" class="sub" style="margin:8px 0"></div>
+    <div id="cal"></div>
+  </div>
 
   <h2>Chart</h2>
   <div class="toolbar">
@@ -261,6 +274,43 @@ function renderChart() {
   renderConditions(bars, closes.slice(w), vw, e.e9, e.e20, e.e50, rs);
 }
 
+// ---------- calendar: each bot's result for every day it has run
+let calBot = store.get("calBot", "options");
+function dayTotals(k) {
+  const days = {...((D.days || {})[k] || (D.week || {})[k] || {})};
+  const today = D.updated.slice(0, 10), done = tradesFor(k).filter(t => !t.open && t.pnl != null);
+  if (done.length) days[today] = done.reduce((a, t) => a + t.pnl, 0);
+  return days;
+}
+function renderCalendar() {
+  if (!(calBot in BOTS)) calBot = "options";
+  $("calTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
+  document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { calBot = b.dataset.c; store.set("calBot", calBot); renderCalendar(); });
+  const days = dayTotals(calBot), keys = Object.keys(days).sort(), today = D.updated.slice(0, 10);
+  const dp = calBot === "shares" ? 2 : 0, vals = keys.map(d => days[d]), tot = vals.reduce((a, b) => a + b, 0);
+  const won = vals.filter(v => v > 0).length, lost = vals.filter(v => v < 0).length;
+  $("calSum").innerHTML = keys.length ? `All days so far: <b class="${tot >= 0 ? "up" : "down"}">${usd(tot, dp)}</b> over ${keys.length} day${keys.length > 1 ? "s" : ""} · ${won} up, ${lost} down` +
+    ` · best ${usd(Math.max(...vals), dp)} · worst ${usd(Math.min(...vals), dp)}` : "No days yet: this bot starts at the next market open.";
+  const months = [...new Set(keys.map(d => d.slice(0, 7)))].sort().reverse();
+  if (!months.length) months.push(today.slice(0, 7));
+  $("cal").innerHTML = months.map(m => {
+    const [y, mo] = m.split("-").map(Number), last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    const mt = keys.filter(d => d.startsWith(m)).reduce((a, d) => a + days[d], 0);
+    let cells = "", first = true;
+    for (let d = 1; d <= last; d++) {
+      const dt = new Date(Date.UTC(y, mo - 1, d)), wd = dt.getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      if (first) { cells += "<div></div>".repeat(wd - 1); first = false; }
+      const key = `${m}-${String(d).padStart(2, "0")}`, v = days[key];
+      cells += `<div class="d ${key === today ? "today" : ""} ${v === undefined ? "none" : ""}">${d}` +
+        (v === undefined ? "" : `<b class="${v > 0 ? "up" : v < 0 ? "down" : "muted"}">${usd(v, dp)}</b>`) + `</div>`;
+    }
+    const name = new Date(Date.UTC(y, mo - 1, 1)).toLocaleString("en-GB", {month: "long", year: "numeric", timeZone: "UTC"});
+    return `<div class="calm"><h3><span>${name}</span><span class="${mt >= 0 ? "up" : "down"}">${usd(mt, dp)}</span></h3>
+      <div class="calg">${["Mon", "Tue", "Wed", "Thu", "Fri"].map(h => `<div class="h">${h}</div>`).join("")}${cells}</div></div>`;
+  }).join("");
+}
+
 function renderControls() {
   $("botTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
   $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
@@ -273,7 +323,7 @@ function render() {
   if (!D) return;
   const stale = Date.now() / 1000 - (ts(D.updated) + 5 * 3600) > 10 * 60;
   $("status").textContent = `Updated ${hm(D.updated)} New York time, ${D.updated.slice(0, 10)}` + (stale ? " · not live right now" : " · live");
-  renderPerf(); renderChart(); renderTrades();
+  renderPerf(); renderCalendar(); renderChart(); renderTrades();
 }
 
 async function load() {
