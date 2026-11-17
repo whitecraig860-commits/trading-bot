@@ -25,10 +25,12 @@ import pandas as pd
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
 TRADE_MESSAGES = True
-# The third options bot (comparison only, no trade messages). Settings read off his posted trades on 17 Nov 2026: his
-# two losers were -12% and -14%, so a 12% stop; on +2.5% it keeps the trade and sells 1.5% off the best price
-# (15-minute limit); and it only buys in the day's direction. NOT tested on history yet: research/TREND_TRAIL_PROTOCOL.md.
-TREND_TRAIL = {"stop": 0.12, "trail": 0.015, "hold_min": 15, "with_trend": True}
+# "His style": the third options bot, fourth bot in all (comparison only, no trade messages). Same entries as the
+# other options bots (they already match his timing), with the exits read off his 57 posted trades (11-17 Nov 2026):
+# his losers were -10% to -14%, so a 12% stop; his winners +0.5% to +16% (median +3.5%), so on +2.5% it keeps the
+# trade and sells 1.5% below the best price (15-minute limit). He trades calls and puts on the same day, so no trend
+# filter here (with_trend is tested separately). NOT tested on history yet: research/TREND_TRAIL_PROTOCOL.md (WT).
+HIS_STYLE = {"stop": 0.12, "trail": 0.015, "hold_min": 15, "with_trend": False}
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
@@ -200,6 +202,8 @@ class PaperBot:
                     self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": float(round(px)),
                                       "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2),
                                       "stop_px": round(ask * (1 - self.stop), 2), "target_px": round(ask * (1 + self.target), 2)}
+                    if self.trail:
+                        self.s["open"]["trail"] = self.trail
                     print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
                     self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
@@ -250,7 +254,7 @@ class PaperBot:
             lines.append(f"Best {best['pnl']:+,.0f} ({best['t'][11:16]} {int(best['strike'])}{best['type']}) · "
                          f"worst {worst['pnl']:+,.0f} ({worst['t'][11:16]} {int(worst['strike'])}{worst['type']})")
         lines.append("<i>Paper only, 1 contract a trade, bought at the real ask and sold at the real bid. "
-                     + ("Trend-only entries, trailing exit, 12% stop: being compared, not yet tested on history.</i>"
+                     + ("Trailing exit and 12% stop like his posted trades: being compared, not yet tested on history.</i>"
                         if self.with_trend or self.trail else
                         "These are the baseline rules, which lost in the history test; filters are being worked out.</i>"))
         return "\n".join(lines)

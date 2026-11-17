@@ -15,6 +15,7 @@ import qqq_triggers_study as s5
 
 HOLDOUT = pd.Timestamp("2026-01-01")
 RULES = {"BASE": {}, "WIDE": {"stop": 0.12}, "TRAIL": {"trail": 0.015, "hold": 15}, "TREND": {"trend": True},
+         "WT": {"stop": 0.12, "trail": 0.015, "hold": 15},
          "ALL": {"stop": 0.12, "trail": 0.015, "hold": 15, "trend": True}}
 
 
