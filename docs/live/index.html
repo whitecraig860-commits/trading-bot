@@ -19,6 +19,10 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 .g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 .label{color:var(--muted);font-size:12px}
 .big{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums}
+.calt{border-collapse:collapse;font-size:12px;width:100%;font-variant-numeric:tabular-nums;white-space:nowrap}
+.calt th,.calt td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right}
+.calt th:first-child,.calt td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
+.calt th{color:var(--muted);font-weight:600}.calt .tot td{font-weight:700;border-top:2px solid var(--line)}
 .calm{margin-top:10px}.calm h3{font-size:14px;margin:6px 0;display:flex;justify-content:space-between}
 .calg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
 .calg .h{font-size:11px;color:var(--muted);text-align:center}
@@ -275,7 +279,7 @@ function renderChart() {
 }
 
 // ---------- calendar: each bot's result for every day it has run
-let calBot = store.get("calBot", "options");
+let calBot = store.get("calBot2", "all");
 function dayTotals(k) {
   const days = {...((D.days || {})[k] || (D.week || {})[k] || {})};
   const today = D.updated.slice(0, 10), done = tradesFor(k).filter(t => !t.open && t.pnl != null);
@@ -283,9 +287,10 @@ function dayTotals(k) {
   return days;
 }
 function renderCalendar() {
-  if (!(calBot in BOTS)) calBot = "options";
-  $("calTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
-  document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { calBot = b.dataset.c; store.set("calBot", calBot); renderCalendar(); });
+  if (!(calBot in BOTS) && calBot !== "all") calBot = "all";
+  $("calTabs").innerHTML = `<button class="chip ${calBot === "all" ? "on" : ""}" data-c="all">All bots</button>` + Object.entries(BOTS).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
+  document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { calBot = b.dataset.c; store.set("calBot2", calBot); renderCalendar(); });
+  if (calBot === "all") { renderAllDays(); return; }
   const days = dayTotals(calBot), keys = Object.keys(days).sort(), today = D.updated.slice(0, 10);
   const dp = calBot === "shares" ? 2 : 0, vals = keys.map(d => days[d]), tot = vals.reduce((a, b) => a + b, 0);
   const won = vals.filter(v => v > 0).length, lost = vals.filter(v => v < 0).length;
@@ -309,6 +314,18 @@ function renderCalendar() {
     return `<div class="calm"><h3><span>${name}</span><span class="${mt >= 0 ? "up" : "down"}">${usd(mt, dp)}</span></h3>
       <div class="calg">${["Mon", "Tue", "Wed", "Thu", "Fri"].map(h => `<div class="h">${h}</div>`).join("")}${cells}</div></div>`;
   }).join("");
+}
+
+const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", shares: "Shares"};
+function renderAllDays() {
+  const ks = Object.keys(BOTS), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
+  const dates = [...new Set(ks.flatMap(k => Object.keys(per[k])))].sort().reverse();
+  const cell = (v, k) => v === undefined ? `<td class="muted">–</td>` : `<td class="${v > 0 ? "up" : v < 0 ? "down" : "muted"}">${usd(v, k === "shares" ? 2 : 0)}</td>`;
+  const tot = k => Object.values(per[k]).reduce((a, b) => a + b, 0);
+  $("calSum").textContent = dates.length ? "Each bot's result on each day (newest first). – means the bot wasn't running that day." : "No days yet.";
+  $("cal").innerHTML = `<div style="overflow-x:auto"><table class="calt"><tr><th>Day</th>${ks.map(k => `<th>${SHORT[k] || BOTS[k]}</th>`).join("")}</tr>` +
+    dates.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", timeZone: "UTC"})}</td>${ks.map(k => cell(per[k][d], k)).join("")}</tr>`).join("") +
+    `<tr class="tot"><td>Total</td>${ks.map(k => Object.keys(per[k]).length ? cell(tot(k), k) : cell(undefined, k)).join("")}</tr></table></div>`;
 }
 
 function renderControls() {
