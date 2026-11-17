@@ -128,8 +128,8 @@
     "vwap": {
      "trades": 177,
      "win_rate": 0.2542372881355932,
-     "avg_r": -0.023304344309105735,
-     "total_r": -4.124868942711715,
+     "avg_r": -0.025277514120271863,
+     "total_r": -4.47411999928812,
      "sessions": 60
     },
     "late": {
@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-17T00:00:40.000202+00:00",
+   "record_at": "2026-11-17T05:10:40.000178+00:00",
    "last_bar": "2026-11-16 15:55:00-05:00",
    "brief_day": "2026-11-16",
    "stance": "down|None",
@@ -526,7 +526,15 @@
   "https://www.trumpstruth.org/statuses/43601",
   "https://www.trumpstruth.org/statuses/43602",
   "https://www.trumpstruth.org/statuses/43603",
-  "https://www.trumpstruth.org/statuses/43604"
+  "https://www.trumpstruth.org/statuses/43604",
+  "https://www.trumpstruth.org/statuses/43605",
+  "https://www.trumpstruth.org/statuses/43606",
+  "https://www.trumpstruth.org/statuses/43608",
+  "https://www.trumpstruth.org/statuses/43607",
+  "https://www.trumpstruth.org/statuses/43611",
+  "https://www.trumpstruth.org/statuses/43610",
+  "https://www.trumpstruth.org/statuses/43609",
+  "https://www.trumpstruth.org/statuses/43612"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -546,10 +554,10 @@
    "last": 1794459641.3043454
   },
   "nightly scan": {
-   "day": "2026-11-16",
+   "day": "2026-11-17",
    "tries": 1,
    "done": true,
-   "last": 1794795064.0643697
+   "last": 1794875140.3254356
   },
   "weekly learning": {
    "day": "2026-11-13",
@@ -564,7 +572,7 @@
    "last": 1794465041.5383055
   }
  },
- "scan_day": "2026-11-16",
+ "scan_day": "2026-11-17",
  "trump_record": {
   "Iran / war / strikes": [
    3,
