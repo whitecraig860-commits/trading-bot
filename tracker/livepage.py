@@ -77,10 +77,17 @@ def week_history(today: str) -> dict:
 
     root = Path(__file__).resolve().parent.parent / "state"
     d0 = date.fromisoformat(today)
-    out = {"options": {}, "original": {}, "shares": {}}
+    folders = [("options", "qqqbot"), ("original", "qqqbot_original"), ("shares", "sharesbot")]
+    try:
+        import qqqbot
+
+        folders += [(k, v[0]) for k, v in qqqbot.EXTRA_BOTS.items()]
+    except Exception:
+        pass
+    out = {k: {} for k, _ in folders}
     for k in range(1, 8):
         day = (d0 - timedelta(days=k)).isoformat()
-        for key, folder in (("options", "qqqbot"), ("original", "qqqbot_original"), ("shares", "sharesbot")):
+        for key, folder in folders:
             f = root / folder / f"{day}.json"
             if not f.exists():
                 continue
@@ -102,7 +109,7 @@ def _ohlcv(df) -> list:
              round(float(r.close), 2), int(r.volume)] for t, r in df.iterrows()]
 
 
-def payload(now, bot, shares, original=None) -> dict:
+def payload(now, bot, shares, original=None, extras=None) -> dict:
     """What the live page shows. Built from data the bots already hold: no extra market-data requests."""
     bars, prev = [], []
     if bot is not None and getattr(bot, "bars", None) is not None and len(bot.bars):
@@ -117,4 +124,6 @@ def payload(now, bot, shares, original=None) -> dict:
         out["shares"] = shares.s.get("trade")
     if original is not None:
         out["original"] = {"trades": original.s["trades"], "open": original.s["open"]}
+    for key, xb in (extras or {}).items():
+        out[key] = {"trades": xb.s["trades"], "open": xb.s["open"]}
     return json.loads(json.dumps(out, default=float))
