@@ -1,0 +1,26 @@
+name: Weekly check of the paper bots (Telegram)
+
+on:
+  schedule:
+    - cron: "37 21 * * 5"   # Friday 21:37 UTC, after the US close (about 9:37pm UK)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Rank the bots and send the weekly message (reads saved results only; no orders)
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python tracker/weekly.py --send
