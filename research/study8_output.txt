@@ -1,0 +1,25 @@
+Study 8. 670 days, 26,516 signals. Protocol: research/TREND_TRAIL_PROTOCOL.md
+
+rule   cents  trades  win%   per day   own t  holdout/day  vs BASE/day  paired t
+BASE       1    6477   64%    -38.25  -32.14       -42.52        +0.00      +nan
+BASE       2    6240   62%    -55.86  -41.34       -60.42        +0.00      +nan
+WIDE       1    9466   75%    -59.52  -25.16       -64.35       -21.27    -10.58
+WIDE       2    9001   73%    -84.19  -33.42       -89.17       -28.33    -13.91
+TRAIL      1    3688   47%    -10.07   -6.08       -10.86       +28.18    +16.01
+TRAIL      2    3077   42%    -17.07  -12.14       -19.17       +38.79    +21.04
+TREND      1    5651   65%    -30.97  -26.36       -35.50        +7.28     +5.85
+TREND      2    5432   63%    -46.24  -39.31       -51.49        +9.62     +7.53
+WT         1    4864   57%    -19.48   -8.37       -23.85       +18.77     +8.14
+WT         2    3833   50%    -28.00  -13.50       -34.09       +27.86    +13.02
+ALL        1    4517   58%    -11.30   -5.03       -15.78       +26.95    +11.73
+ALL        2    3737   50%    -21.51  -10.74       -25.64       +34.35    +15.28
+
+A (better than the live bot): TRAIL passes and is adopted
+   WIDE: fail (paired t -10.58)
+   TRAIL: PASS (paired t +16.01)
+   TREND: PASS (paired t +5.85)
+   WT: PASS (paired t +8.14)
+   ALL: PASS (paired t +11.73)
+B (profitable on its own): none
+
+(GitHub Actions run 44130601188, 2026-11-17; run 44129154571 without WT gave identical numbers for every other rule.)
