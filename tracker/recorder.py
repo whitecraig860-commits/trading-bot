@@ -133,6 +133,15 @@ def main() -> int:
                                    name="original, no loss stop", max_losses=0, trade_messages=False)
     except Exception as exc:
         print(f"Original paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    extras = {}
+    for key, (folder, name, settings) in (qqqbot.EXTRA_BOTS.items() if bot else []):
+        try:  # comparison bots: same entries, different exits; each in its own try so one can never stop another
+            extras[key] = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / folder,
+                                          name=name, trade_messages=False, summaries=False, **settings)
+        except Exception as exc:
+            print(f"Comparison bot {key} not started: {type(exc).__name__}: {str(exc)[:120]}")
+    if bot and extras:
+        bot.compare = lambda upto: [b.total_line(upto) for b in extras.values()]
     live = None
     try:  # the live web page; never affects recording or the bots
         import livepage
@@ -175,6 +184,11 @@ def main() -> int:
                         original.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} original bot: {type(exc).__name__}: {str(exc)[:120]}")
+                for key, xb in (extras.items() if seen_today else []):
+                    try:
+                        xb.on_poll(t, r)
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} comparison bot {key}: {type(exc).__name__}: {str(exc)[:120]}")
                 if shares and seen_today:
                     try:
                         shares.on_poll(t)
@@ -182,13 +196,18 @@ def main() -> int:
                         print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
                 if live and seen_today and live.due():
                     try:
-                        live.publish(livepage.payload(t, bot, shares, original))
+                        live.publish(livepage.payload(t, bot, shares, original, extras))
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
             time.sleep(max(0.5, EVERY - (datetime.now(NY) - t).total_seconds()))
+    for key, xb in (extras.items() if seen_today else []):
+        try:  # before the main bot finishes, so its summary sees their final totals
+            xb.finish(datetime.now(NY), last_rows)
+        except Exception as exc:
+            print(f"Comparison bot {key} finish: {type(exc).__name__}: {str(exc)[:120]}")
     if original and seen_today:
         try:
             original.finish(datetime.now(NY), last_rows)
