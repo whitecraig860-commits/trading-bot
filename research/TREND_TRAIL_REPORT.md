@@ -20,8 +20,10 @@ At 2 cents a side every rule loses more, and the order is the same. See the outp
 
 ## Decisions (as the protocol says)
 
-- **A. Better than the live bot:** TRAIL, TREND, WT and ALL pass; TRAIL has the highest t, so **TRAIL is adopted** in the
-  main paper bot (`MAIN_TRAIL = True` in `tracker/qqqbot.py`; set it to False to undo).
+- **A. Better than the live bot:** TRAIL, TREND, WT and ALL pass; TRAIL has the highest t, so TRAIL qualifies for adoption.
+  At the user's request (every existing bot stays exactly as it is, so all can be compared), it runs as its own paper bot
+  ("stop after 2 losses + trailing exit", `EXTRA_BOTS` in `tracker/qqqbot.py`) next to the unchanged main bot, rather
+  than replacing the main bot's exit. A second new bot combines TRAIL with TREND (not run as one rule in this study).
 - **WT (his style) is better than the live bot but worse than TRAIL alone:** the 12% stop costs about $9 a day.
 - **WIDE fails badly.** A 12% stop wins more often (75%) but the losses are twice as big, and it loses $21 a day more.
 - **B. Profitable on its own: none.** The best version still loses about $10 a day per contract. It is not a money-maker,
