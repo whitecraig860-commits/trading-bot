@@ -124,8 +124,7 @@ def main() -> int:
     try:  # the paper bot rides on the same prices; if it breaks, recording carries on without it
         import qqqbot
 
-        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses",
-                              **qqqbot.MAIN_EXIT)
+        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses")
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     original = None
@@ -134,12 +133,15 @@ def main() -> int:
                                    name="original, no loss stop", max_losses=0, trade_messages=False)
     except Exception as exc:
         print(f"Original paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
-    follow = None
-    try:  # a third options bot with the exits seen in his posted trades: 12% stop, trailing exit (comparison only)
-        follow = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_his",
-                                 name="his style: 12% stop + trail", trade_messages=False, **qqqbot.HIS_STYLE)
-    except Exception as exc:
-        print(f"His-style paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    extras = {}
+    for key, (folder, name, settings) in (qqqbot.EXTRA_BOTS.items() if bot else []):
+        try:  # comparison bots: same entries, different exits; each in its own try so one can never stop another
+            extras[key] = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / folder,
+                                          name=name, trade_messages=False, summaries=False, **settings)
+        except Exception as exc:
+            print(f"Comparison bot {key} not started: {type(exc).__name__}: {str(exc)[:120]}")
+    if bot and extras:
+        bot.compare = lambda upto: [b.total_line(upto) for b in extras.values()]
     live = None
     try:  # the live web page; never affects recording or the bots
         import livepage
@@ -182,11 +184,11 @@ def main() -> int:
                         original.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} original bot: {type(exc).__name__}: {str(exc)[:120]}")
-                if follow and seen_today:
+                for key, xb in (extras.items() if seen_today else []):
                     try:
-                        follow.on_poll(t, r)
+                        xb.on_poll(t, r)
                     except Exception as exc:
-                        print(f"{t:%H:%M:%S} his-style bot: {type(exc).__name__}: {str(exc)[:120]}")
+                        print(f"{t:%H:%M:%S} comparison bot {key}: {type(exc).__name__}: {str(exc)[:120]}")
                 if shares and seen_today:
                     try:
                         shares.on_poll(t)
@@ -194,18 +196,18 @@ def main() -> int:
                         print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
                 if live and seen_today and live.due():
                     try:
-                        live.publish(livepage.payload(t, bot, shares, original, follow))
+                        live.publish(livepage.payload(t, bot, shares, original, extras))
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:
                 errors += 1
                 print(f"{t:%H:%M:%S} poll failed: {type(exc).__name__}: {str(exc)[:120]}")
             time.sleep(max(0.5, EVERY - (datetime.now(NY) - t).total_seconds()))
-    if follow and seen_today:
-        try:
-            follow.finish(datetime.now(NY), last_rows)
+    for key, xb in (extras.items() if seen_today else []):
+        try:  # before the main bot finishes, so its summary sees their final totals
+            xb.finish(datetime.now(NY), last_rows)
         except Exception as exc:
-            print(f"His-style bot finish: {type(exc).__name__}: {str(exc)[:120]}")
+            print(f"Comparison bot {key} finish: {type(exc).__name__}: {str(exc)[:120]}")
     if original and seen_today:
         try:
             original.finish(datetime.now(NY), last_rows)

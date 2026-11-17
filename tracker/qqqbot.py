@@ -25,18 +25,25 @@ import pandas as pd
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
 TRADE_MESSAGES = True
-# The main bot's exit. Study 8 (research/TREND_TRAIL_REPORT.md): keeping a winner and selling 1.5% below its best
-# price, instead of selling at +2.5% at once, cut the loss per day from -$38 to -$10 on 2.7 years of real option
-# prices (paired t +16, also better in the 2026 holdout and at 2 cents). Adopted under the pre-set rule.
-# Set MAIN_TRAIL = False to go back to the plain +2.5% exit.
-MAIN_TRAIL = True
-MAIN_EXIT = {"trail": 0.015, "hold_min": 15} if MAIN_TRAIL else {}
 # "His style": the third options bot, fourth bot in all (comparison only, no trade messages). Same entries as the
 # other options bots (they already match his timing), with the exits read off his 57 posted trades (11-17 Nov 2026):
 # his losers were -10% to -14%, so a 12% stop; his winners +0.5% to +16% (median +3.5%), so on +2.5% it keeps the
 # trade and sells 1.5% below the best price (15-minute limit). He trades calls and puts on the same day, so no trend
 # filter here (with_trend is tested separately). NOT tested on history yet: research/TREND_TRAIL_PROTOCOL.md (WT).
 HIS_STYLE = {"stop": 0.12, "trail": 0.015, "hold_min": 15, "with_trend": False}
+# Extra options paper bots, run side by side with the main and original bots for comparison. Same entries; only the
+# settings below differ. All of them also stop for the day after 2 losses in a row, like the main bot. They send no Telegram messages of their own: their totals are added to the main bot's
+# summaries, and every one has its own card on the live page. Remove a line to stop that bot; the others are unaffected.
+#   key: (state folder, name, settings)
+EXTRA_BOTS = {
+    # Study 8's best rule: keep a winner from +2.5%, sell 1.5% below its best (-$10 a day vs -$38 on 2.7 years).
+    "trail": ("qqqbot_trail", "stop after 2 losses + trailing exit", {"trail": 0.015, "hold_min": 15}),
+    # Both rules that helped in Study 8 (trailing exit, and with the day's direction only), with the normal 6% stop.
+    # This exact mix was not run in Study 8.
+    "trailtrend": ("qqqbot_trailtrend", "stop after 2 losses + trailing exit + trend", {"trail": 0.015, "hold_min": 15,
+                                                                            "with_trend": True}),
+    "his": ("qqqbot_his", "his style: stop after 2 losses + 12% stop + trail", HIS_STYLE),
+}
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
@@ -82,11 +89,14 @@ def send_telegram(text: str) -> bool:
 class PaperBot:
     def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
                  max_losses: int | None = None, trade_messages: bool | None = None, target: float = TARGET,
-                 stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False):
+                 stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
+                 summaries: bool = True):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
         self.target, self.stop, self.hold_min, self.trail, self.with_trend = target, stop, hold_min, trail, with_trend
+        self.summaries = summaries
+        self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
         self.max_losses = MAX_LOSSES_IN_A_ROW if max_losses is None else max_losses
@@ -263,9 +273,24 @@ class PaperBot:
                      + (f"Exit: keeps a winner from +{self.target:.1%} and sells {self.trail:.1%} below its best; "
                         f"stop -{self.stop:.0%}. " if self.trail else "Exit: +2.5% target, -6% stop. ")
                      + "History test: still loses (research/TREND_TRAIL_REPORT.md).</i>")
+        if self.compare:
+            try:
+                extra = self.compare(upto)
+                if extra:
+                    lines += ["", "<b>Comparison bots</b> (same entries, different exits)"] + extra
+            except Exception:
+                pass
         return "\n".join(lines)
 
+    def total_line(self, upto: str | None = None) -> str:
+        tr = [t for t in self.s["trades"] if upto is None or t["exit_t"][11:16] < upto]
+        total = sum(t["pnl"] for t in tr)
+        return (f"{self.name}: {len(tr)} trades · {sum(t['pnl'] > 0 for t in tr)}W / "
+                f"{sum(t['pnl'] <= 0 for t in tr)}L · <b>{total:+,.0f} USD</b>")
+
     def _summaries(self, now: datetime):
+        if not self.summaries:
+            return
         tod = now.strftime("%H:%M")
         for key, at, title in (("morning", MORNING_AT, "Morning summary"), ("day", DAY_AT, "Today's summary")):
             if tod >= at and key not in self.s["sent"] and not (key == "day" and self.s["open"]):
