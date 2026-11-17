@@ -69,7 +69,8 @@ _WEEK: dict = {}
 
 
 def week_history(today: str) -> dict:
-    """Daily P&L for each bot over the 7 days before today, from the saved state files (read once per run)."""
+    """Daily P&L for each bot on every day before today that it ran, from the saved state files (read once per run).
+    The live page uses the last 7 days for its "last 7 days" figure and all of them for the calendar."""
     if today in _WEEK:
         return _WEEK[today]
     from datetime import date, timedelta
@@ -85,11 +86,10 @@ def week_history(today: str) -> dict:
     except Exception:
         pass
     out = {k: {} for k, _ in folders}
-    for k in range(1, 8):
-        day = (d0 - timedelta(days=k)).isoformat()
-        for key, folder in folders:
-            f = root / folder / f"{day}.json"
-            if not f.exists():
+    for key, folder in folders:
+        for f in sorted((root / folder).glob("20??-??-??.json")) if (root / folder).is_dir() else []:
+            day = f.stem
+            if day >= today:
                 continue
             try:
                 st = json.loads(f.read_text())
@@ -117,7 +117,16 @@ def payload(now, bot, shares, original=None, extras=None) -> dict:
     if bot is not None and getattr(bot, "prev", None) is not None and len(bot.prev):
         prev = _ohlcv(bot.prev.tail(120))  # yesterday's last two hours: warms up the 50 EMA and MACD
     out = {"v": 2, "updated": now.strftime("%Y-%m-%d %H:%M:%S"), "bars": bars, "prev": prev,
-           "options": None, "shares": None, "original": None, "week": week_history(now.strftime("%Y-%m-%d"))}
+           "options": None, "shares": None, "original": None, "week": {}, "days": {}}
+    try:
+        from datetime import timedelta
+
+        today = now.strftime("%Y-%m-%d")
+        out["days"] = week_history(today)  # every past day, for the calendar
+        since = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        out["week"] = {k: {d: v for d, v in days.items() if d >= since} for k, days in out["days"].items()}
+    except Exception:
+        pass
     if bot is not None:
         out["options"] = {"trades": bot.s["trades"], "open": bot.s["open"]}
     if shares is not None:
