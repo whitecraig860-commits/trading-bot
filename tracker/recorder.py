@@ -134,11 +134,11 @@ def main() -> int:
     except Exception as exc:
         print(f"Original paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     follow = None
-    try:  # a third options bot in the style seen in his posted trades: wider stop, trailing exit, with the trend only
-        follow = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_trend",
-                                 name="trend + trail, wide stop", trade_messages=False, **qqqbot.TREND_TRAIL)
+    try:  # a third options bot with the exits seen in his posted trades: 12% stop, trailing exit (comparison only)
+        follow = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_his",
+                                 name="his style: 12% stop + trail", trade_messages=False, **qqqbot.HIS_STYLE)
     except Exception as exc:
-        print(f"Trend paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+        print(f"His-style paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     live = None
     try:  # the live web page; never affects recording or the bots
         import livepage
@@ -185,7 +185,7 @@ def main() -> int:
                     try:
                         follow.on_poll(t, r)
                     except Exception as exc:
-                        print(f"{t:%H:%M:%S} trend bot: {type(exc).__name__}: {str(exc)[:120]}")
+                        print(f"{t:%H:%M:%S} his-style bot: {type(exc).__name__}: {str(exc)[:120]}")
                 if shares and seen_today:
                     try:
                         shares.on_poll(t)
@@ -204,7 +204,7 @@ def main() -> int:
         try:
             follow.finish(datetime.now(NY), last_rows)
         except Exception as exc:
-            print(f"Trend bot finish: {type(exc).__name__}: {str(exc)[:120]}")
+            print(f"His-style bot finish: {type(exc).__name__}: {str(exc)[:120]}")
     if original and seen_today:
         try:
             original.finish(datetime.now(NY), last_rows)

@@ -42,4 +42,7 @@ ever be discussed for real money, and even then only after weeks of matching pap
 
 ## Amendments
 
-(none)
+1. **2026-11-17, before any result was seen** (the first run was still in progress): added rule **WT** = WIDE + TRAIL without
+   the trend filter. Reason: all 57 of his posted trades (11-17 Nov, `state/discord_trades.csv`) show calls and puts on the
+   same day, including two winning calls on a falling day, so the paper bot that copies him (`HIS_STYLE`) has no trend
+   filter. WT is judged by the same decision lines. Nothing else changes.

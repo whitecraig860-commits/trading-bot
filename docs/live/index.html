@@ -82,7 +82,7 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const URL_ = "https://api.github.com/repos/whitecraig860-commits/trading-bot/contents/live.json?ref=live-data";
-const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", trend: "Options · trend + trail", shares: "Shares · one a day"};
+const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", his: "Options · his style (12% stop + trail)", shares: "Shares · one a day"};
 const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 20", "--e20"], ["e50", "EMA 50", "--e50"],
              ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
 const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -138,7 +138,7 @@ function tradesFor(k) {
   const b = D[k] || {}; const out = (b.trades || []).map(t => ({...t, open: false}));
   if (b.open) out.push({...b.open, open: true});
   return out.map(t => ({t: t.t, exit_t: t.exit_t, side: t.type === "C" ? "CALL" : "PUT", label: `QQQ ${t.strike} ${t.type === "C" ? "CALL" : "PUT"}`,
-    trigger: t.trigger, entry: t.entry, exit: t.exit, stop: t.stop_px || t.entry * 0.94, target: t.target_px || t.entry * 1.025, why: t.why, pnl: t.pnl, open: t.open, qqqIn: t.qqq, unit: "option"}));
+    trigger: t.trigger, entry: t.entry, exit: t.exit, stop: t.stop_px || t.entry * 0.94, target: t.trail ? "from $" + (t.target_px || t.entry * 1.025).toFixed(2) + ", then sells " + (t.trail * 100).toFixed(1) + "% below its best" : (t.target_px || t.entry * 1.025), why: t.why, pnl: t.pnl, open: t.open, qqqIn: t.qqq, unit: "option"}));
 }
 
 function stats(tr, week) {
