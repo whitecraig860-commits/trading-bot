@@ -1,0 +1,28 @@
+Stage 1: 187 of our signals on 4 days of his; he took 27. His distinct entries: 32 (by option), 50 distinct minutes; entries matched to a signal: 55/83
+rule   keeps his  skips his skipped   score
+F1           67%                47%   +0.14
+F2           63%                51%   +0.14
+F3           89%                26%   +0.15
+F4           56%                49%   +0.04
+F5           44%                67%   +0.11
+By trigger (taken / all): EMA50 17/110, RANGE 3/6, VWAP 7/71
+By hour (taken / all): 09h 6/17, 10h 9/42, 11h 6/24, 12h 4/34, 13h 2/21, 14h 0/26, 15h 0/23
+FILTER = F3 (score +0.15)
+
+Stage 2. 670 days. Signals from 09:45: 26,516; from 09:31: 28,426
+
+rule   cents  trades  win%   per day   own t  holdout/day  vs BASE/day  paired t
+BASE       1    6477   64%    -38.25  -32.14       -42.52        +0.00      +nan
+BASE       2    6240   62%    -55.86  -41.34       -60.42        +0.00      +nan
+EARLY      1    6541   63%    -38.73  -33.06       -43.46        -0.48     -0.73
+EARLY      2    6330   63%    -56.75  -43.49       -62.62        -0.89     -1.15
+ITM        1    6613   64%    -39.24  -29.24       -44.39        -0.99     -1.38
+ITM        2    6518   64%    -58.23  -41.97       -61.89        -2.37     -2.82
+FILTER     1    5544   64%    -31.57  -24.71       -35.85        +6.68     +5.89
+FILTER     2    5424   63%    -47.28  -33.25       -52.54        +8.58     +7.24
+COMBO      1    5751   64%    -34.58  -23.99       -39.26        +3.67     +2.85
+COMBO      2    5732   64%    -51.48  -34.21       -57.02        +4.38     +3.26
+
+A (better than the live bot): EARLY fail (t -0.73), ITM fail (t -1.38), FILTER PASS (t +5.89), COMBO PASS (t +2.85)
+B (profitable on its own): none
+(GitHub Actions run 44399143559, 2026-11-18.)

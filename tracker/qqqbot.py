@@ -44,6 +44,12 @@ EXTRA_BOTS = {
     "trailtrend": ("qqqbot_trailtrend", "stop after 2 losses + trailing exit + trend", {"trail": 0.015, "hold_min": 15,
                                                                             "with_trend": True}),
     "his": ("qqqbot_his", "his style: stop after 2 losses + 12% stop + trail", HIS_STYLE),
+    # Study 9 (research/HIS_FILTER_REPORT.md): skip a signal when the close is less than $0.10 past the line it crossed.
+    # Better than the main bot on 2.7 years (-$32 a day vs -$38, paired t +5.9, also in the holdout and at 2 cents).
+    "skipweak": ("qqqbot_skipweak", "stop after 2 losses + skip weak crosses", {"skip": "F3"}),
+    # Study 9 COMBO: the same skip rule, signals from 09:31, and the strike just in the money (-$35 a day, t +2.9).
+    "combo": ("qqqbot_combo", "stop after 2 losses + skip weak crosses + 9:31 start + in the money",
+              {"skip": "F3", "first": "09:31", "itm": True}),
 }
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
