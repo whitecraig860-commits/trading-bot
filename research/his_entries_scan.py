@@ -45,7 +45,8 @@ d_rsi = c.diff()
 rsi = 100 - 100 / (1 + d_rsi.clip(lower=0).ewm(alpha=1 / 14).mean() / (-d_rsi.clip(upper=0)).ewm(alpha=1 / 14).mean())
 ev["RSI(14) crosses 50"] = (same & (rsi.shift(1) <= 50) & (rsi > 50), same & (rsi.shift(1) >= 50) & (rsi < 50))
 ev["price above all 4 lines (call) / below all (put)"] = (
-    np.logical_and.reduce([c > L[k] for k in L]), np.logical_and.reduce([c < L[k] for k in L]))
+    pd.Series(np.logical_and.reduce([c > L[k] for k in L]), index=q.index),
+    pd.Series(np.logical_and.reduce([c < L[k] for k in L]), index=q.index))
 
 # his distinct entries: one per (minute, side)
 e = his.assign(m=his.bt.dt.floor("min")).drop_duplicates(["m", "type"])
