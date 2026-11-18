@@ -101,7 +101,8 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 const URL_ = "https://api.github.com/repos/whitecraig860-commits/trading-bot/contents/live.json?ref=live-data";
 const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", trail: "Options · stop after 2 + trailing exit",
   trailtrend: "Options · stop after 2 + trailing exit + trend", his: "Options · his style (stop after 2, 12% stop + trail)",
-  skipweak: "Options · stop after 2 + skip weak crosses", combo: "Options · stop after 2 + skip weak + 9:31 + in the money", shares: "Shares · one a day"};
+  skipweak: "Options · stop after 2 + skip weak crosses", combo: "Options · stop after 2 + skip weak + 9:31 + in the money",
+  picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)", shares: "Shares · one a day"};
 const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 20", "--e20"], ["e50", "EMA 50", "--e50"],
              ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
 const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -317,7 +318,7 @@ function renderCalendar() {
   }).join("");
 }
 
-const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", shares: "Shares"};
+const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", shares: "Shares"};
 function renderAllDays() {
   const ks = Object.keys(BOTS), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
   const dates = [...new Set(ks.flatMap(k => Object.keys(per[k])))].sort().reverse();

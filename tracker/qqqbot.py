@@ -50,6 +50,12 @@ EXTRA_BOTS = {
     # Study 9 COMBO: the same skip rule, signals from 09:31, and the strike just in the money (-$35 a day, t +2.9).
     "combo": ("qqqbot_combo", "stop after 2 losses + skip weak crosses + 9:31 start + in the money",
               {"skip": "F3", "first": "09:31", "itm": True}),
+    # Study 10 ALL: picks signals the way he does (EMA9/EMA20 agree, strong candle, before 12:00, not a weak cross).
+    # On 2.7 years: -$12 a day vs -$38 (t +18). Stress tests: research/STRESS_REPORT.md.
+    "picks": ("qqqbot_picks", "picks like him (stop after 2 losses)", {"skip": "F3", "pick": True}),
+    # "His clone": the same picks plus the exits read off his 83 posted trades: +3.5% target, -10% stop, 6-minute limit.
+    "clone": ("qqqbot_clone", "his clone: picks like him + his exits (stop after 2 losses)",
+              {"skip": "F3", "pick": True, "target": 0.035, "stop": 0.10, "hold_min": 6}),
 }
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
@@ -97,7 +103,8 @@ class PaperBot:
     def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
                  max_losses: int | None = None, trade_messages: bool | None = None, target: float = TARGET,
                  stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
-                 summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None):
+                 summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None,
+                 pick: bool = False):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
@@ -106,6 +113,9 @@ class PaperBot:
         # first: earliest signal time (VWAP / 50 EMA crosses; the range break still needs 09:45). itm: buy the strike just
         # in the money instead of the nearest. skip: a Study 9 skip rule ("F1".."F5", research/HIS_FILTER_PROTOCOL.md).
         self.first, self.itm, self.skip = first, itm, skip
+        # pick: Study 10's "pick like him" rule: take a signal only when EMA9 is on the trade's side of EMA20, the signal
+        # candle is strong in the trade's direction (body over 60% of its range), and it is before 12:00 New York time.
+        self.pick = pick
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
@@ -216,6 +226,8 @@ class PaperBot:
                 self.save()
             if sig and self.skip:
                 sig = self._skip_check(sig, now)
+            if sig and self.pick and not self._pick_ok(sig, tod):
+                sig = None
             if sig and self.with_trend and self.bars is not None and len(self.bars):
                 day_open = float(self.bars.open.iloc[0])
                 if (sig[0] == "C" and sig[2] <= day_open) or (sig[0] == "P" and sig[2] >= day_open):
@@ -238,6 +250,20 @@ class PaperBot:
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
             self._summaries(now)
+
+    def _pick_ok(self, sig, tod: str) -> bool:
+        """Study 10 ALL entries (with skip="F3" for the weak-cross part), judged on the candle that just closed."""
+        b = self.bars
+        if b is None or len(b) < 2 or tod >= "12:00":
+            return False
+        closes = pd.concat([self.prev.close, b.close]) if self.prev is not None and len(self.prev) else b.close
+        e9 = closes.ewm(span=9, adjust=False).mean().iloc[-1]
+        e20 = closes.ewm(span=20, adjust=False).mean().iloc[-1]
+        last = b.iloc[-1]
+        body, rng = float(last.close - last.open), float(last.high - last.low)
+        if sig[0] == "C":
+            return e9 > e20 and body > 0.6 * rng
+        return e9 < e20 and -body > 0.6 * rng
 
     def _skip_check(self, sig, now: datetime):
         """Study 9 skip rules, judged against every earlier signal today (taken or not), as in the backtest."""
