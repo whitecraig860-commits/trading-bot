@@ -1,0 +1,27 @@
+Study 11. 670 days, 26,516 signals; ALL/CLONE keep 10.4%.
+
+Per day (number of trades) at 1 / 2 / 3 / 5 cents a side:
+  BASE    -38.25 (6477)   -55.86 (6240)   -57.23 (4653)   -44.03 (2337)   own t at 1c -32.14
+  ALL     -11.69 (2277)   -18.47 (2271)   -21.97 (2033)   -25.23 (1508)   own t at 1c -11.02
+  CLONE   -11.15 (2277)   -17.94 (2277)   -24.64 (2263)   -30.46 (1866)   own t at 1c -7.20
+
+===== ALL vs BASE (1 cent): +26.55 a day, paired t +18.27; per trade -3.44 vs BASE -3.96
+T1 years: 2024 -9.74 vs -34.33, 2025 -9.33 vs -37.98, 2026 -16.50 vs -42.52
+T2 placebo (random 10% of signals, same exits): rule -11.69; placebos median -11.44, best -10.03; rule beats 9/20
+T3 vs BASE at 3c / 5c: +35.26 / +18.80
+T4 one minute late: -12.72 vs BASE -35.66
+T5 wobble: EMA 8/21 -11.75, candle 50% -12.36, candle 70% -10.00, cut-off 11:30 -9.77, cut-off 12:30 -12.96, weak $0.05 -12.86, weak $0.15 -10.14 (BASE -38.25)
+T6 bootstrap: better than BASE in 100.0% of 1,000 resamples
+T7: calm -13.64 vs -36.04, busy -9.75 vs -40.45, up days -12.41 vs -37.35, down days -10.89 vs -39.25
+
+===== CLONE vs BASE (1 cent): +27.10 a day, paired t +14.31; per trade -3.28 vs BASE -3.96
+T1 years: 2024 -9.51 vs -34.33, 2025 -7.51 vs -37.98, 2026 -17.15 vs -42.52
+T2 placebo (random 10% of signals, same exits): rule -11.15; placebos median -11.65, best -8.20; rule beats 12/20
+T3 vs BASE at 3c / 5c: +32.58 / +13.57
+T4 one minute late: -12.72 vs BASE -35.66
+T6 bootstrap: better than BASE in 100.0% of 1,000 resamples
+T7: calm -14.62 vs -36.04, busy -7.67 vs -40.45, up days -11.58 vs -37.35, down days -10.66 vs -39.25
+
+===== VERDICT
+ALL: T1 every year PASS, T2 placebo 19/20 fail, T3 costs PASS, T4 late fill PASS, T5 wobble PASS, T6 bootstrap 95% PASS, T7 regimes PASS, PROFITABLE fail  ->  not robust
+CLONE: T1 every year PASS, T2 placebo 19/20 fail, T3 costs PASS, T4 late fill PASS, T6 bootstrap 95% PASS, T7 regimes PASS, PROFITABLE fail  ->  not robust
