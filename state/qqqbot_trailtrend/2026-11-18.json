@@ -1,0 +1,96 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-18 09:45:06",
+   "type": "P",
+   "strike": 655.0,
+   "expiry": "2026-11-19",
+   "entry": 7.61,
+   "trigger": "EMA50",
+   "qqq": 655.25,
+   "stop_px": 7.15,
+   "target_px": 7.8,
+   "trail": 0.015,
+   "best": 7.91,
+   "exit": 7.59,
+   "exit_t": "2026-11-18 09:45:16",
+   "why": "trail",
+   "pnl": -2.06
+  },
+  {
+   "t": "2026-11-18 09:46:06",
+   "type": "P",
+   "strike": 655.0,
+   "expiry": "2026-11-19",
+   "entry": 7.67,
+   "trigger": "RANGE",
+   "qqq": 655.0,
+   "stop_px": 7.21,
+   "target_px": 7.86,
+   "trail": 0.015,
+   "best": 7.9,
+   "exit": 7.68,
+   "exit_t": "2026-11-18 09:46:36",
+   "why": "trail",
+   "pnl": 0.94
+  },
+  {
+   "t": "2026-11-18 09:48:06",
+   "type": "P",
+   "strike": 656.0,
+   "expiry": "2026-11-19",
+   "entry": 7.88,
+   "trigger": "EMA50",
+   "qqq": 655.5,
+   "stop_px": 7.41,
+   "target_px": 8.08,
+   "trail": 0.015,
+   "best": 8.34,
+   "exit": 8.119,
+   "exit_t": "2026-11-18 09:48:31",
+   "why": "trail",
+   "pnl": 23.84
+  },
+  {
+   "t": "2026-11-18 10:25:07",
+   "type": "P",
+   "strike": 659.0,
+   "expiry": "2026-11-19",
+   "entry": 7.22,
+   "trigger": "EMA50",
+   "qqq": 658.65,
+   "stop_px": 6.79,
+   "target_px": 7.4,
+   "trail": 0.015,
+   "exit": 6.7,
+   "exit_t": "2026-11-18 10:25:52",
+   "why": "stop",
+   "pnl": -52.06
+  },
+  {
+   "t": "2026-11-18 10:28:07",
+   "type": "P",
+   "strike": 659.0,
+   "expiry": "2026-11-19",
+   "entry": 6.98,
+   "trigger": "EMA50",
+   "qqq": 658.56,
+   "stop_px": 6.56,
+   "target_px": 7.15,
+   "trail": 0.015,
+   "exit": 6.54,
+   "exit_t": "2026-11-18 10:28:32",
+   "why": "stop",
+   "pnl": -44.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "P",
+  "C"
+ ],
+ "sent": [
+  "stopped"
+ ],
+ "seen_bars": 0
+}
