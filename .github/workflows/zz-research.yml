@@ -20,4 +20,4 @@ jobs:
           ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
           ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
         working-directory: research
-        run: python -W ignore his_picks_scan.py
+        run: python -W ignore his_entries_scan.py && echo "=====PICKS=====" && python -W ignore his_picks_scan.py
