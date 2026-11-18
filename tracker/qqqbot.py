@@ -51,7 +51,8 @@ EXTRA_BOTS = {
     "combo": ("qqqbot_combo", "stop after 2 losses + skip weak crosses + 9:31 start + in the money",
               {"skip": "F3", "first": "09:31", "itm": True}),
     # Study 10 ALL: picks signals the way he does (EMA9/EMA20 agree, strong candle, before 12:00, not a weak cross).
-    # On 2.7 years: -$12 a day vs -$38 (t +18). Stress tests: research/STRESS_REPORT.md.
+    # On 2.7 years: -$12 a day vs -$38, but keeping a RANDOM 10% of signals does as well (research/STRESS_REPORT.md):
+    # the gain is from trading less, not from better picks. Kept as a comparison with his live results.
     "picks": ("qqqbot_picks", "picks like him (stop after 2 losses)", {"skip": "F3", "pick": True}),
     # "His clone": the same picks plus the exits read off his 83 posted trades: +3.5% target, -10% stop, 6-minute limit.
     "clone": ("qqqbot_clone", "his clone: picks like him + his exits (stop after 2 losses)",
