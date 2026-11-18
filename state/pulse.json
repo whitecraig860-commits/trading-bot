@@ -105,17 +105,17 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 52,
-     "win_rate": 0.2692307692307692,
-     "avg_r": -0.12139961602031432,
-     "total_r": -6.312780033056344,
+     "trades": 54,
+     "win_rate": 0.2777777777777778,
+     "avg_r": -0.1594571238814049,
+     "total_r": -8.610684689595864,
      "sessions": 60
     },
     "orb": {
      "trades": 55,
      "win_rate": 0.3090909090909091,
-     "avg_r": -0.17869995225071228,
-     "total_r": -9.828497373789176,
+     "avg_r": -0.18119824799896853,
+     "total_r": -9.965903639943269,
      "sessions": 60
     },
     "fade": {
@@ -126,21 +126,21 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 198,
-     "win_rate": 0.20707070707070707,
-     "avg_r": -0.09411718370328981,
-     "total_r": -18.63520237325138,
+     "trades": 180,
+     "win_rate": 0.24444444444444444,
+     "avg_r": -0.048807092347045423,
+     "total_r": -8.785276622468176,
      "sessions": 60
     },
     "late": {
      "trades": 50,
      "win_rate": 0.32,
-     "avg_r": -0.228584147413035,
-     "total_r": -11.429207370651751,
+     "avg_r": -0.21802740913982155,
+     "total_r": -10.901370456991078,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-18T02:05:40.000416+00:00",
+   "record_at": "2026-11-18T07:20:40.000424+00:00",
    "last_bar": "2026-11-17 15:55:00-05:00",
    "brief_day": "2026-11-17",
    "stance": "down|None",
@@ -536,9 +536,26 @@
   "https://www.trumpstruth.org/statuses/43609",
   "https://www.trumpstruth.org/statuses/43612",
   "https://www.trumpstruth.org/statuses/43613",
-  "https://www.trumpstruth.org/statuses/43615"
+  "https://www.trumpstruth.org/statuses/43615",
+  "https://www.trumpstruth.org/statuses/43616"
  ],
- "trump_checks": [],
+ "trump_checks": [
+  {
+   "id": "https://www.trumpstruth.org/statuses/43616",
+   "text": "I am now heading to China, from the Philippines, where we had a wonderful meetin",
+   "at": "2026-11-18T07:50:40.205201+00:00",
+   "markets": [
+    {
+     "market": "QQQ",
+     "direction": 1,
+     "p0": 657.030029296875,
+     "open": false,
+     "topic": "trade deal / tariff pause"
+    }
+   ],
+   "done": []
+  }
+ ],
  "trump_seeded": true,
  "briefing_day": "2026-11-05",
  "scalper": {
