@@ -16,6 +16,7 @@ It runs inside the price recorder (tracker/recorder.py), which calls on_poll() e
 from __future__ import annotations
 
 import json
+import math
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -90,12 +91,15 @@ class PaperBot:
     def __init__(self, bars_fn, now: datetime, say=send_telegram, state_dir: Path = STATE, name: str = "",
                  max_losses: int | None = None, trade_messages: bool | None = None, target: float = TARGET,
                  stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
-                 summaries: bool = True):
+                 summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
         self.target, self.stop, self.hold_min, self.trail, self.with_trend = target, stop, hold_min, trail, with_trend
         self.summaries = summaries
+        # first: earliest signal time (VWAP / 50 EMA crosses; the range break still needs 09:45). itm: buy the strike just
+        # in the money instead of the nearest. skip: a Study 9 skip rule ("F1".."F5", research/HIS_FILTER_PROTOCOL.md).
+        self.first, self.itm, self.skip = first, itm, skip
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
@@ -142,21 +146,21 @@ class PaperBot:
         ema = pd.concat([self.prev.close, b.close]).ewm(span=50, adjust=False).mean().iloc[-len(b):]
         c, pc = b.close.iloc[-1], b.close.iloc[-2]
         tod = (want + timedelta(minutes=1)).strftime("%H:%M")
-        if not (FIRST <= tod <= LAST):
+        if not (self.first <= tod <= LAST):
             return None
         for name, line in (("EMA50", ema), ("VWAP", vwap)):
             if pc <= line.iloc[-2] and c > line.iloc[-1]:
-                return "C", name, c
+                return "C", name, c, abs(c - line.iloc[-1])
             if pc >= line.iloc[-2] and c < line.iloc[-1]:
-                return "P", name, c
+                return "P", name, c, abs(c - line.iloc[-1])
         if len(b) > 15:
             hi, lo = b.high.iloc[:15].max(), b.low.iloc[:15].min()
             if c > hi and "C" not in self.s["range_done"]:
                 self.s["range_done"].append("C")
-                return "C", "RANGE", c
+                return "C", "RANGE", c, c - hi
             if c < lo and "P" not in self.s["range_done"]:
                 self.s["range_done"].append("P")
-                return "P", "RANGE", c
+                return "P", "RANGE", c, lo - c
         return None
 
     # ------------------------------------------------------------------ the 5-second tick
@@ -204,27 +208,50 @@ class PaperBot:
                 self.s["sent"].append("stopped")
                 self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
                 self.save()
+            if sig and self.skip:
+                sig = self._skip_check(sig, now)
             if sig and self.with_trend and self.bars is not None and len(self.bars):
                 day_open = float(self.bars.open.iloc[0])
                 if (sig[0] == "C" and sig[2] <= day_open) or (sig[0] == "P" and sig[2] >= day_open):
                     sig = None  # against today's direction: skipped
             if sig and not self.s["open"] and tod < FLAT and not stopped:
-                side, trig, px = sig
+                side, trig, px = sig[:3]
                 today = now.strftime("%Y-%m-%d")
                 exps = sorted({k[0] for k in quotes if k[0] > today})
-                q = quotes.get((exps[0], side, float(round(px)))) if exps else None
+                k = float((math.floor(px) if side == "C" else math.ceil(px)) if self.itm else round(px))
+                q = quotes.get((exps[0], side, k)) if exps else None
                 ask = float(q["ask"]) if q and q["ask"] not in ("", None) else 0.0
                 if ask >= 0.5:
-                    self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": float(round(px)),
+                    self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": k,
                                       "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2),
                                       "stop_px": round(ask * (1 - self.stop), 2), "target_px": round(ask * (1 + self.target), 2)}
                     if self.trail:
                         self.s["open"]["trail"] = self.trail
-                    print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
-                    self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {round(px)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
+                    print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
+                    self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
             self._summaries(now)
+
+    def _skip_check(self, sig, now: datetime):
+        """Study 9 skip rules, judged against every earlier signal today (taken or not), as in the backtest."""
+        side, px, dist = sig[0], sig[2], sig[3]
+        t = (now.replace(second=0, microsecond=0, tzinfo=None)).strftime("%H:%M")
+        hist = self.s.setdefault("sigs", [])
+        prev = hist[-1] if hist else None
+        hist.append([t, side])
+        gap = None
+        if prev:
+            h1, m1 = map(int, prev[0].split(":"))
+            h2, m2 = map(int, t.split(":"))
+            gap = (h2 * 60 + m2) - (h1 * 60 + m1)
+        day_open = float(self.bars.open.iloc[0]) if self.bars is not None and len(self.bars) else px
+        rule = {"F1": gap is not None and gap <= 2 and prev[1] != side,
+                "F2": gap is not None and gap <= 2,
+                "F3": dist < 0.10,
+                "F4": (side == "C" and px <= day_open) or (side == "P" and px >= day_open),
+                "F5": gap is not None and gap < 5}.get(self.skip, False)
+        return None if rule else sig
 
     def _close(self, now: datetime, bid: float, why: str):
         o = self.s["open"]
