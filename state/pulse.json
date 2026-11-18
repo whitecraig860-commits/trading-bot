@@ -105,53 +105,53 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 52,
-     "win_rate": 0.2692307692307692,
-     "avg_r": -0.12139961602031432,
-     "total_r": -6.312780033056344,
+     "trades": 49,
+     "win_rate": 0.2857142857142857,
+     "avg_r": -0.07556436835402344,
+     "total_r": -3.7026540493471485,
      "sessions": 60
     },
     "orb": {
-     "trades": 55,
-     "win_rate": 0.3090909090909091,
-     "avg_r": -0.17869995225071228,
-     "total_r": -9.828497373789176,
+     "trades": 56,
+     "win_rate": 0.30357142857142855,
+     "avg_r": -0.1936189292859821,
+     "total_r": -10.842660040014998,
      "sessions": 60
     },
     "fade": {
-     "trades": 1,
-     "win_rate": 0.0,
-     "avg_r": -1.0586343381015733,
-     "total_r": -1.0586343381015733,
+     "trades": 2,
+     "win_rate": 0.5,
+     "avg_r": 0.27819012704108237,
+     "total_r": 0.5563802540821647,
      "sessions": 60
     },
     "vwap": {
-     "trades": 198,
-     "win_rate": 0.20707070707070707,
-     "avg_r": -0.09754631746501541,
-     "total_r": -19.31417085807305,
+     "trades": 199,
+     "win_rate": 0.20603015075376885,
+     "avg_r": -0.0910199409583455,
+     "total_r": -18.112968250710754,
      "sessions": 60
     },
     "late": {
-     "trades": 50,
-     "win_rate": 0.32,
-     "avg_r": -0.228584147413035,
-     "total_r": -11.429207370651751,
+     "trades": 49,
+     "win_rate": 0.32653061224489793,
+     "avg_r": -0.21138619191274932,
+     "total_r": -10.357923403724717,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-18T13:45:40.000183+00:00",
-   "last_bar": "2026-11-17 15:55:00-05:00",
-   "brief_day": "2026-11-17",
-   "stance": "down|None",
-   "pending": "none|None",
-   "pending_n": 1,
+   "record_at": "2026-11-18T19:05:40.000157+00:00",
+   "last_bar": "2026-11-18 14:05:00-05:00",
+   "brief_day": "2026-11-18",
+   "stance": "up|None",
+   "pending": "range|None",
+   "pending_n": 2,
    "alerts": {},
    "changes": {
-    "2026-11-17": 2
+    "2026-11-18": 3
    },
-   "last_change_at": "2026-11-17T19:05:40.000419+00:00",
-   "stance_desc": "LEANING DOWN, not trending cleanly"
+   "last_change_at": "2026-11-18T18:50:40.000156+00:00",
+   "stance_desc": "LEANING UP, not trending cleanly"
   },
   "IWM": {
    "record": {
