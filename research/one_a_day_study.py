@@ -77,7 +77,8 @@ def prepare(q: pd.DataFrame):
     return opens, sigma, vwap, atr
 
 
-def run(q, prep, opt, dte=2, itm=2.0, trail=4.0, use_noise=True, buffer=0.3):
+def run(q, prep, opt, dte=2, itm=2.0, trail=4.0, use_noise=True, buffer=0.3, rand_side=None):
+    """rand_side: a numpy Generator; if given, each trade's side is random (placebo, Study 13)."""
     opens, sigma, vwap, atr = prep
     days = sorted(set(q.index.normalize()))
     out = []
@@ -108,6 +109,8 @@ def run(q, prep, opt, dte=2, itm=2.0, trail=4.0, use_noise=True, buffer=0.3):
             out.append({"day": d, "traded": False})
             continue
         t, side, entry, a = trade
+        if rand_side is not None:
+            side = int(rand_side.choice([1, -1]))
         rest = g[g.index > t]
         best, why, xt, xp = 0.0, "time", None, None
         for bar in rest.itertuples():
