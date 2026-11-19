@@ -1,5 +1,5 @@
 """
-Weekly check: ranks every paper bot by its real results and sends one Telegram message. Reads the saved state files
+Weekly (and, with --daily, daily) check: ranks every paper bot by its real results and sends one Telegram message. Reads the saved state files
 only; changes nothing and places no orders. Run by .github/workflows/weekly.yml on Friday after the US close.
 """
 
@@ -78,8 +78,8 @@ def lessons(name: str, tr: list) -> list:
     return lines
 
 
-def report(today: date) -> str:
-    since = (today - timedelta(days=today.weekday())).isoformat()  # Monday of this week
+def report(today: date, daily: bool = False) -> str:
+    since = today.isoformat() if daily else (today - timedelta(days=today.weekday())).isoformat()  # today / Monday
     rows = []
     for key, folder, name in BOTS:
         d = days(folder, key)
@@ -87,7 +87,8 @@ def report(today: date) -> str:
         rows.append((name, sum(wk.values()), len(wk), sum(v > 0 for v in wk.values()), sum(d.values()), len(d)))
     rows.sort(key=lambda r: (r[2] == 0, -r[1]))
     g = qqqbot.GBP
-    lines = [f"📅 <b>Weekly check</b> (week of {date.fromisoformat(since):%d %b})", "<b>This week</b>, best first:"]
+    lines = ([f"📅 <b>Daily check</b> ({today:%a %d %b})", "<b>Today</b>, best first:"] if daily else
+             [f"📅 <b>Weekly check</b> (week of {date.fromisoformat(since):%d %b})", "<b>This week</b>, best first:"])
     medals = ["🥇", "🥈", "🥉"]
     for i, (name, wk, n, up, tot, nd) in enumerate(rows):
         tag = medals[i] if i < 3 and n else "•"
@@ -111,7 +112,7 @@ def report(today: date) -> str:
 
 
 if __name__ == "__main__":
-    text = report(date.today())
+    text = report(date.today(), daily="--daily" in sys.argv)
     print(text)
     if "--send" in sys.argv:
         sys.exit(0 if qqqbot.send_telegram(text) else 1)

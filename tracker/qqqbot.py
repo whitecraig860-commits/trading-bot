@@ -66,6 +66,13 @@ EXTRA_BOTS = {
     # +$2.85 a day vs the main bot on 2.7 years, 5 of 6 stress tests; not profitable on its own.
     "brakes": ("qqqbot_brakes", "profit brake +$50 / loss brake -$100 (stop after 2 losses)",
                {"profit_brake": 50, "loss_brake": 100}),
+    # Study 13 (research/NEW_ENTRIES_REPORT.md): three different kinds of entry.
+    "five": ("qqqbot_five", "5-minute crosses (stop after 2 losses)",
+             {"mode": "five", "target": 0.05, "stop": 0.10, "hold_min": 30}),
+    "open30": ("qqqbot_open30", "opening move at 10:00 (one a day)",
+               {"mode": "open30", "target": 0.10, "stop": 0.10, "hold_min": 60}),
+    "oneaday": ("qqqbot_oneaday", "one-a-day breakout on options (follows the shares bot)",
+                {"mode": "follow", "target": 9.0, "stop": 0.99, "hold_min": 600, "max_losses": 0}),
 }
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
@@ -115,7 +122,7 @@ class PaperBot:
                  stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
                  summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None,
                  pick: bool = False, profit_brake: float = 0.0, loss_brake: float = 0.0, max_spread: float = 0.0,
-                 resume_wait: float = 0.0):
+                 resume_wait: float = 0.0, mode: str = "cross"):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
@@ -134,6 +141,11 @@ class PaperBot:
         self.profit_brake, self.loss_brake = profit_brake, loss_brake
         self.max_spread, self.resume_wait = max_spread, resume_wait
         self.last_fresh, self.resumed_at = None, None
+        # Study 13 (research/NEW_ENTRIES_PROTOCOL.md) entry modes: "cross" (the usual one-minute crosses), "five"
+        # (the same crosses on 5-minute candles), "open30" (the opening move at 10:00, one trade a day), "follow" (buy the
+        # at-the-money option when the shares bot enters, sell when it exits; the recorder sets .pending / .follow_exit).
+        self.mode = mode
+        self.pending, self.follow_exit, self.prev_all = None, False, None
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
@@ -166,6 +178,7 @@ class PaperBot:
                     p = pd.DataFrame()
                 if len(p):
                     self.prev = p.tail(300)
+                    self.prev_all = p
                     break
             if self.prev is None:
                 self.prev = pd.DataFrame(columns=["open", "high", "low", "close", "volume"], index=pd.DatetimeIndex([]))
@@ -174,6 +187,18 @@ class PaperBot:
         self.bars = b
         if len(b) < 2 or b.index[-1] != want:
             return None
+        if self.mode == "follow":
+            return None
+        if self.mode == "open30":
+            if (want + timedelta(minutes=1)).strftime("%H:%M") != "10:00" or "open30" in self.s["range_done"]:
+                return None
+            self.s["range_done"].append("open30")
+            mv = b.close.iloc[-1] / b.open.iloc[0] - 1
+            if abs(mv) < 0.0025:
+                return None
+            return ("C" if mv > 0 else "P"), "OPEN30", b.close.iloc[-1], abs(mv)
+        if self.mode == "five":
+            return self._signal_five(b, want)
         tp = (b.high + b.low + b.close) / 3
         vol = b.volume.where(b.volume > 0, 1.0)
         vwap = (tp * vol).cumsum() / vol.cumsum()
@@ -231,12 +256,18 @@ class PaperBot:
                     why = "time"
                 elif tod >= FLAT:
                     why = "end of day"
+            if self.mode == "follow" and self.follow_exit and bid > 0:
+                why = "shares bot exit"
             if why:
                 self._close(now, bid, why)
         if now.second >= 3 and tod != self.last_min:
             self.last_min = tod
             try:
                 sig = self._signal(now)
+                if self.mode == "follow" and self.pending and not self.s["open"] and \
+                        "follow" not in self.s["range_done"]:
+                    sig = self.pending
+                    self.s["range_done"].append("follow")
             except Exception as exc:
                 print(f"{tod} bars: {type(exc).__name__}: {str(exc)[:100]}")
                 sig = None
@@ -287,6 +318,29 @@ class PaperBot:
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
             self._summaries(now)
+
+    def _signal_five(self, b, want):
+        """VWAP / 50 EMA crosses on 5-minute candles, judged when a 5-minute candle has just closed."""
+        t = want + timedelta(minutes=1)
+        if t.minute % 5 or not (self.first <= t.strftime("%H:%M") <= LAST):
+            return None
+        agg = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+        f = b.resample("5min", label="left", closed="left").agg(agg).dropna()
+        if len(f) < 2 or f.index[-1] + timedelta(minutes=5) != t:
+            return None
+        prev = self.prev_all if self.prev_all is not None and len(self.prev_all) else self.prev
+        pf = prev.resample("5min", label="left", closed="left").agg(agg).dropna() if len(prev) else f.iloc[:0]
+        tp = (f.high + f.low + f.close) / 3
+        vol = f.volume.where(f.volume > 0, 1.0)
+        vwap = (tp * vol).cumsum() / vol.cumsum()
+        ema = pd.concat([pf.close, f.close]).ewm(span=50, adjust=False).mean().iloc[-len(f):]
+        c, pc = f.close.iloc[-1], f.close.iloc[-2]
+        for name, line in (("EMA50_5", ema), ("VWAP5", vwap)):
+            if pc <= line.iloc[-2] and c > line.iloc[-1]:
+                return "C", name, c, abs(c - line.iloc[-1])
+            if pc >= line.iloc[-2] and c < line.iloc[-1]:
+                return "P", name, c, abs(c - line.iloc[-1])
+        return None
 
     @staticmethod
     def _fresh(q: dict, now: datetime) -> bool:
