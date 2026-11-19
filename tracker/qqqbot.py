@@ -66,7 +66,9 @@ EXTRA_BOTS = {
     # +$2.85 a day vs the main bot on 2.7 years, 5 of 6 stress tests; not profitable on its own.
     "brakes": ("qqqbot_brakes", "profit brake +$50 / loss brake -$100 (stop after 2 losses)",
                {"profit_brake": 50, "loss_brake": 100}),
-    # Study 13 (research/NEW_ENTRIES_REPORT.md): three different kinds of entry.
+    # Study 13 (research/NEW_ENTRIES_REPORT.md): three different kinds of entry. 5-minute crosses: still a coin flip
+    # (-$16 a day). Opening move: -$2.46 a day. One-a-day options: +$14.44 a day, every year positive, beats all 20
+    # placebos, but t 1.73 (just short of the 2.0 line), so not proven.
     "five": ("qqqbot_five", "5-minute crosses (stop after 2 losses)",
              {"mode": "five", "target": 0.05, "stop": 0.10, "hold_min": 30}),
     "open30": ("qqqbot_open30", "opening move at 10:00 (one a day)",
