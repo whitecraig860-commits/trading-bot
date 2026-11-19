@@ -167,9 +167,18 @@ def main() -> int:
                 r = rows(feed, t)
                 today = t.strftime("%Y-%m-%d")
                 seen_today = seen_today or any(x["quote_time"].startswith(today) for x in r)
-                if polls >= 360 and not seen_today:
-                    print("No quotes dated today after 30 minutes (market holiday?): stopping.")
-                    break
+                if polls >= 360 and not seen_today and polls % 60 == 0:
+                    # Option quotes still dated an earlier day. Only a real holiday if QQQ shares are not trading
+                    # today either: on 19 Nov 2026 the option quotes came through stale until 10:30 New York time
+                    # while the market was open, and stopping here cost the whole first hour.
+                    try:
+                        open_today = len(qqqbot.alpaca_bars(feed.stk)(t)) > 0
+                    except Exception:
+                        open_today = True  # unsure: keep waiting rather than miss the day
+                    if not open_today:
+                        print("No quotes dated today after 30 minutes and no QQQ trading today (market holiday): stopping.")
+                        break
+                    print(f"{t:%H:%M} option quotes still stale but QQQ is trading: waiting for fresh quotes.")
                 w.writerows(r)
                 f.flush()
                 saved += len(r)
