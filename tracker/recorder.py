@@ -203,6 +203,16 @@ def main() -> int:
                         shares.on_poll(t)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
+                fb = extras.get("oneaday")
+                if fb and shares:  # the options copy of the shares bot's one-a-day trade
+                    try:
+                        st = shares.s.get("trade") or {}
+                        if st and not st.get("exit") and fb.pending is None:
+                            fb.pending = ("C" if st["side"] > 0 else "P", "ONEADAY", float(st["entry"]), 1.0)
+                        if st and st.get("exit"):
+                            fb.follow_exit = True
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} one-a-day options bot: {type(exc).__name__}: {str(exc)[:120]}")
                 if live and seen_today and live.due():
                     try:
                         live.publish(livepage.payload(t, bot, shares, original, extras))
