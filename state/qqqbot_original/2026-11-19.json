@@ -344,6 +344,96 @@
    "exit_t": "2026-11-19 13:43:41",
    "why": "target",
    "pnl": 28.94
+  },
+  {
+   "t": "2026-11-19 14:22:04",
+   "type": "C",
+   "strike": 650.0,
+   "expiry": "2026-11-20",
+   "entry": 7.39,
+   "trigger": "EMA50",
+   "qqq": 650.03,
+   "stop_px": 6.95,
+   "target_px": 7.57,
+   "exit": 6.88,
+   "exit_t": "2026-11-19 14:24:19",
+   "why": "stop",
+   "pnl": -51.06
+  },
+  {
+   "t": "2026-11-19 14:25:04",
+   "type": "P",
+   "strike": 649.0,
+   "expiry": "2026-11-20",
+   "entry": 7.1,
+   "trigger": "EMA50",
+   "qqq": 649.23,
+   "stop_px": 6.67,
+   "target_px": 7.28,
+   "exit": 6.61,
+   "exit_t": "2026-11-19 14:25:54",
+   "why": "stop",
+   "pnl": -49.06
+  },
+  {
+   "t": "2026-11-19 14:26:04",
+   "type": "C",
+   "strike": 650.0,
+   "expiry": "2026-11-20",
+   "entry": 7.51,
+   "trigger": "EMA50",
+   "qqq": 649.99,
+   "stop_px": 7.06,
+   "target_px": 7.7,
+   "exit": 7.79,
+   "exit_t": "2026-11-19 14:26:39",
+   "why": "target",
+   "pnl": 27.94
+  },
+  {
+   "t": "2026-11-19 14:39:07",
+   "type": "P",
+   "strike": 650.0,
+   "expiry": "2026-11-20",
+   "entry": 7.15,
+   "trigger": "EMA50",
+   "qqq": 650.07,
+   "stop_px": 6.72,
+   "target_px": 7.33,
+   "exit": 7.37,
+   "exit_t": "2026-11-19 14:39:32",
+   "why": "target",
+   "pnl": 21.94
+  },
+  {
+   "t": "2026-11-19 14:41:07",
+   "type": "C",
+   "strike": 651.0,
+   "expiry": "2026-11-20",
+   "entry": 7.3,
+   "trigger": "EMA50",
+   "qqq": 651.0,
+   "stop_px": 6.86,
+   "target_px": 7.48,
+   "exit": 6.82,
+   "exit_t": "2026-11-19 14:42:57",
+   "why": "stop",
+   "pnl": -48.06
+  },
+  {
+   "t": "2026-11-19 14:48:07",
+   "type": "P",
+   "strike": 650.0,
+   "expiry": "2026-11-20",
+   "entry": 7.19,
+   "trigger": "EMA50",
+   "qqq": 650.27,
+   "stop_px": 6.76,
+   "target_px": 7.37,
+   "exit": 7.53,
+   "exit_t": "2026-11-19 14:49:57",
+   "why": "target",
+   "pnl": 33.94
   }
  ],
  "open": null,
@@ -351,7 +441,8 @@
   "P"
  ],
  "sent": [
-  "morning"
+  "morning",
+  "day"
  ],
  "seen_bars": 0
 }
