@@ -126,32 +126,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 198,
-     "win_rate": 0.21212121212121213,
-     "avg_r": -0.08054829812515658,
-     "total_r": -15.948563028781004,
+     "trades": 201,
+     "win_rate": 0.208955223880597,
+     "avg_r": -0.08652306188179962,
+     "total_r": -17.391135438241722,
      "sessions": 60
     },
     "late": {
-     "trades": 49,
-     "win_rate": 0.32653061224489793,
-     "avg_r": -0.23506539988068498,
-     "total_r": -11.518204594153564,
+     "trades": 50,
+     "win_rate": 0.32,
+     "avg_r": -0.23283758208279565,
+     "total_r": -11.641879104139782,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-19T15:55:40.000197+00:00",
-   "last_bar": "2026-11-19 11:45:00-05:00",
+   "record_at": "2026-11-19T21:15:40.000310+00:00",
+   "last_bar": "2026-11-19 15:55:00-05:00",
    "brief_day": "2026-11-19",
-   "stance": "none|None",
+   "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-19": 1
+    "2026-11-19": 2
    },
-   "last_change_at": "2026-11-19T15:50:40.000174+00:00",
-   "stance_desc": "MIXED: no clear direction"
+   "last_change_at": "2026-11-19T17:05:40.000174+00:00",
+   "stance_desc": "TRENDING DOWN"
   },
   "IWM": {
    "record": {
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-18",
+ "summary_day": "2026-11-19",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -547,7 +547,13 @@
   "https://www.trumpstruth.org/statuses/43624",
   "https://www.trumpstruth.org/statuses/43625",
   "https://www.trumpstruth.org/statuses/43626",
-  "https://www.trumpstruth.org/statuses/43627"
+  "https://www.trumpstruth.org/statuses/43627",
+  "https://www.trumpstruth.org/statuses/43629",
+  "https://www.trumpstruth.org/statuses/43628",
+  "https://www.trumpstruth.org/statuses/43630",
+  "https://www.trumpstruth.org/statuses/43631",
+  "https://www.trumpstruth.org/statuses/43632",
+  "https://www.trumpstruth.org/statuses/43633"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -600,6 +606,10 @@
    1
   ],
   "Nvidia": [
+   1,
+   1
+  ],
+  "China": [
    1,
    1
   ]
