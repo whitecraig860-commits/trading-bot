@@ -1,0 +1,45 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-19 10:32:36",
+   "type": "P",
+   "strike": 662.0,
+   "expiry": "2026-11-20",
+   "entry": 9.68,
+   "trigger": "RANGE",
+   "qqq": 662.01,
+   "stop_px": 9.1,
+   "target_px": 9.92,
+   "trail": 0.015,
+   "exit": 8.21,
+   "exit_t": "2026-11-19 10:32:41",
+   "why": "stop",
+   "pnl": -147.06
+  },
+  {
+   "t": "2026-11-19 11:06:06",
+   "type": "P",
+   "strike": 662.0,
+   "expiry": "2026-11-20",
+   "entry": 7.16,
+   "trigger": "EMA50",
+   "qqq": 661.74,
+   "stop_px": 6.73,
+   "target_px": 7.34,
+   "trail": 0.015,
+   "best": 7.38,
+   "exit": 7.02,
+   "exit_t": "2026-11-19 11:06:26",
+   "why": "trail",
+   "pnl": -14.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "P"
+ ],
+ "sent": [
+  "stopped"
+ ],
+ "seen_bars": 0
+}
