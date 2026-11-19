@@ -105,17 +105,17 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 49,
-     "win_rate": 0.2857142857142857,
-     "avg_r": -0.07556436835402344,
-     "total_r": -3.7026540493471485,
+     "trades": 48,
+     "win_rate": 0.2916666666666667,
+     "avg_r": -0.06234191589932273,
+     "total_r": -2.9924119631674913,
      "sessions": 60
     },
     "orb": {
-     "trades": 56,
-     "win_rate": 0.30357142857142855,
-     "avg_r": -0.1936189292859821,
-     "total_r": -10.842660040014998,
+     "trades": 55,
+     "win_rate": 0.32727272727272727,
+     "avg_r": -0.1234791850928258,
+     "total_r": -6.791355180105419,
      "sessions": 60
     },
     "fade": {
@@ -126,32 +126,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 202,
-     "win_rate": 0.2079207920792079,
-     "avg_r": -0.08918570917025685,
-     "total_r": -18.015513252391884,
+     "trades": 198,
+     "win_rate": 0.21212121212121213,
+     "avg_r": -0.08054829812515658,
+     "total_r": -15.948563028781004,
      "sessions": 60
     },
     "late": {
-     "trades": 50,
-     "win_rate": 0.34,
-     "avg_r": -0.19306758197065713,
-     "total_r": -9.653379098532856,
+     "trades": 49,
+     "win_rate": 0.32653061224489793,
+     "avg_r": -0.23506539988068498,
+     "total_r": -11.518204594153564,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-19T10:35:40.000197+00:00",
-   "last_bar": "2026-11-18 15:55:00-05:00",
-   "brief_day": "2026-11-18",
-   "stance": "range|None",
+   "record_at": "2026-11-19T15:55:40.000197+00:00",
+   "last_bar": "2026-11-19 11:45:00-05:00",
+   "brief_day": "2026-11-19",
+   "stance": "none|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-18": 3
+    "2026-11-19": 1
    },
-   "last_change_at": "2026-11-18T18:50:40.000156+00:00",
-   "stance_desc": "RANGE-BOUND (choppy)"
+   "last_change_at": "2026-11-19T15:50:40.000174+00:00",
+   "stance_desc": "MIXED: no clear direction"
   },
   "IWM": {
    "record": {
@@ -537,7 +537,17 @@
   "https://www.trumpstruth.org/statuses/43612",
   "https://www.trumpstruth.org/statuses/43613",
   "https://www.trumpstruth.org/statuses/43615",
-  "https://www.trumpstruth.org/statuses/43616"
+  "https://www.trumpstruth.org/statuses/43616",
+  "https://www.trumpstruth.org/statuses/43618",
+  "https://www.trumpstruth.org/statuses/43617",
+  "https://www.trumpstruth.org/statuses/43620",
+  "https://www.trumpstruth.org/statuses/43619",
+  "https://www.trumpstruth.org/statuses/43621",
+  "https://www.trumpstruth.org/statuses/43623",
+  "https://www.trumpstruth.org/statuses/43624",
+  "https://www.trumpstruth.org/statuses/43625",
+  "https://www.trumpstruth.org/statuses/43626",
+  "https://www.trumpstruth.org/statuses/43627"
  ],
  "trump_checks": [],
  "trump_seeded": true,
