@@ -26,6 +26,11 @@ import pandas as pd
 STATE = Path(__file__).resolve().parent.parent / "state" / "qqqbot"
 TARGET, STOP, HOLD_MIN, FEE = 0.025, 0.06, 10, 0.03
 TRADE_MESSAGES = True
+# Only buy or sell on a quote stamped within the last minute. On 19 Nov 2026 the data feed served the previous day's
+# closing quotes until 10:30; a bot bought at a stale 9.68 and the real price (8.21) arrived 5 seconds later: a fake -$147.
+# This is a data-error fix for every bot, not a strategy change. False = the old behaviour.
+FRESH_QUOTES_ONLY = True
+FRESH_SECONDS = 60
 # "His style": the third options bot, fourth bot in all (comparison only, no trade messages). Same entries as the
 # other options bots (they already match his timing), with the exits read off his 57 posted trades (11-17 Nov 2026):
 # his losers were -10% to -14%, so a 12% stop; his winners +0.5% to +16% (median +3.5%), so on +2.5% it keeps the
@@ -57,6 +62,10 @@ EXTRA_BOTS = {
     # "His clone": the same picks plus the exits read off his 83 posted trades: +3.5% target, -10% stop, 6-minute limit.
     "clone": ("qqqbot_clone", "his clone: picks like him + his exits (stop after 2 losses)",
               {"skip": "F3", "pick": True, "target": 0.035, "stop": 0.10, "hold_min": 6}),
+    # Study 12 (research/BRAKES_REPORT.md): his brakes. Stop for the day at +$50 or -$100 (and after 2 losses in a row).
+    # +$2.85 a day vs the main bot on 2.7 years, 5 of 6 stress tests; not profitable on its own.
+    "brakes": ("qqqbot_brakes", "profit brake +$50 / loss brake -$100 (stop after 2 losses)",
+               {"profit_brake": 50, "loss_brake": 100}),
 }
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
@@ -105,7 +114,8 @@ class PaperBot:
                  max_losses: int | None = None, trade_messages: bool | None = None, target: float = TARGET,
                  stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
                  summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None,
-                 pick: bool = False):
+                 pick: bool = False, profit_brake: float = 0.0, loss_brake: float = 0.0, max_spread: float = 0.0,
+                 resume_wait: float = 0.0):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
@@ -117,6 +127,13 @@ class PaperBot:
         # pick: Study 10's "pick like him" rule: take a signal only when EMA9 is on the trade's side of EMA20, the signal
         # candle is strong in the trade's direction (body over 60% of its range), and it is before 12:00 New York time.
         self.pick = pick
+        # Study 12 (research/BRAKES_PROTOCOL.md). profit_brake / loss_brake: stop for the day once the day's result is
+        # at least +$profit_brake or at most -$loss_brake (0 = off). max_spread: don't buy when the ask is more than this
+        # fraction above the bid. resume_wait: don't buy for this many minutes after quotes come back from a gap of 2+
+        # minutes (stale data). All off by default.
+        self.profit_brake, self.loss_brake = profit_brake, loss_brake
+        self.max_spread, self.resume_wait = max_spread, resume_wait
+        self.last_fresh, self.resumed_at = None, None
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
         self.name = name
@@ -184,10 +201,18 @@ class PaperBot:
     def on_poll(self, now: datetime, rows: list[dict]):
         quotes = {(r["expiry"], r["type"], float(r["strike"])): r for r in rows}
         tod = now.strftime("%H:%M")
+        if self.resume_wait:
+            try:
+                newest = max(pd.Timestamp(r["quote_time"]) for r in rows if r.get("quote_time"))
+                if self.last_fresh is not None and (newest - self.last_fresh).total_seconds() >= 120:
+                    self.resumed_at = now  # quotes just came back after a gap: treat the next minutes with suspicion
+                self.last_fresh = newest if self.last_fresh is None else max(self.last_fresh, newest)
+            except (ValueError, KeyError, TypeError):
+                pass
         o = self.s["open"]
         if o:
             q = quotes.get((o["expiry"], o["type"], o["strike"]))
-            bid = float(q["bid"]) if q and q["bid"] not in ("", None) else 0.0
+            bid = float(q["bid"]) if q and q["bid"] not in ("", None) and self._fresh(q, now) else 0.0
             age = (now.replace(tzinfo=None) - pd.Timestamp(o["t"])).total_seconds() / 60
             why = None
             if bid > 0:
@@ -221,6 +246,9 @@ class PaperBot:
                     break
                 run += 1
             stopped = bool(self.max_losses) and run >= self.max_losses
+            day_pnl = sum(t["pnl"] for t in self.s["trades"])
+            if (self.profit_brake and day_pnl >= self.profit_brake) or (self.loss_brake and day_pnl <= -self.loss_brake):
+                stopped = True
             if stopped and "stopped" not in self.s["sent"]:
                 self.s["sent"].append("stopped")
                 self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
@@ -239,7 +267,15 @@ class PaperBot:
                 exps = sorted({k[0] for k in quotes if k[0] > today})
                 k = float((math.floor(px) if side == "C" else math.ceil(px)) if self.itm else round(px))
                 q = quotes.get((exps[0], side, k)) if exps else None
+                if q is not None and not self._fresh(q, now):
+                    q = None  # stale price: don't buy on it
                 ask = float(q["ask"]) if q and q["ask"] not in ("", None) else 0.0
+                bid = float(q["bid"]) if q and q["bid"] not in ("", None) else 0.0
+                if self.max_spread and (bid <= 0 or ask > bid * (1 + self.max_spread)):
+                    ask = 0.0  # abnormal price: don't buy
+                if self.resume_wait and self.resumed_at is not None and \
+                        (now - self.resumed_at).total_seconds() < self.resume_wait * 60:
+                    ask = 0.0  # prices only just came back: don't buy yet
                 if ask >= 0.5:
                     self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": k,
                                       "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2),
@@ -251,6 +287,16 @@ class PaperBot:
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
             self._summaries(now)
+
+    @staticmethod
+    def _fresh(q: dict, now: datetime) -> bool:
+        if not FRESH_QUOTES_ONLY:
+            return True
+        try:
+            age = (pd.Timestamp(now.replace(tzinfo=None)) - pd.Timestamp(q["quote_time"])).total_seconds()
+        except (KeyError, ValueError, TypeError):
+            return True  # no time stamp to judge by: behave as before
+        return age <= FRESH_SECONDS
 
     def _pick_ok(self, sig, tod: str) -> bool:
         """Study 10 ALL entries (with skip="F3" for the weak-cross part), judged on the candle that just closed."""
