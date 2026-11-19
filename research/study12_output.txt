@@ -1,0 +1,58 @@
+===== PART A: what is wrong with the live bot (6,477 trades) =====
+Win rate 64%. Average win $+5.85, average loss $-21.02, per trade $-3.96.
+Average option price $3.16: +2.5% is about $8 a contract, -6% about $19. Costs per round trip in the test: $2.06 (1 cent a side + fees).
+  exit by stop  :  2,302 trades ( 36%), average $ -21.33, total $   -49,098
+  exit by target:  4,110 trades ( 63%), average $  +5.85, total $   +24,058
+  exit by time  :     65 trades (  1%), average $  -9.01, total $      -586
+Stopped trades that reached +2.5% later in the same 10 minutes: 39% of 2,302
+Target trades that went on to +5% within 10 minutes: 84%; to +10%: 55% (of 4,110)
+Gross result before costs, per trade: $-1.90; costs take $2.06
+QQQ move after a signal, in the signal's direction (average $ / share of signals where it went the right way):
+  after  1 min: -0.002 $  right way 49%
+  after  3 min: -0.003 $  right way 49%
+  after  5 min: -0.006 $  right way 49%
+  after 10 min: -0.002 $  right way 49%
+
+===== PART B, test 1: brakes on 2.7 years =====
+Per day at 1 / 2 / 3 / 5 cents (trades at 1 cent):
+  BASE     -38.25   -55.86   -57.23   -44.03   (6,477 trades)
+  PB50     -35.68   -53.79   -56.04   -43.26   (6,212 trades)
+  PB100    -37.32   -55.13   -57.23   -44.03   (6,432 trades)
+  LB100    -37.96   -54.87   -54.42   -40.16   (6,470 trades)
+  PB50LB   -35.39   -52.93   -53.41   -39.73   (6,205 trades)
+
+--- PB50 vs BASE: +2.57 a day, paired t +3.59, holdout +4.31  ->  A PASS, B fail
+T1 years: 2024 -33.60 vs -34.33, 2025 -35.31 vs -37.98, 2026 -38.21 vs -42.52
+T2 placebo (same trade counts, random days): rule -35.68, placebo median -22.33; beats 0/20
+T3 vs BASE at 3c / 5c: +1.19 / +0.77
+T4 one minute late vs BASE late: +1.32
+T6 bootstrap: better in 100.0%
+T7: calm -35.81 vs -36.04, busy -35.55 vs -40.45, up -35.16 vs -37.35, down -36.26 vs -39.25
+VERDICT PB50: T1 PASS, T2 fail, T3 PASS, T4 PASS, T6 PASS, T7 PASS (5/6) | A PASS | B fail
+
+--- PB100 vs BASE: +0.93 a day, paired t +1.56, holdout +1.10  ->  A fail, B fail
+T1 years: 2024 -34.33 vs -34.33, 2025 -36.41 vs -37.98, 2026 -41.42 vs -42.52
+T2 placebo (same trade counts, random days): rule -37.32, placebo median -22.58; beats 0/20
+T3 vs BASE at 3c / 5c: +0.00 / +0.00
+T4 one minute late vs BASE late: -0.13
+T6 bootstrap: better in 98.6%
+T7: calm -35.90 vs -36.04, busy -38.74 vs -40.45, up -36.36 vs -37.35, down -38.40 vs -39.25
+VERDICT PB100: T1 fail, T2 fail, T3 fail, T4 fail, T6 PASS, T7 PASS (2/6) | A fail | B fail
+
+--- LB100 vs BASE: +0.28 a day, paired t +1.16, holdout +0.00  ->  A fail, B fail
+T1 years: 2024 -34.33 vs -34.33, 2025 -37.22 vs -37.98, 2026 -42.52 vs -42.52
+T2 placebo (same trade counts, random days): rule -37.96, placebo median -22.65; beats 0/20
+T3 vs BASE at 3c / 5c: +2.80 / +3.87
+T4 one minute late vs BASE late: +0.06
+T6 bootstrap: better in 66.8%
+T7: calm -36.04 vs -36.04, busy -39.88 vs -40.45, up -37.08 vs -37.35, down -38.95 vs -39.25
+VERDICT LB100: T1 fail, T2 fail, T3 PASS, T4 PASS, T6 fail, T7 fail (2/6) | A fail | B fail
+
+--- PB50LB vs BASE: +2.85 a day, paired t +3.28, holdout +4.31  ->  A PASS, B fail
+T1 years: 2024 -33.60 vs -34.33, 2025 -34.56 vs -37.98, 2026 -38.21 vs -42.52
+T2 placebo (same trade counts, random days): rule -35.39, placebo median -22.30; beats 0/20
+T3 vs BASE at 3c / 5c: +3.81 / +4.30
+T4 one minute late vs BASE late: +1.38
+T6 bootstrap: better in 100.0%
+T7: calm -35.81 vs -36.04, busy -34.98 vs -40.45, up -34.89 vs -37.35, down -35.95 vs -39.25
+VERDICT PB50LB: T1 PASS, T2 fail, T3 PASS, T4 PASS, T6 PASS, T7 PASS (5/6) | A PASS | B fail
