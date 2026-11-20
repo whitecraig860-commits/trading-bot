@@ -1,0 +1,91 @@
+====================================================================================================
+A. Pre-registered pre-entry filters (shares one-a-day, return per trade % after 1 cent a share a side)
+====================================================================================================
+filter                                     period      kept  kept avg%  skipped skipped avg%  all avg%
+FA room to yesterday's extreme > 0.5 ATR   2016-2021    570     +0.021      553       -0.061    -0.019
+FA room to yesterday's extreme > 0.5 ATR   2022-2026    466     +0.118      468       +0.084    +0.101
+                                           improvement t over all years -0.17 -> rejected
+FB already moved > 2 noise bands           2016-2021    871     -0.032      252       +0.023    -0.019
+FB already moved > 2 noise bands           2022-2026    735     +0.095      199       +0.125    +0.101
+                                           improvement t over all years -1.38 -> rejected
+FC first 30 min against the trade          2016-2021    946     -0.012      177       -0.059    -0.019
+FC first 30 min against the trade          2022-2026    764     +0.113      170       +0.049    +0.101
+                                           improvement t over all years +0.14 -> rejected
+
+====================================================================================================
+B. Can it tell when its edge has gone? (trailing average of its own past signals)
+====================================================================================================
+RD120: share of trades taken 65%
+year    always: sum%  RD: sum% RD trades
+2016           -5.86     +0.00         0
+2017           -3.12     -1.48        50
+2018           +2.45     +7.50       186
+2019           +0.98     -1.73         4
+2020          -19.77     -5.97        30
+2021           +3.43     -1.35       186
+2022          +30.05    +18.15       153
+2023          +20.60    +20.60       195
+2024          +17.34    +17.34       188
+2025          +13.27    +13.27       177
+2026          +13.15    +13.15       165
+total         +72.54    +79.48
+RD60: share of trades taken 63%
+year    always: sum%  RD: sum% RD trades
+2016           -5.86     +0.16         6
+2017           -3.12     -0.03        77
+2018           +2.45     +5.27       157
+2019           +0.98     -1.04        45
+2020          -19.77     -0.85        89
+2021           +3.43     +3.68       125
+2022          +30.05    +25.69       166
+2023          +20.60    +18.07       171
+2024          +17.34    +11.75       173
+2025          +13.27     +3.24       168
+2026          +13.15     +7.21       110
+total         +72.54    +73.15
+
+====================================================================================================
+C. The 2022 market-structure hypothesis (evidence, not proof)
+====================================================================================================
+2016-2021                                  trades  1123  avg -0.019%  (t -0.81)  late drift 15:00->exit -0.009%  win 52%
+2022-2026                                  trades   934  avg +0.101%  (t +3.36)  late drift 15:00->exit +0.047%  win 58%
+2023-2026 (excludes the 2022 bear year)    trades   725  avg +0.089%  (t +3.03)  late drift 15:00->exit +0.037%  win 58%
+bull-trend days 2016-2021                  trades   776  avg -0.011%
+bull-trend days 2022-2026                  trades   571  avg +0.078%
+bear-trend days 2016-2021                  trades   347  avg -0.038%
+bear-trend days 2022-2026                  trades   363  avg +0.138%
+
+====================================================================================================
+D. Remaining stress tests (shares 2016-2026, avg return per trade %, after 1 cent a share a side)
+====================================================================================================
+baseline                             trades  2057  avg +0.035%  sum +72.5%  worst trade -6.95%
+exits 1 min late                     trades  2057  avg +0.031%  sum +63.9%  worst trade -6.62%
+exits 5 min late                     trades  2057  avg +0.035%  sum +72.3%  worst trade -6.95%
+10% of exit signals fail             trades  2057  avg +0.035%  sum +72.4%  worst trade -6.95%
+safety stop filled at 2x distance    trades  2057  avg +0.013%  sum +27.3%  worst trade -7.23%
+
+SHARES, all 2016-2026 trades, whole balance per trade: 5,000 simulated years of 190 trades (resampled real trades; NOT historical years)
+   balance     median         5%        95%  P(loss) P(DD>=10%) P(DD>=20%) P(DD>=30%) P(lose half)  losing streak 50%/95%
+     1,270        +83       -163       +369      30%        48%         5%         0%           0%           6 / 9
+     6,350       +413       -811     +1,844      31%        48%         4%         0%           0%           6 / 9
+    31,750     +2,028     -4,185     +9,358      31%        48%         5%         0%           0%           6 / 9
+
+SHARES, 2022-2026 trades only: 5,000 simulated years of 190 trades (resampled real trades; NOT historical years)
+   balance     median         5%        95%  P(loss) P(DD>=10%) P(DD>=20%) P(DD>=30%) P(lose half)  losing streak 50%/95%
+     1,270       +262        -27       +615       7%        28%         1%         0%           0%           5 / 8
+
+SHARES, 2016-2021 trades only: 5,000 simulated years of 190 trades (resampled real trades; NOT historical years)
+   balance     median         5%        95%  P(loss) P(DD>=10%) P(DD>=20%) P(DD>=30%) P(lose half)  losing streak 50%/95%
+     1,270        -52       -261       +187      66%        68%        14%         1%           0%           6 / 10
+
+--- One-a-day options: exit stress and balances (Mar 2024 - Oct 2026) ---
+baseline                             trades  480  per day +14.12  per trade +19.71
+exits 1 min late                     trades  480  per day +13.25  per trade +18.50
+exits 5 min late                     trades  479  per day +10.72  per trade +14.99
+10% of exit signals fail             trades  480  per day +13.73  per trade +19.16
+
+OPTIONS one contract, measured costs ($10.06 a round trip), 5,000 simulated years of 181 trades (NOT historical years):
+   balance     median         5%        95%  P(loss) P(DD>=20%) P(DD>=50%) P(cannot afford a contract)
+     1,270       -976     -1,223     +7,898      59%       100%        85%                         58%
+     6,350     +1,932     -3,495     +8,053      29%        84%        21%                          1%
+    31,750     +2,012     -3,487     +8,187      28%         2%         0%                          0%
