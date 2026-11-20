@@ -7,4 +7,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 | Date | Change | Evidence / tests | Result / decision |
 |---|---|---|---|
 | 2026-11-19 | Created (Study 13 OPEN30). | History -$2.46/day; 54% right at 30 min. | Pending merge (PR #39). |
-| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_open30.md`, `audit/paper_results.md` | See `audit/README.md` for the rating. |
+| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_open30.md` | Rated E (DISCONTINUE): no edge. See audit/README.md. |

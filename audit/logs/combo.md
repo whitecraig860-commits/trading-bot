@@ -7,4 +7,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 | Date | Change | Evidence / tests | Result / decision |
 |---|---|---|---|
 | 2026-11-18 | Created (Study 9 COMBO). | History -$35/day (t +2.9 vs main). | Comparison bot. |
-| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_combo.md`, `audit/paper_results.md` | See `audit/README.md` for the rating. |
+| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_combo.md` | Rated E (DISCONTINUE): no edge. See audit/README.md. |
