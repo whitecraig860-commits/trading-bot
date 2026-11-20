@@ -1,0 +1,140 @@
+SECTION 1: can a pre-defined market-condition filter rescue the fast bots' entry?
+====================================================================================================
+none (main bot)                      | 2024-25: right after 10 min 49.2%, per trade 1c -3.65 / 5c -12.07 (1361 trades, t -9.63) | 2026: right after 10 min 49.6%, per trade 1c -4.71 / 5c -13.39 (976 trades, t -10.57) | RESCUE: no
+R1 high-volatility regime            | 2024-25: right after 10 min 49.3%, per trade 1c -3.94 / 5c -12.38 (622 trades, t -4.09) | 2026: right after 10 min 50.9%, per trade 1c -3.97 / 5c -11.88 (503 trades, t -3.86) | RESCUE: no
+R2 wide opening range                | 2024-25: right after 10 min 49.9%, per trade 1c -4.19 / 5c -12.69 (246 trades, t -3.83) | 2026: right after 10 min 48.6%, per trade 1c -4.82 / 5c -14.51 (130 trades, t -3.88) | RESCUE: no
+R3 trend regime, with the trend      | 2024-25: right after 10 min 51.2%, per trade 1c -3.56 / 5c -12.39 (405 trades, t -5.42) | 2026: right after 10 min 51.4%, per trade 1c -3.67 / 5c -11.69 (231 trades, t -3.26) | RESCUE: no
+
+====================================================================================================
+SECTION 2: one-a-day options forensic
+====================================================================================================
+Trades 480, per day +14.12, t +1.73, total +9,461
+
+The five biggest winners:
+       day                   t  side   why  mins  best_atr  o_in  o_out     pnl  dayrange%  vol_rank  trend20  gap%
+2025-04-09 2025-04-09 13:19:00     1  time 145.0     10.87  7.53  29.62 2206.94      12.61      1.00    -1.19 -0.18
+2025-11-20 2025-11-20 11:19:00    -1  time 265.0     13.56  4.51  18.97 1443.94       4.79      0.63    -0.17  1.98
+2025-10-10 2025-10-10 10:59:00    -1  time 285.0     17.88  3.00  16.75 1372.94       3.95      0.06     1.89  0.11
+2026-06-05 2026-06-05 09:59:00    -1  time 345.0      9.33  5.23  17.55 1229.94       3.75      0.44     1.55 -1.41
+2026-06-09 2026-06-09 10:19:00    -1 trail 198.0     11.68  5.35  15.00  962.94       5.43      0.95     0.11  0.97
+Median trade for comparison: day range 1.37%, vol rank 0.55, best move 2.15 ATR, held 325 min
+
+Without the five: total +2,245, per day +3.35, t +0.51
+Top five cut by 25%: total +7,657, per day +11.43, t +1.53
+Top five cut by 50%: total +5,853, per day +8.74, t +1.26
+Top five cut by 75%: total +4,049, per day +6.04, t +0.91
+
+Next 20 trades all on unfavourable days (calm, trending or below-median range; pool of 328 trades, 5,000 runs): median -136, 5% -1,403, 95% +2,013, chance of a loss 56%
+
+Longest losing streak: 11 trades, 2026-08-05 to 2026-09-02, total -1,025; median day range in the streak 1.09% (all trades 1.37%), exits {'time': 11}, sides {1: 7, -1: 4}
+Longest losing streak in a simulated year (181 trades, 5,000 runs): median 7, 95% 11, 99% 14
+
+By market condition (per day on those days):
+  calm (vol rank < 1/3)         165 days    +22.51
+  volatile (vol rank > 2/3)     220 days    +12.42
+  trending (|trend20| > 1)      212 days    +19.94
+  sideways (|trend20| < 0.5)    264 days    +21.41
+
+Costs (per round trip assumed in the test: 2 x cents + $0.06):
+   1 cents a side ($2.06 a trade): per day +14.12, t +1.73
+   3 cents a side ($6.06 a trade): per day +11.26, t +1.38
+   5 cents a side ($10.06 a trade): per day +8.39, t +1.03
+   7 cents a side ($14.06 a trade): per day +5.52, t +0.68
+  10 cents a side ($20.06 a trade): per day +1.23, t +0.15
+
+Multiple testing: about 30 strategy variants were tested in Studies 5-13. Bonferroni line (two-sided 5%): t >= 3.14. This bot's t: +1.73 -> NOT significant after correction.
+
+--- ONE-A-DAY OPTIONS (1 contract, 1 cent a side): stress tests (each changes one thing) ---
+scenario                           trades  win%  per day      t  longest losing streak
+baseline                              480   46%   +14.12  +1.73                     11
+entry 1 min late                      479   46%   +13.13  +1.61                     11
+entry 2 min late                      478   46%   +10.72  +1.47                      8
+10% of orders rejected                433   47%   +13.84  +1.84                      8
+1-hour outage daily (blind)           479   46%   +10.55  +1.45                     11
+range buffer 0.24                     481   46%   +12.20  +1.52                     11
+range buffer 0.36                     479   47%   +14.59  +1.77                     11
+trail 3.2 ATR                         481   49%   +13.59  +1.65                     11
+trail 4.8 ATR                         480   46%   +13.15  +1.58                     11
+stop 8 ATR                            480   46%   +14.01  +1.71                     11
+stop 12 ATR                           480   46%   +14.06  +1.72                     11
+noise band x0.8                       542   47%   +13.95  +1.66                      8
+noise band x1.2                       429   45%   +13.35  +1.69                      8
+volatile days only (vol rank > 2/3)    163   45%   +12.42
+calm days only (vol rank < 1/3)       118   45%   +22.51
+
+Options at higher costs: see Section 2.
+
+====================================================================================================
+SECTION 3: shares one-a-day 2016-2026 forensic
+====================================================================================================
+By year (return as % of price, after 1 cent a share a side; dollar figures on 100 shares):
+year   trades  win%  avg ret%  sum ret%  $ on 100 sh QQQ price  vol20% range20% trail exits
+2016      176   47%    -0.033     -5.86         -648       111    0.81     1.01          9%
+2017      187   47%    -0.017     -3.12         -339       139    0.57     0.75         12%
+2018      192   54%    +0.013     +2.45         +552       169    1.03     1.37         13%
+2019      176   53%    +0.006     +0.98           +7       187    0.90     1.13         14%
+2020      196   51%    -0.101    -19.77       -3,280       248    1.55     1.93         12%
+2021      196   59%    +0.017     +3.43         +820       357    1.00     1.25          9%
+2022      209   57%    +0.144    +30.05       +9,090       304    1.97     2.37          3%
+2023      195   57%    +0.106    +20.60       +7,071       359    1.09     1.36          8%
+2024      188   60%    +0.092    +17.34       +8,287       464    0.99     1.13         12%
+2025      177   58%    +0.075    +13.27       +6,996       540    1.15     1.33         11%
+2026      165   57%    +0.080    +13.15       +8,104       699    1.10     1.42          7%
+
+Medians by group:
+feature                                 losing years 2016, 201  flat years 2018, 2019,  winning years 2022-202  winning trades (all ye  losing trades (all yea
+volatility (20-day, %)                                   0.846                   0.967                   1.177                   1.082                   1.054
+trend strength (signed)                                  0.712                   0.478                   0.311                   0.406                   0.518
+opening gap %                                            0.077                   0.103                   0.067                   0.099                   0.055
+day range %                                              1.129                   1.333                   1.532                   1.537                   1.152
+avg range last 20 days %                                 1.033                   1.206                   1.460                   1.294                   1.262
+volume first 30 min vs normal                            0.916                   0.981                   0.977                   0.953                   0.973
+entry time (min after midnight)                        619.000                 619.000                 619.000                 619.000                 619.000
+distance to prev-day high/low (ATR)                      0.406                   0.511                   0.537                   0.171                   0.894
+minutes held                                           315.000                 315.000                 325.000                 315.000                 325.000
+best move (ATR)                                          1.870                   2.068                   2.167                   3.500                   0.840
+return %                                                -0.027                   0.065                   0.118                   0.418                  -0.405
+losing years 2016, 2017, 2020: with-trend share 47%, calls 52%, exits {'time': 0.88, 'trail': 0.11, 'safety stop': 0.02}
+flat years 2018, 2019, 2021: with-trend share 50%, calls 52%, exits {'time': 0.87, 'trail': 0.12, 'safety stop': 0.02}
+winning years 2022-2026: with-trend share 49%, calls 51%, exits {'time': 0.91, 'trail': 0.08, 'safety stop': 0.01}
+winning trades (all years): with-trend share 51%, calls 55%, exits {'time': 0.82, 'trail': 0.18}
+losing trades (all years): with-trend share 47%, calls 48%, exits {'time': 0.97, 'safety stop': 0.03, 'trail': 0.0}
+
+Ex-ante test: avg range of the last 20 days (known before entry), threshold = median of the TRAINING period's trades:
+  train (2016, 2021), test (2022, 2026): threshold 1.13%. Test trades kept 730: avg ret +0.101% (win 57%); dropped 204: avg ret +0.102% (win 61%); all 934: +0.101%
+  train (2022, 2026), test (2016, 2021): threshold 1.46%. Test trades kept 352: avg ret -0.062% (win 53%); dropped 766: avg ret -0.001% (win 51%); all 1123: -0.019%
+
+--- SHARES ONE-A-DAY 2016-2026 (100 shares, 1 cent a share a side): stress tests (each changes one thing) ---
+scenario                           trades  win%  per day      t  longest losing streak
+baseline                             2057   54%   +13.46  +2.96                      9
+entry 1 min late                     2057   55%   +12.51  +2.75                     10
+entry 2 min late                     2057   55%   +11.48  +2.60                     10
+10% of orders rejected               1831   55%   +13.58  +3.15                      9
+1-hour outage daily (blind)          2057   54%   +13.56  +2.91                      9
+range buffer 0.24                    2066   54%   +13.59  +2.94                      9
+range buffer 0.36                    2048   55%   +13.67  +2.99                      9
+trail 3.2 ATR                        2057   56%   +13.18  +2.94                      9
+trail 4.8 ATR                        2057   54%   +13.18  +2.84                      9
+stop 8 ATR                           2057   54%   +13.26  +2.93                      9
+stop 12 ATR                          2057   54%   +13.18  +2.87                      9
+noise band x0.8                      2256   54%   +13.04  +2.82                     10
+noise band x1.2                      1832   54%   +12.92  +3.07                      9
+volatile days only (vol rank > 2/3)    676   54%    +1.12
+calm days only (vol rank < 1/3)       799   54%   +20.57
+shares at 2 cents a share a side: per day +11.95, t +2.63
+shares at 5 cents a share a side: per day +7.42, t +1.63
+shares at 10 cents a share a side: per day -0.14, t -0.03
+
+====================================================================================================
+SECTION 5: a GBP 1,000 account (about $1,270)
+====================================================================================================
+OPTIONS (one-a-day): premium per contract median $312, 90% $490, max $925 = 25% / 39% / 73% of the account. Minimum size is ONE contract (100 x premium).
+  worst single trade -629 (-50% of account); average loss -136; maximum possible loss = the whole premium (median $312)
+  5,000 simulated years at one contract on $1,270: can no longer afford a contract 47%; a 50% drawdown (or worse) at some point 77%
+  capital so that a bad trade (5th percentile loss -284) is 2% of the account: about $14,208
+  capital so that a bad trade (5th percentile loss -284) is 5% of the account: about $5,683
+
+SHARES (one-a-day) at $1,270 per trade (fractional shares, no leverage):
+  per trade: average +0.45, worst -88.29 (-7.0%), best +84.12; worst day -88.29; worst week -111.07; max drawdown -546.42 (-43.0%); average a year +85.26
+  costs: about 2 shares at QQQ ~$600; a 1-cent spread each way is about $0.04 a trade (0.003% of the account)
+  longest losing streak in 2016-2026: 9 trades; average loss -7.72 -> such a streak costs about -69.52 (-5.5%)

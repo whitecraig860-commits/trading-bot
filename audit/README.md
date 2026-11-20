@@ -1,5 +1,7 @@
 # Independent audit of every bot: baseline (20 Nov 2026)
 
+**Updated by audit part 2: see `audit/AUDIT2_REPORT.md`.**
+
 Nothing was changed to produce this. It measures each bot as it is. Detailed reports: `audit/baseline_<bot>.md`.
 Paper record: `audit/paper_results.md`. Every change from now on is logged first in `audit/logs/<bot>.md`.
 
@@ -34,8 +36,8 @@ One contract per trade for options bots; history at 1 cent a side + fees (the re
 | Bot | Rating | Why |
 |---|---|---|
 | 1-12 (all one-minute and 5-minute scalpers, opening move) | **E. DISCONTINUE** | No edge. The entry is a coin flip (Study 12: QQQ goes the signal's way 49% of the time; 5-minute: 49-50%). Every one loses in every year, in the out-of-sample year, and at realistic costs. Monte Carlo: 97-100% chance of a losing year. Filters only reduce the number of trades (Study 11 placebo). |
-| 13 One-a-day options | **B. PROMISING** | Positive every year, beats 20 of 20 random-direction placebos, positive out of sample (+$16.17/day), survives 5 cents a side (+$8.39). But t 1.73 (below 2.0), **76% of its profit came from its 5 biggest trades** (without them: +$2,245 over 2.7 years), 11 losses in a row happened, and it only works on volatile days (top-10% range days +$263/day; trending months −$11/day). Not live yet. |
-| 14 Shares one-a-day | **B. PROMISING** | The only bot with t above 2 in both samples (2.71 on 2024-26, 2.96 on 2016-26), positive out of sample, survives 10 cents a share a side on 2024-26, profit not dependent on a few trades (top 5 = 39%; 26% over 2016-26). But **it lost money in 2016, 2017 and 2020 (−$2,998 in the COVID crash)** and only became strongly profitable from 2022: the edge may depend on the market regime. Only 4 paper days. |
+| 13 One-a-day options | **C. WEAK** (lowered in audit part 2: not significant after correcting for ~30 tests; without its 5 biggest trades t 0.51) — was B | Positive every year, beats 20 of 20 random-direction placebos, positive out of sample (+$16.17/day), survives 5 cents a side (+$8.39). But t 1.73 (below 2.0), **76% of its profit came from its 5 biggest trades** (without them: +$2,245 over 2.7 years), 11 losses in a row happened, and it only works on volatile days (top-10% range days +$263/day; trending months −$11/day). Not live yet. |
+| 14 Shares one-a-day | **B. PROMISING, regime-dependent** (audit part 2: −0.03%/+0.01% per trade 2016-2021, +0.08% to +0.14% 2022-2026) | The only bot with t above 2 in both samples (2.71 on 2024-26, 2.96 on 2016-26), positive out of sample, survives 10 cents a share a side on 2024-26, profit not dependent on a few trades (top 5 = 39%; 26% over 2016-26). But **it lost money in 2016, 2017 and 2020 (−$2,998 in the COVID crash)** and only became strongly profitable from 2022: the edge may depend on the market regime. Only 4 paper days. |
 
 No bot is rated A (STRONG). None is approved for real money.
 

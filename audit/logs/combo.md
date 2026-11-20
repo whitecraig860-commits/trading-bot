@@ -8,3 +8,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 |---|---|---|---|
 | 2026-11-18 | Created (Study 9 COMBO). | History -$35/day (t +2.9 vs main). | Comparison bot. |
 | 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_combo.md` | Rated E (DISCONTINUE): no edge. See audit/README.md. |
+| 2026-11-20 | Audit part 2: three pre-registered market-condition filters (no change). | `audit/AUDIT2_REPORT.md` section 1: no filter lifts the entry above ~51% right; all negative at realistic cost. | Recommend permanent retirement from trading (code and reports kept). |
