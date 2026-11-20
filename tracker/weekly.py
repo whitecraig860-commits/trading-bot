@@ -6,6 +6,8 @@ only; changes nothing and places no orders. Run by .github/workflows/weekly.yml 
 from __future__ import annotations
 
 import json
+
+import pandas as pd
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -103,6 +105,19 @@ def report(today: date, daily: bool = False) -> str:
     for key, folder, name in BOTS:
         if key != "shares":
             lines += lessons(name, trades(folder))
+    vlog = ROOT.parent / "audit" / "validation_log.csv"
+    if vlog.exists():
+        try:
+            v = pd.read_csv(vlog)
+            lines.append("")
+            lines.append("<b>Validation</b> (target: 60 trading days and 40 trades each, audit/README.md):")
+            for bot, g in v.groupby("bot"):
+                n_tr = int((g.live_side.fillna(0) != 0).sum())
+                dev = g[g.status == "DEVIATION"]
+                lines.append(f"{bot}: {g.date.nunique()}/60 days, {n_tr}/40 trades, deviations {len(dev)}"
+                             + (f" (latest {dev.date.iloc[-1]}: {dev.note.iloc[-1]})" if len(dev) else ""))
+        except Exception as exc:
+            lines.append(f"Validation log unreadable: {type(exc).__name__}")
     live = [r for r in rows if r[5] >= 20]
     lines.append("")
     lines.append("<i>Paper only. One week is too short to judge: a bot needs about 20+ days before its lead means much. "
