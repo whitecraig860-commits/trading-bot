@@ -91,6 +91,18 @@ def rows(feed: Feed, now: datetime) -> list[dict]:
     return sorted(out, key=lambda r: (r["expiry"], r["strike"], r["type"]))
 
 
+def holiday_decision(polls: int, seen_today: bool, shares_trading) -> str:
+    """CC-002 (audit/CHANGE_CONTROL.md). After 30 minutes (360 polls) with no option quote dated today, check every 5
+    minutes whether QQQ shares are trading today. "stop" only on a real holiday; "wait" while the option feed is stale
+    but the market is open (19 Nov 2026: stale until 10:30); "go" otherwise. If the check itself fails: "wait"."""
+    if seen_today or polls < 360 or polls % 60:
+        return "go"
+    try:
+        return "wait" if shares_trading() else "stop"
+    except Exception:
+        return "wait"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--test", action="store_true")
@@ -167,17 +179,11 @@ def main() -> int:
                 r = rows(feed, t)
                 today = t.strftime("%Y-%m-%d")
                 seen_today = seen_today or any(x["quote_time"].startswith(today) for x in r)
-                if polls >= 360 and not seen_today and polls % 60 == 0:
-                    # Option quotes still dated an earlier day. Only a real holiday if QQQ shares are not trading
-                    # today either: on 19 Nov 2026 the option quotes came through stale until 10:30 New York time
-                    # while the market was open, and stopping here cost the whole first hour.
-                    try:
-                        open_today = len(qqqbot.alpaca_bars(feed.stk)(t)) > 0
-                    except Exception:
-                        open_today = True  # unsure: keep waiting rather than miss the day
-                    if not open_today:
-                        print("No quotes dated today after 30 minutes and no QQQ trading today (market holiday): stopping.")
-                        break
+                decision = holiday_decision(polls, seen_today, lambda: len(qqqbot.alpaca_bars(feed.stk)(t)) > 0)
+                if decision == "stop":
+                    print("No quotes dated today after 30 minutes and no QQQ trading today (market holiday): stopping.")
+                    break
+                if decision == "wait":
                     print(f"{t:%H:%M} option quotes still stale but QQQ is trading: waiting for fresh quotes.")
                 w.writerows(r)
                 f.flush()

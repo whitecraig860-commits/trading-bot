@@ -399,8 +399,13 @@ class PaperBot:
         self.save()
 
     def finish(self, now: datetime, rows: list[dict]):
-        """Called when a recording run ends: nothing is carried across runs."""
+        """Called when a recording run ends. Open trades are closed, except a "follow" bot's option before 15:55,
+        which the next run resumes (CC-003, audit/CHANGE_CONTROL.md): it is meant to be held for hours."""
         o = self.s["open"]
+        if o and self.mode == "follow" and now.strftime("%H:%M") < FLAT:
+            self._summaries(now)
+            self.save()
+            return
         if o:
             q = {(r["expiry"], r["type"], float(r["strike"])): r for r in rows}.get((o["expiry"], o["type"], o["strike"]))
             bid = float(q["bid"]) if q and q["bid"] not in ("", None) else o["entry"]
