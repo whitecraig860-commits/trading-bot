@@ -1,0 +1,55 @@
+Study 6. QQQ 1-minute bars 2024-03-01 09:30:00 to 2026-10-30 15:59:00. Protocol: research/ONE_A_DAY_PROTOCOL.md. One contract (options) or 100 shares.
+Days tested 654; days with a trade 485 (74%); trades with usable option prices 437; calls 248, puts 237
+Exit reasons: {'time': 431, 'trail': 52, 'safety stop': 2}; median hold 325 min; median ATR $1.13; median option entry $5.25
+
+=== BASE CASE ===
+options, 0 cents per side       437 trades  win  46%  avg win $    218  avg loss $   -156  per trade $  +14.9  per day $  +9.96 (£ +7.57)  t +1.24  total $+6,513
+options, 2 cents per side  <- base  437 trades  win  45%  avg win $    216  avg loss $   -159  per trade $  +10.9  per day $  +7.29 (£ +5.54)  t +0.90  total $+4,765
+options, 5 cents per side       437 trades  win  44%  avg win $    215  avg loss $   -162  per trade $   +4.9  per day $  +3.28 (£ +2.49)  t +0.41  total $+2,143
+100 shares, 1 cent per side     485 trades  win  59%  avg win $    300  avg loss $   -306  per trade $  +49.3  per day $ +36.56 (£+27.78)  t +2.72  total $+23,908
+
+--- By side (options, 2 cents)
+calls                           218 trades  win  47%  avg win $    172  avg loss $   -144  per trade $   +3.9  per day $  +1.29 (£ +0.98)  t +0.24  total $+843
+puts                            219 trades  win  44%  avg win $    263  avg loss $   -173  per trade $  +17.9  per day $  +6.00 (£ +4.56)  t +0.93  total $+3,922
+
+--- By exit reason (options, 2 cents)
+safety stop                       2 trades  win   0%  avg win $      0  avg loss $   -492  per trade $ -491.6  per day $  -1.50 (£ -1.14)  t  +nan  total $-983
+time                            392 trades  win  40%  avg win $    216  avg loss $   -157  per trade $   -8.2  per day $  -4.93 (£ -3.75)  t -0.66  total $-3,225
+trail                            43 trades  win  98%  avg win $    214  avg loss $     -8  per trade $ +208.7  per day $ +13.72 (£+10.43)  t +8.56  total $+8,972
+
+--- By year (options, 2 cents | shares)
+2024                            125 trades  win  49%  avg win $    176  avg loss $   -138  per trade $  +14.8  per day $  +9.38 (£ +7.13)  t +1.01  total $+1,848
+2024 shares                     143 trades  win  62%  avg win $    241  avg loss $   -226  per trade $  +61.6  per day $ +44.71 (£+33.98)  t +3.09  total $+8,808
+2025                            161 trades  win  43%  avg win $    240  avg loss $   -157  per trade $  +13.3  per day $  +8.57 (£ +6.52)  t +0.61  total $+2,143
+2025 shares                     177 trades  win  58%  avg win $    303  avg loss $   -318  per trade $  +39.5  per day $ +27.98 (£+21.27)  t +1.39  total $+6,996
+2026                            151 trades  win  45%  avg win $    228  avg loss $   -177  per trade $   +5.1  per day $  +3.74 (£ +2.84)  t +0.22  total $+774
+2026 shares                     165 trades  win  57%  avg win $    354  avg loss $   -354  per trade $  +49.1  per day $ +39.15 (£+29.75)  t +1.23  total $+8,104
+
+--- Holdout, 2026 onward
+options, 2 cents                151 trades  win  45%  avg win $    228  avg loss $   -177  per trade $   +5.1  per day $  +3.74 (£ +2.84)  t +0.22  total $+774
+options, 5 cents                151 trades  win  43%  avg win $    232  avg loss $   -177  per trade $   -0.9  per day $  -0.64 (£ -0.48)  t -0.04  total $-132
+100 shares                      165 trades  win  57%  avg win $    354  avg loss $   -354  per trade $  +49.1  per day $ +39.15 (£+29.75)  t +1.23  total $+8,104
+
+=== PASS / FAIL (§6) ===
+   fail  1. options at 2 cents: mean daily > 0 with t >= 2  ($+7.29 a day, t +0.90)
+   PASS  2. positive in the holdout  ($+3.74 a day)
+   PASS  3. positive at 5 cents  ($+3.28 a day)
+   PASS  4. shares version profitable  ($+36.56 a day, t +2.72)
+VERDICT: FAILS
+Options, 2 cents: losing days 37% of all days; best day $+2,165; worst day $-745; worst losing run $-5,046; best 5 days make $+7,458 of the $+4,765 total
+
+=== SENSITIVITY (options at 2 cents | shares; reported, never picked) ===
+expiry 1 day                    479 trades  win  48%  avg win $    226  avg loss $   -165  per trade $  +22.8  per day $ +16.64 (£+12.65)  t +1.82  total $+10,901
+expiry 1 day (shares)           485 trades  win  59%  avg win $    300  avg loss $   -306  per trade $  +49.3  per day $ +36.50 (£+27.74)  t +2.72  total $+23,908
+expiry 3 days                   375 trades  win  45%  avg win $    186  avg loss $   -159  per trade $   -3.0  per day $  -1.74 (£ -1.32)  t -0.27  total $-1,135
+expiry 3 days (shares)          484 trades  win  59%  avg win $    300  avg loss $   -306  per trade $  +49.9  per day $ +36.97 (£+28.10)  t +2.74  total $+24,142
+at-the-money strike             465 trades  win  46%  avg win $    196  avg loss $   -136  per trade $  +16.3  per day $ +11.62 (£ +8.83)  t +1.45  total $+7,601
+at-the-money strike (shares)    485 trades  win  59%  avg win $    300  avg loss $   -306  per trade $  +49.3  per day $ +36.56 (£+27.78)  t +2.72  total $+23,908
+trail at 3 ATR                  440 trades  win  49%  avg win $    197  avg loss $   -162  per trade $  +13.3  per day $  +8.94 (£ +6.80)  t +1.11  total $+5,848
+trail at 3 ATR (shares)         485 trades  win  60%  avg win $    281  avg loss $   -307  per trade $  +47.0  per day $ +34.89 (£+26.51)  t +2.64  total $+22,815
+trail at 5 ATR                  439 trades  win  45%  avg win $    214  avg loss $   -160  per trade $   +7.2  per day $  +4.83 (£ +3.67)  t +0.58  total $+3,159
+trail at 5 ATR (shares)         485 trades  win  58%  avg win $    307  avg loss $   -304  per trade $  +47.3  per day $ +35.07 (£+26.65)  t +2.56  total $+22,934
+no noise band                   565 trades  win  44%  avg win $    198  avg loss $   -166  per trade $   -6.9  per day $  -5.96 (£ -4.53)  t -0.69  total $-3,900
+no noise band (shares)          636 trades  win  57%  avg win $    280  avg loss $   -318  per trade $  +20.5  per day $ +19.95 (£+15.16)  t +1.32  total $+13,046
+no 0.3 ATR buffer               449 trades  win  46%  avg win $    228  avg loss $   -164  per trade $  +16.7  per day $ +11.49 (£ +8.73)  t +1.19  total $+7,516
+no 0.3 ATR buffer (shares)      497 trades  win  59%  avg win $    300  avg loss $   -317  per trade $  +49.5  per day $ +37.62 (£+28.59)  t +2.71  total $+24,603
