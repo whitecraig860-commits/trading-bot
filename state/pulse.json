@@ -126,10 +126,10 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 201,
-     "win_rate": 0.208955223880597,
-     "avg_r": -0.08652306188179962,
-     "total_r": -17.391135438241722,
+     "trades": 199,
+     "win_rate": 0.21105527638190955,
+     "avg_r": -0.08166023718507388,
+     "total_r": -16.250387199829703,
      "sessions": 60
     },
     "late": {
@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-20T00:25:40.000198+00:00",
+   "record_at": "2026-11-20T03:35:40.000177+00:00",
    "last_bar": "2026-11-19 15:55:00-05:00",
    "brief_day": "2026-11-19",
    "stance": "down|None",
@@ -559,7 +559,13 @@
   "https://www.trumpstruth.org/statuses/43637",
   "https://www.trumpstruth.org/statuses/43636",
   "https://www.trumpstruth.org/statuses/43638",
-  "https://www.trumpstruth.org/statuses/43639"
+  "https://www.trumpstruth.org/statuses/43639",
+  "https://www.trumpstruth.org/statuses/43640",
+  "https://www.trumpstruth.org/statuses/43641",
+  "https://www.trumpstruth.org/statuses/43642",
+  "https://www.trumpstruth.org/statuses/43643",
+  "https://www.trumpstruth.org/statuses/43644",
+  "https://www.trumpstruth.org/statuses/43645"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -585,10 +591,10 @@
    "last": 1795134340.5675101
   },
   "weekly learning": {
-   "day": "2026-11-13",
+   "day": "2026-11-20",
    "tries": 1,
    "done": true,
-   "last": 1794529841.3234622
+   "last": 1795134940.2033195
   },
   "morning briefing": {
    "day": "2026-11-12",
