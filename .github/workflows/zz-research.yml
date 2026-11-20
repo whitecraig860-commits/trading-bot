@@ -2,6 +2,7 @@ name: TEMP research run (delete before merging)
 on:
   push:
     branches: ["claude/affectionate-edison-9wfyzd"]
+    paths: ["research/audit_baseline.py"]
 permissions:
   contents: read
 jobs:
