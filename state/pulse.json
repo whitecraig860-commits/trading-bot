@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-20T08:50:40.000293+00:00",
+   "record_at": "2026-11-20T14:00:40.000488+00:00",
    "last_bar": "2026-11-19 15:55:00-05:00",
    "brief_day": "2026-11-19",
    "stance": "down|None",
@@ -565,9 +565,28 @@
   "https://www.trumpstruth.org/statuses/43642",
   "https://www.trumpstruth.org/statuses/43643",
   "https://www.trumpstruth.org/statuses/43644",
-  "https://www.trumpstruth.org/statuses/43645"
+  "https://www.trumpstruth.org/statuses/43645",
+  "https://www.trumpstruth.org/statuses/43646"
  ],
- "trump_checks": [],
+ "trump_checks": [
+  {
+   "id": "https://www.trumpstruth.org/statuses/43646",
+   "text": "RT @ Schoenlaw By engaging in an unprecedented tripartite summit with the leader",
+   "at": "2026-11-20T13:05:40.170865+00:00",
+   "markets": [
+    {
+     "market": "QQQ",
+     "direction": -1,
+     "p0": 645.0999755859375,
+     "open": false,
+     "topic": "China"
+    }
+   ],
+   "done": [
+    30
+   ]
+  }
+ ],
  "trump_seeded": true,
  "briefing_day": "2026-11-05",
  "scalper": {
