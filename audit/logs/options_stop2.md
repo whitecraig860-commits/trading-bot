@@ -10,3 +10,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 | 2026-11-13 | Added: stop for the day after 2 losses in a row. | Study 7 (LOSS_PAUSE): paired t +20.1 vs no stop; -$95 -> -$38/day. | Adopted. Still unprofitable. |
 | 2026-11-19 | Fresh-quote guard (only trade on quotes < 60 s old) - data-error fix, all bots. | 19 Nov fake -$147 trade on an 18 Nov quote; replay of 17-18 Nov unchanged. | Pending merge (PR #39). |
 | 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_options_stop2.md` | Rated E (DISCONTINUE): no edge. See audit/README.md. |
+| 2026-11-20 | Audit part 2: three pre-registered market-condition filters (no change). | `audit/AUDIT2_REPORT.md` section 1: no filter lifts the entry above ~51% right; all negative at realistic cost. | Recommend permanent retirement from trading (code and reports kept). |
