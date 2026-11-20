@@ -1,0 +1,33 @@
+Study 13. 670 days.
+
+===== FIVE: 6,443 signals (9.6 a day) =====
+P  QQQ after the signal: 5 min: right 49%, avg -0.001$ | 15 min: right 49%, avg -0.007$ | 30 min: right 50%, avg +0.009$ | 60 min: right 50%, avg +0.022$
+   trades 3,632
+H  per day at 1/2/3/5 cents: -16.46 / -27.30 / -37.95 / -52.62; own t -7.31
+T1 years: 2024 -19.48, 2025 -15.93, 2026 -14.03
+T2 placebo: rule -16.46; placebos median -17.50, best -14.92; rule beats 16/20
+T4 one minute late: -21.00
+T6 resamples positive: 0.0%
+T7: calm -20.07, busy -12.84, up -16.27, down -16.66
+VERDICT FIVE: not profitable
+
+===== OPEN30: 341 signals (0.5 a day) =====
+P  QQQ after the signal: 5 min: right 50%, avg +0.031$ | 15 min: right 51%, avg +0.067$ | 30 min: right 54%, avg +0.039$ | 60 min: right 53%, avg +0.073$
+   trades 337
+H  per day at 1/2/3/5 cents: -2.46 / -3.47 / -4.47 / -6.48; own t -2.32
+T1 years: 2024 -0.76, 2025 -0.17, 2026 -6.91
+T2 placebo: rule -2.46; placebos median -1.68, best -0.89; rule beats 5/20
+T4 one minute late: -1.86
+T6 resamples positive: 0.7%
+T7: calm -2.66, busy -2.25, up -2.25, down -2.70
+VERDICT OPEN30: not profitable
+
+===== ONEADAY: Study 6 breakout on next-day at-the-money options =====
+   days 655, trades with option prices 480
+P  QQQ after the signal: 5 min: right 51%, avg +0.063$ | 15 min: right 55%, avg +0.111$ | 30 min: right 56%, avg +0.207$ | 60 min: right 55%, avg +0.191$
+H  per day at 1/2/3/5 cents: +14.44 / +12.98 / +11.51 / +8.58; own t +1.73
+T1 years: 2024 +14.01, 2025 +13.28, 2026 +16.25
+T2 placebo: rule +14.44; placebos median -5.94, best +13.02; rule beats 20/20
+T6 resamples positive: 96.7%
+T7: calm -26.85, busy +55.87, up +7.77, down +22.06
+VERDICT ONEADAY: not profitable

@@ -91,6 +91,18 @@ def rows(feed: Feed, now: datetime) -> list[dict]:
     return sorted(out, key=lambda r: (r["expiry"], r["strike"], r["type"]))
 
 
+def holiday_decision(polls: int, seen_today: bool, shares_trading) -> str:
+    """CC-002 (audit/CHANGE_CONTROL.md). After 30 minutes (360 polls) with no option quote dated today, check every 5
+    minutes whether QQQ shares are trading today. "stop" only on a real holiday; "wait" while the option feed is stale
+    but the market is open (19 Nov 2026: stale until 10:30); "go" otherwise. If the check itself fails: "wait"."""
+    if seen_today or polls < 360 or polls % 60:
+        return "go"
+    try:
+        return "wait" if shares_trading() else "stop"
+    except Exception:
+        return "wait"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--test", action="store_true")
@@ -167,9 +179,12 @@ def main() -> int:
                 r = rows(feed, t)
                 today = t.strftime("%Y-%m-%d")
                 seen_today = seen_today or any(x["quote_time"].startswith(today) for x in r)
-                if polls >= 360 and not seen_today:
-                    print("No quotes dated today after 30 minutes (market holiday?): stopping.")
+                decision = holiday_decision(polls, seen_today, lambda: len(qqqbot.alpaca_bars(feed.stk)(t)) > 0)
+                if decision == "stop":
+                    print("No quotes dated today after 30 minutes and no QQQ trading today (market holiday): stopping.")
                     break
+                if decision == "wait":
+                    print(f"{t:%H:%M} option quotes still stale but QQQ is trading: waiting for fresh quotes.")
                 w.writerows(r)
                 f.flush()
                 saved += len(r)
@@ -194,6 +209,16 @@ def main() -> int:
                         shares.on_poll(t)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
+                fb = extras.get("oneaday")
+                if fb and shares:  # the options copy of the shares bot's one-a-day trade
+                    try:
+                        st = shares.s.get("trade") or {}
+                        if st and not st.get("exit") and fb.pending is None:
+                            fb.pending = ("C" if st["side"] > 0 else "P", "ONEADAY", float(st["entry"]), 1.0)
+                        if st and st.get("exit"):
+                            fb.follow_exit = True
+                    except Exception as exc:
+                        print(f"{t:%H:%M:%S} one-a-day options bot: {type(exc).__name__}: {str(exc)[:120]}")
                 if live and seen_today and live.due():
                     try:
                         live.publish(livepage.payload(t, bot, shares, original, extras))

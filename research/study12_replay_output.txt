@@ -1,0 +1,48 @@
+===== TEST 2: replay on our own recorded live prices =====
+
+2026-11-17 (quotes from 09:30): replay matches the live bot's real trades: True (6 replayed vs 6 real)
+  BASE                     6 trades    -29.36
+  PB50                     3 trades    +75.82   blocked vs BASE: 11:02 +38, 11:04 -95, 11:05 -48
+  PB100                    4 trades   +113.76   blocked vs BASE: 11:04 -95, 11:05 -48
+  LB100                    6 trades    -29.36
+  PB50LB                   3 trades    +75.82   blocked vs BASE: 11:02 +38, 11:04 -95, 11:05 -48
+  G1 spread>5%             6 trades    -29.36
+  G2 3 min after a gap     6 trades    -29.36
+
+2026-11-18 (quotes from 09:30): replay matches the live bot's real trades: True (8 replayed vs 8 real)
+  BASE                     8 trades    +91.52
+  PB50                     2 trades    +51.88   blocked vs BASE: 09:47 +41, 09:48 +46, 09:53 +31, 09:57 +21, 10:25 -52, 10:26 -47
+  PB100                    4 trades   +138.76   blocked vs BASE: 09:53 +31, 09:57 +21, 10:25 -52, 10:26 -47
+  LB100                    8 trades    +91.52
+  PB50LB                   2 trades    +51.88   blocked vs BASE: 09:47 +41, 09:48 +46, 09:53 +31, 09:57 +21, 10:25 -52, 10:26 -47
+  G1 spread>5%             8 trades    +91.52
+  G2 3 min after a gap     8 trades    +91.52
+
+2026-11-19 (quotes from 10:31): replay matches the live bot's real trades: False (19 replayed vs 2 real)
+  BASE                    19 trades   -162.14
+  PB50                    19 trades   -162.14
+  PB100                   19 trades   -162.14
+  LB100                    6 trades   -107.36   blocked vs BASE: 11:28 +19, 11:32 -54, 11:35 +36, 11:37 +21, 11:41 -54, 11:51 +40, 12:24 +22, 12:39 +22, 12:55 -46, 12:56 +26, 13:27 +20, 13:30 -51, 13:32 -55
+  PB50LB                   6 trades   -107.36   blocked vs BASE: 11:28 +19, 11:32 -54, 11:35 +36, 11:37 +21, 11:41 -54, 11:51 +40, 12:24 +22, 12:39 +22, 12:55 -46, 12:56 +26, 13:27 +20, 13:30 -51, 13:32 -55
+  G1 spread>5%            19 trades   -162.14
+  G2 3 min after a gap    19 trades   -162.14
+
+Total over these days: BASE -100, PB50 -34, PB100 +90, LB100 -45, PB50LB +20, G1 spread>5% -100, G2 3 min after a gap -100
+
+===== TEST 3: the brakes applied to his posted trades (per contract, each account separately) =====
+       day  account   none   PB50  PB100  LB100  PB50LB
+2026-11-11        2   36.0   36.0   36.0   36.0    36.0
+2026-11-11        3   13.0   13.0   13.0   13.0    13.0
+2026-11-12        1  226.0   73.0  103.0  226.0    73.0
+2026-11-12        2  196.0   71.0  102.0  196.0    71.0
+2026-11-12        3  296.0   92.0  123.0  296.0    92.0
+2026-11-17        1   74.0   74.0   74.0   74.0    74.0
+2026-11-17        2  148.0   51.0  123.0  148.0    51.0
+2026-11-17        3   29.0   29.0   29.0   29.0    29.0
+2026-11-18        1  163.0   57.0  143.0  163.0    57.0
+2026-11-18        2    8.0   68.0  101.0    8.0    68.0
+2026-11-18        3  200.0  142.0  142.0  200.0   142.0
+2026-11-19        1  100.0  100.0  100.0  100.0   100.0
+2026-11-19        2  228.0  107.0  107.0  228.0   107.0
+2026-11-19        3 -290.0 -290.0 -290.0 -135.0  -135.0
+Totals: none +1427, PB50 +623, PB100 +906, LB100 +1582, PB50LB +778

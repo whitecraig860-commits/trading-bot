@@ -1,0 +1,85 @@
+# Change control
+
+Every change to any bot is recorded here **before** it is made, with the eight fields below, and then completed with the
+results. Strategy changes also need a pre-registered protocol in `research/`. A change is only called "fixed" when the
+listed tests pass. No setting is changed repeatedly to improve historical profit.
+
+Template:
+
+| Field | |
+|---|---|
+| 1. Problem | |
+| 2. Evidence | |
+| 3. Proposed change | |
+| 4. Expected improvement | |
+| 5. Possible negative effects | |
+| 6. Tests | |
+| 7. Results | |
+| 8. Decision | accepted / rejected / pending the user's approval |
+
+---
+
+## CC-001: bots traded on stale option quotes (all options bots)
+
+| Field | |
+|---|---|
+| 1. Problem | On 19 Nov the data feed served the previous afternoon's option quotes until 10:30 NY. At 10:32:36 the main bot bought a 662 put at 9.68, a quote stamped 2026-11-18 16:14:59; the real quote (bid 8.21) arrived 5 seconds later, recorded as a −$147 loss that never happened at that price. |
+| 2. Evidence | `state/quotes/2026-11-19-1031.csv.gz`, 662P rows 10:31:51-10:33:06: quote_time 2026-11-18 16:14:59 until 10:32:36, then 10:32:40. |
+| 3. Proposed change | `tracker/qqqbot.py`: new `_fresh(q, now)`; a quote counts only if stamped within the last 60 s (`FRESH_SECONDS`). Used for the entry ask and the exit bid. Switch: `FRESH_QUOTES_ONLY`. |
+| 4. Expected improvement | No trades or exits on prices that are not current. |
+| 5. Possible negative effects | If the feed's time stamps lag on quiet contracts, a bot could skip a valid entry or delay an exit until a fresh quote arrives (bounded by the 10-minute limit and the 15:55 flat time). If a quote has no time stamp, behaviour is unchanged. |
+| 6. Tests | (a) `tests/test_fixes.py`: a stale quote blocks the entry, a fresh one allows it; a stale bid does not trigger an exit. (b) Replay of the real recorded prices for 17 and 18 Nov: identical trades to the live bot. (c) 19 Nov replay: the 10:32 stale trade is no longer taken. |
+| 7. Results | (a) pass. (b) 17 and 18 Nov identical (6/6, 8/8 trades). (c) 19 Nov stale trade blocked. **Side effect found and investigated:** 20 Nov also changes (+$179 recorded becomes −$142 in the replay); with the guard off the replay matches all 8 real trades, and the difference is a +$320 trade bought on a quote frozen for 5 minutes, i.e. a fake win. 11 of 316 paper trades used stale quotes (`audit/stale_quotes.md`). The side effect is the intended behaviour. |
+| 8. Decision | Pending the user's approval (PR #39). |
+
+## CC-002: the recorder stopped itself on a trading day (all bots)
+
+| Field | |
+|---|---|
+| 1. Problem | On 19 Nov the recorder stopped twice with "No quotes dated today after 30 minutes (market holiday?)" while the market was open, because the option quotes were stale. All bots missed 09:30-10:30. |
+| 2. Evidence | Recorder run logs 44549813350 and 44540052811; first trade of the day at 10:32. |
+| 3. Proposed change | `tracker/recorder.py`: after 30 minutes of stale quotes, stop only if QQQ shares have no bars today (a real holiday); otherwise keep waiting, re-checking every 5 minutes. The decision is a small function, `holiday_decision`, so it can be tested. |
+| 4. Expected improvement | No lost trading time when the option feed is late. |
+| 5. Possible negative effects | On a real holiday the share-bar request is made every 5 minutes for the rest of the run (harmless). If the share-bar request fails, it keeps waiting rather than stopping (safer than missing a day). |
+| 6. Tests | `tests/test_fixes.py`: stale quotes + QQQ trading -> wait; stale quotes + no QQQ bars -> stop; fresh quotes -> go; before 30 minutes -> go. |
+| 7. Results | Pass (see `audit/PR39_REVIEW.md`). |
+| 8. Decision | Pending the user's approval (PR #39). |
+
+## CC-003: the one-a-day options bot would be force-sold at every recorder restart
+
+| Field | |
+|---|---|
+| 1. Problem | The recorder restarts about every 200 minutes. `PaperBot.finish()` closes any open option at a restart ("recorder restart"). The one-a-day options bot holds for hours (median 5.5 h in history), so its trade would be sold around 12:50 NY and never re-bought: live results would not match its tested rules. The shares bot already carries its trade over. |
+| 2. Evidence | `tracker/qqqbot.py` `finish()`; `tracker/sharesbot.py` `finish()` keeps the trade; history median hold for this strategy 5.5 hours (Study 6). |
+| 3. Proposed change | In `finish()`, a bot in "follow" mode keeps its open option (saved in its state file) and the next run resumes managing it; it is still closed at 15:55 or when the shares bot exits. No other bot changes. |
+| 4. Expected improvement | Live one-a-day options trades follow the tested exit rules. |
+| 5. Possible negative effects | During the 1-2 minutes between runs the option is not watched (measured gaps: up to about 2 minutes of start-up). If a run fails to start, the position stays open until the next run (the watchdog restarts the recorder). |
+| 6. Tests | `tests/test_fixes.py`: a follow-mode bot with an open option keeps it through `finish()` before 15:55; a new bot instance on the same day resumes it and sells it when the shares bot exits; other modes still close at a restart (unchanged). |
+| 7. Results | Pass (see `audit/PR39_REVIEW.md`). |
+| 8. Decision | Pending the user's approval (PR #39). The bot is not live yet, so no live behaviour changes. |
+
+## CC-004: daily automatic validation of the two promising bots (no trading change)
+
+| Field | |
+|---|---|
+| 1. Problem | There is no daily check that the live shares bot and one-a-day options bot do what their tested rules say, and no running record towards the 60-day / 40-trade validation. |
+| 2. Evidence | The audit's paper record is 4 days; live and history engines are separate code (`tracker/sharesbot.py` vs `research/one_a_day_study.py`). |
+| 3. Proposed change | `research/validate_daily.py`: after the close, re-run the history engine on that day's bars (same IEX data the live bot uses) and compare with what the live bots did: side, entry time and price, exit time, price and reason, result; for the options bot also the spread paid and stale quotes. One row per bot per day is appended to `audit/validation_log.csv`. The daily workflow runs it and commits the log; the Telegram daily check shows the validation count and any deviation. |
+| 4. Expected improvement | Deviations between live and tested behaviour are caught the same day; validation progress is measured, not guessed. |
+| 5. Possible negative effects | The daily workflow needs write access to commit the log, and the Alpaca keys (read-only market data). If the check fails it reports the failure; it never touches the bots. |
+| 6. Tests | Offline test with synthetic bars and a fake bot state: matching day -> "match"; different side or time -> "deviation". |
+| 7. Results | Offline test with synthetic bars: identical trade → match; opposite side → DEVIATION; 10 minutes late → DEVIATION ("entry time differs by more than 2 minutes"); no trade on both sides → match; engine traded but live did not → DEVIATION. Daily message shows the count (tested with a sample log). The live run needs the merge and the Alpaca keys in the daily workflow. |
+| 8. Decision | Pending the user's approval (PR #39). |
+
+## CC-005 (proposal only, not implemented): retire the 12 fast bots from active paper trading and the live page
+
+| Field | |
+|---|---|
+| 1. Problem | 12 fast strategies (main, original, trail, trail+trend, his style, skip weak, combo, picks, his clone, brakes, 5-minute, opening move) have no measurable edge. |
+| 2. Evidence | Entry right 49-51% of the time (Study 12, audit part 2 section 1); every one negative in every year, out of sample and at realistic costs; three pre-registered market-condition filters failed (`audit/AUDIT2_REPORT.md`). |
+| 3. Proposed change | Remove all except main and original from `EXTRA_BOTS` / the recorder and the live page; keep main and original as benchmarks; keep all code, state files, reports and logs; add a guard so a retired bot can only be re-enabled together with a new pre-registered study reference. |
+| 4. Expected improvement | Less noise; attention on the one candidate; no accidental use. |
+| 5. Possible negative effects | Less live data on strategies already shown to fail (acceptable). |
+| 6. Tests | Recorder runs with the reduced bot list; main and original produce identical trades before and after (replay). |
+| 7. Results | Not run: proposal only. |
+| 8. Decision | **Waiting for the user's approval.** |
