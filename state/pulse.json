@@ -106,51 +106,51 @@
    "record": {
     "trend": {
      "trades": 50,
-     "win_rate": 0.3,
-     "avg_r": -0.09934966766044612,
-     "total_r": -4.967483383022306,
+     "win_rate": 0.28,
+     "avg_r": -0.08359165931475517,
+     "total_r": -4.179582965737758,
      "sessions": 60
     },
     "orb": {
      "trades": 55,
-     "win_rate": 0.32727272727272727,
-     "avg_r": -0.12598118555394794,
-     "total_r": -6.928965205467137,
+     "win_rate": 0.34545454545454546,
+     "avg_r": -0.06857925930095903,
+     "total_r": -3.771859261552746,
      "sessions": 60
     },
     "fade": {
-     "trades": 3,
-     "win_rate": 0.6666666666666666,
-     "avg_r": 0.20135717889284946,
-     "total_r": 0.6040715366785484,
+     "trades": 2,
+     "win_rate": 0.5,
+     "avg_r": 0.27819012704108237,
+     "total_r": 0.5563802540821647,
      "sessions": 60
     },
     "vwap": {
-     "trades": 181,
-     "win_rate": 0.24861878453038674,
-     "avg_r": -0.03523722073671853,
-     "total_r": -6.377936953346055,
+     "trades": 195,
+     "win_rate": 0.21025641025641026,
+     "avg_r": -0.07548678989910737,
+     "total_r": -14.719924030325938,
      "sessions": 60
     },
     "late": {
      "trades": 50,
      "win_rate": 0.32,
-     "avg_r": -0.22139944516606433,
-     "total_r": -11.069972258303217,
+     "avg_r": -0.23283753078634326,
+     "total_r": -11.641876539317163,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-20T14:00:40.000488+00:00",
-   "last_bar": "2026-11-19 15:55:00-05:00",
-   "brief_day": "2026-11-19",
+   "record_at": "2026-11-20T19:15:40.000177+00:00",
+   "last_bar": "2026-11-20 14:50:00-05:00",
+   "brief_day": "2026-11-20",
    "stance": "down|None",
    "pending": null,
    "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-19": 2
+    "2026-11-20": 1
    },
-   "last_change_at": "2026-11-19T17:05:40.000174+00:00",
+   "last_change_at": "2026-11-20T15:00:40.000174+00:00",
    "stance_desc": "TRENDING DOWN"
   },
   "IWM": {
@@ -568,25 +568,7 @@
   "https://www.trumpstruth.org/statuses/43645",
   "https://www.trumpstruth.org/statuses/43646"
  ],
- "trump_checks": [
-  {
-   "id": "https://www.trumpstruth.org/statuses/43646",
-   "text": "RT @ Schoenlaw By engaging in an unprecedented tripartite summit with the leader",
-   "at": "2026-11-20T13:05:40.170865+00:00",
-   "markets": [
-    {
-     "market": "QQQ",
-     "direction": -1,
-     "p0": 645.0999755859375,
-     "open": false,
-     "topic": "China"
-    }
-   ],
-   "done": [
-    30
-   ]
-  }
- ],
+ "trump_checks": [],
  "trump_seeded": true,
  "briefing_day": "2026-11-05",
  "scalper": {
