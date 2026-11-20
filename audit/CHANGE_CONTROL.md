@@ -70,3 +70,16 @@ Template:
 | 6. Tests | Offline test with synthetic bars and a fake bot state: matching day -> "match"; different side or time -> "deviation". |
 | 7. Results | Offline test with synthetic bars: identical trade → match; opposite side → DEVIATION; 10 minutes late → DEVIATION ("entry time differs by more than 2 minutes"); no trade on both sides → match; engine traded but live did not → DEVIATION. Daily message shows the count (tested with a sample log). The live run needs the merge and the Alpaca keys in the daily workflow. |
 | 8. Decision | Pending the user's approval (PR #39). |
+
+## CC-005 (proposal only, not implemented): retire the 12 fast bots from active paper trading and the live page
+
+| Field | |
+|---|---|
+| 1. Problem | 12 fast strategies (main, original, trail, trail+trend, his style, skip weak, combo, picks, his clone, brakes, 5-minute, opening move) have no measurable edge. |
+| 2. Evidence | Entry right 49-51% of the time (Study 12, audit part 2 section 1); every one negative in every year, out of sample and at realistic costs; three pre-registered market-condition filters failed (`audit/AUDIT2_REPORT.md`). |
+| 3. Proposed change | Remove all except main and original from `EXTRA_BOTS` / the recorder and the live page; keep main and original as benchmarks; keep all code, state files, reports and logs; add a guard so a retired bot can only be re-enabled together with a new pre-registered study reference. |
+| 4. Expected improvement | Less noise; attention on the one candidate; no accidental use. |
+| 5. Possible negative effects | Less live data on strategies already shown to fail (acceptable). |
+| 6. Tests | Recorder runs with the reduced bot list; main and original produce identical trades before and after (replay). |
+| 7. Results | Not run: proposal only. |
+| 8. Decision | **Waiting for the user's approval.** |
