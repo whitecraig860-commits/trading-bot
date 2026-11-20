@@ -1,0 +1,45 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-20 09:51:06",
+   "type": "P",
+   "strike": 636.0,
+   "expiry": "2026-11-23",
+   "entry": 8.87,
+   "trigger": "VWAP",
+   "qqq": 636.34,
+   "stop_px": 8.34,
+   "target_px": 9.09,
+   "trail": 0.015,
+   "exit": 8.18,
+   "exit_t": "2026-11-20 09:51:16",
+   "why": "stop",
+   "pnl": -69.06
+  },
+  {
+   "t": "2026-11-20 09:55:06",
+   "type": "C",
+   "strike": 640.0,
+   "expiry": "2026-11-23",
+   "entry": 8.71,
+   "trigger": "RANGE",
+   "qqq": 639.76,
+   "stop_px": 8.19,
+   "target_px": 8.93,
+   "trail": 0.015,
+   "exit": 7.95,
+   "exit_t": "2026-11-20 10:03:26",
+   "why": "stop",
+   "pnl": -76.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "C",
+  "P"
+ ],
+ "sent": [
+  "stopped"
+ ],
+ "seen_bars": 0
+}
