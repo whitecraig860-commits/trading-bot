@@ -1,0 +1,28 @@
+name: TEMP research run (delete before merging)
+on:
+  push:
+    branches: ["claude/affectionate-edison-9wfyzd"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Audit baseline (read-only market data; no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        working-directory: research
+        run: python -W ignore audit_baseline.py
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: audit
+          path: audit/
