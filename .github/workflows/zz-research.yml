@@ -1,0 +1,24 @@
+name: TEMP research run (delete before merging)
+on:
+  push:
+    branches: ["claude/affectionate-edison-9wfyzd"]
+    paths: ["research/audit2.py"]
+permissions:
+  contents: read
+jobs:
+  audit2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Audit part 2 (read-only market data; no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        working-directory: research
+        run: python -W ignore audit2.py
