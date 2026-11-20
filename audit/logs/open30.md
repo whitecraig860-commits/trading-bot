@@ -1,0 +1,10 @@
+# Experiment log: Opening move (`open30`)
+
+**Rules now:** At 10:00, call if QQQ up 0.25%+ from the open, put if down; +10% / -10% / 60 min; one a day.
+
+Every change is recorded here before it is made: problem, evidence, change, expected effect, possible side effects, tests, result.
+
+| Date | Change | Evidence / tests | Result / decision |
+|---|---|---|---|
+| 2026-11-19 | Created (Study 13 OPEN30). | History -$2.46/day; 54% right at 30 min. | Pending merge (PR #39). |
+| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_open30.md`, `audit/paper_results.md` | See `audit/README.md` for the rating. |
