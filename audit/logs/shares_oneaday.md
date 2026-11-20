@@ -7,4 +7,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 | Date | Change | Evidence / tests | Result / decision |
 |---|---|---|---|
 | 2026-11-14 | Created from Study 6 (ONE_A_DAY_PROTOCOL.md). | Study 6: 100 shares +$36.56/day, t 2.72, positive every year. | Paper bot running. |
-| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_shares_oneaday.md`, `audit/paper_results.md` | See `audit/README.md` for the rating. |
+| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_shares_oneaday.md` | Rated B (PROMISING). See audit/README.md. |

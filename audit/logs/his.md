@@ -7,4 +7,4 @@ Every change is recorded here before it is made: problem, evidence, change, expe
 | Date | Change | Evidence / tests | Result / decision |
 |---|---|---|---|
 | 2026-11-17 | Created (Study 8 WT). | History -$19.48/day; the 12% stop costs about $9/day vs TRAIL. | Comparison bot. |
-| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_his.md`, `audit/paper_results.md` | See `audit/README.md` for the rating. |
+| 2026-11-20 | Audit baseline measured (no change). | `audit/baseline_his.md` | Rated E (DISCONTINUE): no edge. See audit/README.md. |
