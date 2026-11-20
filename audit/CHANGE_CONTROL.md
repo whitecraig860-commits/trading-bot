@@ -57,3 +57,16 @@ Template:
 | 6. Tests | `tests/test_fixes.py`: a follow-mode bot with an open option keeps it through `finish()` before 15:55; a new bot instance on the same day resumes it and sells it when the shares bot exits; other modes still close at a restart (unchanged). |
 | 7. Results | Pass (see `audit/PR39_REVIEW.md`). |
 | 8. Decision | Pending the user's approval (PR #39). The bot is not live yet, so no live behaviour changes. |
+
+## CC-004: daily automatic validation of the two promising bots (no trading change)
+
+| Field | |
+|---|---|
+| 1. Problem | There is no daily check that the live shares bot and one-a-day options bot do what their tested rules say, and no running record towards the 60-day / 40-trade validation. |
+| 2. Evidence | The audit's paper record is 4 days; live and history engines are separate code (`tracker/sharesbot.py` vs `research/one_a_day_study.py`). |
+| 3. Proposed change | `research/validate_daily.py`: after the close, re-run the history engine on that day's bars (same IEX data the live bot uses) and compare with what the live bots did: side, entry time and price, exit time, price and reason, result; for the options bot also the spread paid and stale quotes. One row per bot per day is appended to `audit/validation_log.csv`. The daily workflow runs it and commits the log; the Telegram daily check shows the validation count and any deviation. |
+| 4. Expected improvement | Deviations between live and tested behaviour are caught the same day; validation progress is measured, not guessed. |
+| 5. Possible negative effects | The daily workflow needs write access to commit the log, and the Alpaca keys (read-only market data). If the check fails it reports the failure; it never touches the bots. |
+| 6. Tests | Offline test with synthetic bars and a fake bot state: matching day -> "match"; different side or time -> "deviation". |
+| 7. Results | Offline test with synthetic bars: identical trade → match; opposite side → DEVIATION; 10 minutes late → DEVIATION ("entry time differs by more than 2 minutes"); no trade on both sides → match; engine traded but live did not → DEVIATION. Daily message shows the count (tested with a sample log). The live run needs the merge and the Alpaca keys in the daily workflow. |
+| 8. Decision | Pending the user's approval (PR #39). |

@@ -1,4 +1,4 @@
-name: Daily check of the paper bots (Telegram)
+name: Daily check of the paper bots (Telegram) and validation log
 
 on:
   schedule:
@@ -6,12 +6,12 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write   # only to commit audit/validation_log.csv
 
 jobs:
   daily:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -19,6 +19,23 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Validate the two promising bots against their tested rules (read-only market data; no orders)
+        continue-on-error: true
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        run: python research/validate_daily.py
+      - name: Save the validation log
+        continue-on-error: true
+        run: |
+          git config user.name "setup-scanner-bot"
+          git config user.email "setup-scanner-bot@users.noreply.github.com"
+          git add audit/validation_log.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "Validation log $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
       - name: Rank every bot's day and send it (reads saved results only; no orders)
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
