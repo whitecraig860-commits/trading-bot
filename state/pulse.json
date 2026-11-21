@@ -105,10 +105,10 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 50,
-     "win_rate": 0.28,
-     "avg_r": -0.08359165931475517,
-     "total_r": -4.179582965737758,
+     "trades": 51,
+     "win_rate": 0.29411764705882354,
+     "avg_r": -0.03730446195478572,
+     "total_r": -1.9025275596940716,
      "sessions": 60
     },
     "orb": {
@@ -140,8 +140,8 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-20T19:15:40.000177+00:00",
-   "last_bar": "2026-11-20 14:50:00-05:00",
+   "record_at": "2026-11-20T23:25:40.000175+00:00",
+   "last_bar": "2026-11-20 15:55:00-05:00",
    "brief_day": "2026-11-20",
    "stance": "down|None",
    "pending": null,
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-19",
+ "summary_day": "2026-11-20",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
