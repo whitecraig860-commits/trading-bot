@@ -320,30 +320,6 @@
 ],
 "pending": [
 {
-"id": "CVI|pullback|2026-11-04",
-"symbol": "CVI",
-"exit_date": "2026-11-06",
-"entry": 47.209999084472656,
-"stop": 38.25792951073312,
-"exit": 38.25792951073312,
-"long": true,
-"reason": "stop",
-"r": -1.0095472815410096,
-"setup": "pullback"
-},
-{
-"id": "LIND|pullback|2026-11-04",
-"symbol": "LIND",
-"exit_date": "2026-11-06",
-"entry": 32.70000076293945,
-"stop": 28.378705327929502,
-"exit": 31.540000915527344,
-"long": true,
-"reason": "stop (gapped through)",
-"r": -0.28330389983802484,
-"setup": "pullback"
-},
-{
 "id": "QED.L|breakout|2026-11-09",
 "symbol": "QED.L",
 "exit_date": "2026-11-11",
