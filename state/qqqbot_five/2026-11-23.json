@@ -1,0 +1,68 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-23 10:00:05",
+   "type": "C",
+   "strike": 649.0,
+   "expiry": "2026-11-24",
+   "entry": 9.23,
+   "trigger": "VWAP5",
+   "qqq": 649.47,
+   "stop_px": 8.31,
+   "target_px": 9.69,
+   "exit": 7.95,
+   "exit_t": "2026-11-23 10:06:15",
+   "why": "stop",
+   "pnl": -128.06
+  },
+  {
+   "t": "2026-11-23 11:40:05",
+   "type": "P",
+   "strike": 649.0,
+   "expiry": "2026-11-24",
+   "entry": 7.84,
+   "trigger": "VWAP5",
+   "qqq": 648.85,
+   "stop_px": 7.06,
+   "target_px": 8.23,
+   "exit": 8.39,
+   "exit_t": "2026-11-23 11:41:10",
+   "why": "target",
+   "pnl": 54.94
+  },
+  {
+   "t": "2026-11-23 11:55:05",
+   "type": "C",
+   "strike": 650.0,
+   "expiry": "2026-11-24",
+   "entry": 7.84,
+   "trigger": "VWAP5",
+   "qqq": 650.21,
+   "stop_px": 7.06,
+   "target_px": 8.23,
+   "exit": 8.25,
+   "exit_t": "2026-11-23 11:55:55",
+   "why": "target",
+   "pnl": 40.94
+  },
+  {
+   "t": "2026-11-23 12:45:05",
+   "type": "P",
+   "strike": 649.0,
+   "expiry": "2026-11-24",
+   "entry": 6.97,
+   "trigger": "VWAP5",
+   "qqq": 649.48,
+   "stop_px": 6.27,
+   "target_px": 7.32,
+   "exit": 7.38,
+   "exit_t": "2026-11-23 12:45:40",
+   "why": "target",
+   "pnl": 40.94
+  }
+ ],
+ "open": null,
+ "range_done": [],
+ "sent": [],
+ "seen_bars": 0
+}
