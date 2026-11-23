@@ -105,42 +105,42 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 51,
-     "win_rate": 0.29411764705882354,
-     "avg_r": -0.03730446195478572,
-     "total_r": -1.9025275596940716,
+     "trades": 53,
+     "win_rate": 0.3018867924528302,
+     "avg_r": -0.07316286966476342,
+     "total_r": -3.8776320922324614,
      "sessions": 60
     },
     "orb": {
      "trades": 55,
      "win_rate": 0.34545454545454546,
-     "avg_r": -0.06857925930095903,
-     "total_r": -3.771859261552746,
+     "avg_r": -0.07119145676411023,
+     "total_r": -3.9155301220260625,
      "sessions": 60
     },
     "fade": {
-     "trades": 2,
-     "win_rate": 0.5,
-     "avg_r": 0.27819012704108237,
-     "total_r": 0.5563802540821647,
+     "trades": 3,
+     "win_rate": 0.6666666666666666,
+     "avg_r": 0.20135717889284946,
+     "total_r": 0.6040715366785484,
      "sessions": 60
     },
     "vwap": {
-     "trades": 195,
-     "win_rate": 0.21025641025641026,
-     "avg_r": -0.07548678989910737,
-     "total_r": -14.719924030325938,
+     "trades": 177,
+     "win_rate": 0.24858757062146894,
+     "avg_r": -0.02740297637436595,
+     "total_r": -4.850326818262773,
      "sessions": 60
     },
     "late": {
      "trades": 50,
      "win_rate": 0.32,
-     "avg_r": -0.23283753078634326,
-     "total_r": -11.641876539317163,
+     "avg_r": -0.22139939386932203,
+     "total_r": -11.069969693466101,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-23T07:50:40.000165+00:00",
+   "record_at": "2026-11-23T13:00:40.000161+00:00",
    "last_bar": "2026-11-20 15:55:00-05:00",
    "brief_day": "2026-11-20",
    "stance": "down|None",
@@ -630,7 +630,9 @@
   "https://www.trumpstruth.org/statuses/43708",
   "https://www.trumpstruth.org/statuses/43709",
   "https://www.trumpstruth.org/statuses/43710",
-  "https://www.trumpstruth.org/statuses/43711"
+  "https://www.trumpstruth.org/statuses/43711",
+  "https://www.trumpstruth.org/statuses/43713",
+  "https://www.trumpstruth.org/statuses/43712"
  ],
  "trump_checks": [],
  "trump_seeded": true,
