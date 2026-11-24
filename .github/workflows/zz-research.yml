@@ -1,0 +1,24 @@
+name: TEMP research run (delete before merging)
+on:
+  push:
+    branches: ["claude/affectionate-edison-9wfyzd"]
+    paths: ["research/his_exits_study.py"]
+permissions:
+  contents: read
+jobs:
+  study14:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Study 14 (read-only market data; no orders)
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+        working-directory: research
+        run: python -W ignore his_exits_study.py | tee study14.txt
