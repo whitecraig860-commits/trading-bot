@@ -1,0 +1,62 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-24 10:06:06",
+   "type": "P",
+   "strike": 640.0,
+   "expiry": "2026-11-25",
+   "entry": 7.78,
+   "trigger": "VWAP",
+   "qqq": 639.8,
+   "stop_px": 7.31,
+   "target_px": 7.97,
+   "trail": 0.015,
+   "best": 8.17,
+   "exit": 8.0,
+   "exit_t": "2026-11-24 10:07:31",
+   "why": "trail",
+   "pnl": 21.94
+  },
+  {
+   "t": "2026-11-24 10:15:06",
+   "type": "C",
+   "strike": 640.0,
+   "expiry": "2026-11-25",
+   "entry": 7.87,
+   "trigger": "VWAP",
+   "qqq": 640.13,
+   "stop_px": 7.4,
+   "target_px": 8.07,
+   "trail": 0.015,
+   "exit": 7.26,
+   "exit_t": "2026-11-24 10:15:21",
+   "why": "stop",
+   "pnl": -61.06
+  },
+  {
+   "t": "2026-11-24 10:17:06",
+   "type": "P",
+   "strike": 638.0,
+   "expiry": "2026-11-25",
+   "entry": 7.25,
+   "trigger": "VWAP",
+   "qqq": 638.22,
+   "stop_px": 6.81,
+   "target_px": 7.43,
+   "trail": 0.015,
+   "exit": 6.79,
+   "exit_t": "2026-11-24 10:17:41",
+   "why": "stop",
+   "pnl": -46.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "C",
+  "P"
+ ],
+ "sent": [
+  "stopped"
+ ],
+ "seen_bars": 0
+}
