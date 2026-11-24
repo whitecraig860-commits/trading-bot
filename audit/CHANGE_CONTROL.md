@@ -83,3 +83,16 @@ Template:
 | 6. Tests | Recorder runs with the reduced bot list; main and original produce identical trades before and after (replay). |
 | 7. Results | Not run: proposal only. |
 | 8. Decision | **Waiting for the user's approval.** |
+
+## CC-006: retire four bots (user-approved 24 Nov 2026)
+
+| Field | |
+|---|---|
+| 1. Problem | Four live comparison bots are among the worst performers. |
+| 2. Evidence | Paper (recorded, 13-20 Nov): original −$770 (−$1,009 incl. 20 Nov corrected), trail −$171, trail + trend −$446, his style −$170; history per day −$95.19 / −$10.07 / −$6.42 / −$19.48; all rated E (`audit/FINAL_REPORT.md`). |
+| 3. Proposed change | Stop running `original`, `trail`, `trailtrend` and `his` and remove them from the live page, the calendar and the daily/weekly Telegram checks. Their code (moved to `RETIRED_BOTS` in `tracker/qqqbot.py`), saved state files, reports and logs are kept. `ORIGINAL_ENABLED = False` in `tracker/recorder.py`. |
+| 4. Expected improvement | Less noise; the user's request ("get rid of the worst bots"). |
+| 5. Possible negative effects | The original bot was the benchmark for "stop after 2 losses" (the audit recommended keeping it); that comparison stops. Reversible by moving a line back. |
+| 6. Tests | Recorder imports with the reduced list; remaining bots make identical trades (replay); live page renders without the four boxes; daily message lists only active bots. |
+| 7. Results | 14 tests pass; main + the 8 remaining options bots make identical trades on 6 replayed test days (old main code vs new code); daily message lists only active bots; the live page's bot list no longer contains the four. |
+| 8. Decision | Approved by the user in chat; goes live only when the user merges the pull request. |
