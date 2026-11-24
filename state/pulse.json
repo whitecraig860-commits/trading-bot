@@ -126,32 +126,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 181,
-     "win_rate": 0.23756906077348067,
-     "avg_r": -0.04511625606310566,
-     "total_r": -8.166042347422124,
+     "trades": 186,
+     "win_rate": 0.23118279569892472,
+     "avg_r": -0.057886159502181546,
+     "total_r": -10.766825667405767,
      "sessions": 60
     },
     "late": {
-     "trades": 49,
-     "win_rate": 0.32653061224489793,
-     "avg_r": -0.2040013491737225,
-     "total_r": -9.996066109512403,
+     "trades": 50,
+     "win_rate": 0.32,
+     "avg_r": -0.2203095342564562,
+     "total_r": -11.01547671282281,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-23T18:20:40.000155+00:00",
-   "last_bar": "2026-11-23 13:45:00-05:00",
+   "record_at": "2026-11-23T23:25:40.000310+00:00",
+   "last_bar": "2026-11-23 15:55:00-05:00",
    "brief_day": "2026-11-23",
-   "stance": "range|None",
-   "pending": null,
-   "pending_n": 0,
+   "stance": "up|None",
+   "pending": "range|None",
+   "pending_n": 2,
    "alerts": {},
    "changes": {
-    "2026-11-23": 2
+    "2026-11-23": 3
    },
-   "last_change_at": "2026-11-23T18:50:40.000156+00:00",
-   "stance_desc": "RANGE-BOUND (choppy)"
+   "last_change_at": "2026-11-23T20:35:40.000181+00:00",
+   "stance_desc": "LEANING UP, not trending cleanly"
   },
   "IWM": {
    "record": {
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-20",
+ "summary_day": "2026-11-23",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -636,7 +636,8 @@
   "https://www.trumpstruth.org/statuses/43714",
   "https://www.trumpstruth.org/statuses/43715",
   "https://www.trumpstruth.org/statuses/43716",
-  "https://www.trumpstruth.org/statuses/43717"
+  "https://www.trumpstruth.org/statuses/43717",
+  "https://www.trumpstruth.org/statuses/43718"
  ],
  "trump_checks": [],
  "trump_seeded": true,
