@@ -116,6 +116,40 @@
    "exit_t": "2026-11-24 12:04:57",
    "why": "trail",
    "pnl": 4.94
+  },
+  {
+   "t": "2026-11-24 13:08:04",
+   "type": "P",
+   "strike": 639.0,
+   "expiry": "2026-11-25",
+   "entry": 6.77,
+   "trigger": "EMA50",
+   "qqq": 638.54,
+   "stop_px": 6.36,
+   "target_px": 6.94,
+   "trail": 0.015,
+   "best": 6.94,
+   "exit": 6.69,
+   "exit_t": "2026-11-24 13:11:44",
+   "why": "trail",
+   "pnl": -8.06
+  },
+  {
+   "t": "2026-11-24 13:16:04",
+   "type": "P",
+   "strike": 638.0,
+   "expiry": "2026-11-25",
+   "entry": 6.17,
+   "trigger": "EMA50",
+   "qqq": 638.4,
+   "stop_px": 5.8,
+   "target_px": 6.32,
+   "trail": 0.015,
+   "best": 6.33,
+   "exit": 6.16,
+   "exit_t": "2026-11-24 13:18:59",
+   "why": "trail",
+   "pnl": -1.06
   }
  ],
  "open": null,
@@ -123,6 +157,8 @@
   "C",
   "P"
  ],
- "sent": [],
+ "sent": [
+  "stopped"
+ ],
  "seen_bars": 0
 }
