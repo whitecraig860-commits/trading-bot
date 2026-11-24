@@ -135,4 +135,28 @@ def payload(now, bot, shares, original=None, extras=None) -> dict:
         out["original"] = {"trades": original.s["trades"], "open": original.s["open"]}
     for key, xb in (extras or {}).items():
         out[key] = {"trades": xb.s["trades"], "open": xb.s["open"]}
+    out["news"] = news(now)
     return json.loads(json.dumps(out, default=float))
+
+
+_NEWS = {"t": None, "items": []}
+
+
+def news(now) -> list:
+    """Latest headlines for QQQ and its biggest holdings (Alpaca news, free with the account), refreshed every 10 minutes.
+    Display only: no bot reads it."""
+    import os
+    if _NEWS["t"] and (now - _NEWS["t"]).total_seconds() < 600:
+        return _NEWS["items"]
+    _NEWS["t"] = now
+    try:
+        from alpaca.data.historical.news import NewsClient
+        from alpaca.data.requests import NewsRequest
+        cli = NewsClient(os.environ["ALPACA_KEY"], os.environ["ALPACA_SECRET"])
+        res = cli.get_news(NewsRequest(symbols="QQQ,AAPL,MSFT,NVDA,AMZN,META,GOOGL,TSLA,AVGO", limit=15))
+        rows = res.data.get("news", []) if hasattr(res, "data") else []
+        _NEWS["items"] = [{"t": str(n.created_at)[:16], "h": n.headline, "src": n.source, "url": n.url,
+                           "sym": list(n.symbols)[:4]} for n in rows]
+    except Exception as exc:
+        print(f"News: {type(exc).__name__}")
+    return _NEWS["items"]
