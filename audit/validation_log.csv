@@ -1,0 +1,3 @@
+date,bot,status,exp_side,live_side,exp_entry_t,live_entry_t,exp_entry,live_entry,exp_exit_t,live_exit_t,exp_why,live_why,exp_ret%,live_ret%,live_pnl,spread_paid,stale_quotes,note
+2026-11-24,shares_oneaday,match,0,0,,,,,,,,,,,,,,"no trade, as expected"
+2026-11-24,oneaday_options,not running,,,,,,,,,,,,,,,,no state file (bot not deployed or no trade)

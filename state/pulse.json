@@ -105,17 +105,17 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 49,
-     "win_rate": 0.2857142857142857,
-     "avg_r": -0.07556436835402344,
-     "total_r": -3.7026540493471485,
+     "trades": 50,
+     "win_rate": 0.3,
+     "avg_r": -0.033828038166896,
+     "total_r": -1.6914019083448002,
      "sessions": 60
     },
     "orb": {
-     "trades": 56,
-     "win_rate": 0.30357142857142855,
-     "avg_r": -0.1936189292859821,
-     "total_r": -10.842660040014998,
+     "trades": 53,
+     "win_rate": 0.33962264150943394,
+     "avg_r": -0.08800349877343824,
+     "total_r": -4.664185434992227,
      "sessions": 60
     },
     "fade": {
@@ -126,32 +126,32 @@
      "sessions": 60
     },
     "vwap": {
-     "trades": 199,
-     "win_rate": 0.20603015075376885,
-     "avg_r": -0.0910199409583455,
-     "total_r": -18.112968250710754,
+     "trades": 195,
+     "win_rate": 0.19487179487179487,
+     "avg_r": -0.1065911216746753,
+     "total_r": -20.785268726561682,
      "sessions": 60
     },
     "late": {
      "trades": 49,
      "win_rate": 0.32653061224489793,
-     "avg_r": -0.21138619191274932,
-     "total_r": -10.357923403724717,
+     "avg_r": -0.23538996557865555,
+     "total_r": -11.534108313354121,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-18T19:05:40.000157+00:00",
-   "last_bar": "2026-11-18 14:05:00-05:00",
-   "brief_day": "2026-11-18",
-   "stance": "up|None",
-   "pending": "range|None",
-   "pending_n": 2,
+   "record_at": "2026-11-24T16:20:40.000185+00:00",
+   "last_bar": "2026-11-24 11:25:00-05:00",
+   "brief_day": "2026-11-24",
+   "stance": "down|None",
+   "pending": null,
+   "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-18": 3
+    "2026-11-24": 1
    },
-   "last_change_at": "2026-11-18T18:50:40.000156+00:00",
-   "stance_desc": "LEANING UP, not trending cleanly"
+   "last_change_at": "2026-11-24T15:40:40.000198+00:00",
+   "stance_desc": "TRENDING DOWN"
   },
   "IWM": {
    "record": {
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-17",
+ "summary_day": "2026-11-23",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -537,7 +537,107 @@
   "https://www.trumpstruth.org/statuses/43612",
   "https://www.trumpstruth.org/statuses/43613",
   "https://www.trumpstruth.org/statuses/43615",
-  "https://www.trumpstruth.org/statuses/43616"
+  "https://www.trumpstruth.org/statuses/43616",
+  "https://www.trumpstruth.org/statuses/43618",
+  "https://www.trumpstruth.org/statuses/43617",
+  "https://www.trumpstruth.org/statuses/43620",
+  "https://www.trumpstruth.org/statuses/43619",
+  "https://www.trumpstruth.org/statuses/43621",
+  "https://www.trumpstruth.org/statuses/43623",
+  "https://www.trumpstruth.org/statuses/43624",
+  "https://www.trumpstruth.org/statuses/43625",
+  "https://www.trumpstruth.org/statuses/43626",
+  "https://www.trumpstruth.org/statuses/43627",
+  "https://www.trumpstruth.org/statuses/43629",
+  "https://www.trumpstruth.org/statuses/43628",
+  "https://www.trumpstruth.org/statuses/43630",
+  "https://www.trumpstruth.org/statuses/43631",
+  "https://www.trumpstruth.org/statuses/43632",
+  "https://www.trumpstruth.org/statuses/43633",
+  "https://www.trumpstruth.org/statuses/43634",
+  "https://www.trumpstruth.org/statuses/43635",
+  "https://www.trumpstruth.org/statuses/43637",
+  "https://www.trumpstruth.org/statuses/43636",
+  "https://www.trumpstruth.org/statuses/43638",
+  "https://www.trumpstruth.org/statuses/43639",
+  "https://www.trumpstruth.org/statuses/43640",
+  "https://www.trumpstruth.org/statuses/43641",
+  "https://www.trumpstruth.org/statuses/43642",
+  "https://www.trumpstruth.org/statuses/43643",
+  "https://www.trumpstruth.org/statuses/43644",
+  "https://www.trumpstruth.org/statuses/43645",
+  "https://www.trumpstruth.org/statuses/43646",
+  "https://www.trumpstruth.org/statuses/43656",
+  "https://www.trumpstruth.org/statuses/43655",
+  "https://www.trumpstruth.org/statuses/43654",
+  "https://www.trumpstruth.org/statuses/43653",
+  "https://www.trumpstruth.org/statuses/43652",
+  "https://www.trumpstruth.org/statuses/43651",
+  "https://www.trumpstruth.org/statuses/43650",
+  "https://www.trumpstruth.org/statuses/43649",
+  "https://www.trumpstruth.org/statuses/43648",
+  "https://www.trumpstruth.org/statuses/43660",
+  "https://www.trumpstruth.org/statuses/43659",
+  "https://www.trumpstruth.org/statuses/43658",
+  "https://www.trumpstruth.org/statuses/43657",
+  "https://www.trumpstruth.org/statuses/43661",
+  "https://www.trumpstruth.org/statuses/43662",
+  "https://www.trumpstruth.org/statuses/43664",
+  "https://www.trumpstruth.org/statuses/43663",
+  "https://www.trumpstruth.org/statuses/43665",
+  "https://www.trumpstruth.org/statuses/43667",
+  "https://www.trumpstruth.org/statuses/43666",
+  "https://www.trumpstruth.org/statuses/43668",
+  "https://www.trumpstruth.org/statuses/43674",
+  "https://www.trumpstruth.org/statuses/43673",
+  "https://www.trumpstruth.org/statuses/43672",
+  "https://www.trumpstruth.org/statuses/43671",
+  "https://www.trumpstruth.org/statuses/43670",
+  "https://www.trumpstruth.org/statuses/43669",
+  "https://www.trumpstruth.org/statuses/43675",
+  "https://www.trumpstruth.org/statuses/43677",
+  "https://www.trumpstruth.org/statuses/43676",
+  "https://www.trumpstruth.org/statuses/43678",
+  "https://www.trumpstruth.org/statuses/43682",
+  "https://www.trumpstruth.org/statuses/43681",
+  "https://www.trumpstruth.org/statuses/43680",
+  "https://www.trumpstruth.org/statuses/43679",
+  "https://www.trumpstruth.org/statuses/43683",
+  "https://www.trumpstruth.org/statuses/43687",
+  "https://www.trumpstruth.org/statuses/43686",
+  "https://www.trumpstruth.org/statuses/43685",
+  "https://www.trumpstruth.org/statuses/43684",
+  "https://www.trumpstruth.org/statuses/43688",
+  "https://www.trumpstruth.org/statuses/43689",
+  "https://www.trumpstruth.org/statuses/43691",
+  "https://www.trumpstruth.org/statuses/43690",
+  "https://www.trumpstruth.org/statuses/43697",
+  "https://www.trumpstruth.org/statuses/43696",
+  "https://www.trumpstruth.org/statuses/43695",
+  "https://www.trumpstruth.org/statuses/43694",
+  "https://www.trumpstruth.org/statuses/43693",
+  "https://www.trumpstruth.org/statuses/43692",
+  "https://www.trumpstruth.org/statuses/43699",
+  "https://www.trumpstruth.org/statuses/43698",
+  "https://www.trumpstruth.org/statuses/43701",
+  "https://www.trumpstruth.org/statuses/43700",
+  "https://www.trumpstruth.org/statuses/43702",
+  "https://www.trumpstruth.org/statuses/43703",
+  "https://www.trumpstruth.org/statuses/43704",
+  "https://www.trumpstruth.org/statuses/43705",
+  "https://www.trumpstruth.org/statuses/43706",
+  "https://www.trumpstruth.org/statuses/43707",
+  "https://www.trumpstruth.org/statuses/43708",
+  "https://www.trumpstruth.org/statuses/43709",
+  "https://www.trumpstruth.org/statuses/43710",
+  "https://www.trumpstruth.org/statuses/43711",
+  "https://www.trumpstruth.org/statuses/43713",
+  "https://www.trumpstruth.org/statuses/43712",
+  "https://www.trumpstruth.org/statuses/43714",
+  "https://www.trumpstruth.org/statuses/43715",
+  "https://www.trumpstruth.org/statuses/43716",
+  "https://www.trumpstruth.org/statuses/43717",
+  "https://www.trumpstruth.org/statuses/43718"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -557,16 +657,16 @@
    "last": 1794459641.3043454
   },
   "nightly scan": {
-   "day": "2026-11-18",
+   "day": "2026-11-24",
    "tries": 1,
    "done": true,
-   "last": 1794961540.2127652
+   "last": 1795479940.237064
   },
   "weekly learning": {
-   "day": "2026-11-13",
+   "day": "2026-11-20",
    "tries": 1,
    "done": true,
-   "last": 1794529841.3234622
+   "last": 1795134940.2033195
   },
   "morning briefing": {
    "day": "2026-11-12",
@@ -575,7 +675,7 @@
    "last": 1794465041.5383055
   }
  },
- "scan_day": "2026-11-18",
+ "scan_day": "2026-11-24",
  "trump_record": {
   "Iran / war / strikes": [
    3,
@@ -590,6 +690,10 @@
    1
   ],
   "Nvidia": [
+   2,
+   2
+  ],
+  "China": [
    1,
    1
   ]
