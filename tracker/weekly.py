@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import qqqbot  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent / "state"
-BOTS = [("options", "qqqbot", "Stop after 2 losses"), ("original", "qqqbot_original", "Original")]
+BOTS = [("options", "qqqbot", "Stop after 2 losses")]  # "original" retired (CC-006)
 BOTS += [(k, v[0], v[1][:1].upper() + v[1][1:]) for k, v in qqqbot.EXTRA_BOTS.items()]
 BOTS += [("shares", "sharesbot", "Shares one-a-day")]
 

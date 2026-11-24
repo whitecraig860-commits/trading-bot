@@ -99,8 +99,7 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const URL_ = "https://api.github.com/repos/whitecraig860-commits/trading-bot/contents/live.json?ref=live-data";
-const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", trail: "Options · stop after 2 + trailing exit",
-  trailtrend: "Options · stop after 2 + trailing exit + trend", his: "Options · his style (stop after 2, 12% stop + trail)",
+const BOTS = {options: "Options · stop after 2 losses",
   skipweak: "Options · stop after 2 + skip weak crosses", combo: "Options · stop after 2 + skip weak + 9:31 + in the money",
   picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)",
   brakes: "Options · profit brake +$50 / loss brake −$100",

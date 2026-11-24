@@ -78,7 +78,7 @@ def week_history(today: str) -> dict:
 
     root = Path(__file__).resolve().parent.parent / "state"
     d0 = date.fromisoformat(today)
-    folders = [("options", "qqqbot"), ("original", "qqqbot_original"), ("shares", "sharesbot")]
+    folders = [("options", "qqqbot"), ("shares", "sharesbot")]  # "original" retired (CC-006)
     try:
         import qqqbot
 
