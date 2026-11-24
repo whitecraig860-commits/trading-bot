@@ -37,11 +37,9 @@ FRESH_SECONDS = 60
 # trade and sells 1.5% below the best price (15-minute limit). He trades calls and puts on the same day, so no trend
 # filter here (with_trend is tested separately). NOT tested on history yet: research/TREND_TRAIL_PROTOCOL.md (WT).
 HIS_STYLE = {"stop": 0.12, "trail": 0.015, "hold_min": 15, "with_trend": False}
-# Extra options paper bots, run side by side with the main and original bots for comparison. Same entries; only the
-# settings below differ. All of them also stop for the day after 2 losses in a row, like the main bot. They send no Telegram messages of their own: their totals are added to the main bot's
-# summaries, and every one has its own card on the live page. Remove a line to stop that bot; the others are unaffected.
-#   key: (state folder, name, settings)
-EXTRA_BOTS = {
+# Retired comparison bots (CC-006, audit/CHANGE_CONTROL.md): kept for reference and history, not run. To re-run one,
+# move it back into EXTRA_BOTS only together with a new pre-registered study reference.
+RETIRED_BOTS = {
     # Study 8's best rule: keep a winner from +2.5%, sell 1.5% below its best (-$10 a day vs -$38 on 2.7 years).
     "trail": ("qqqbot_trail", "stop after 2 losses + trailing exit", {"trail": 0.015, "hold_min": 15}),
     # Both rules that helped in Study 8 (trailing exit, and with the day's direction only), with the normal 6% stop.
@@ -49,6 +47,12 @@ EXTRA_BOTS = {
     "trailtrend": ("qqqbot_trailtrend", "stop after 2 losses + trailing exit + trend", {"trail": 0.015, "hold_min": 15,
                                                                             "with_trend": True}),
     "his": ("qqqbot_his", "his style: stop after 2 losses + 12% stop + trail", HIS_STYLE),
+}
+# Extra options paper bots, run side by side with the main and original bots for comparison. Same entries; only the
+# settings below differ. All of them also stop for the day after 2 losses in a row, like the main bot. They send no Telegram messages of their own: their totals are added to the main bot's
+# summaries, and every one has its own card on the live page. Remove a line to stop that bot; the others are unaffected.
+#   key: (state folder, name, settings)
+EXTRA_BOTS = {
     # Study 9 (research/HIS_FILTER_REPORT.md): skip a signal when the close is less than $0.10 past the line it crossed.
     # Better than the main bot on 2.7 years (-$32 a day vs -$38, paired t +5.9, also in the holdout and at 2 cents).
     "skipweak": ("qqqbot_skipweak", "stop after 2 losses + skip weak crosses", {"skip": "F3"}),

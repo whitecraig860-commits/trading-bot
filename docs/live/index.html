@@ -70,6 +70,14 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
   <h2>Performance</h2>
   <div class="grid g3" id="perf"></div>
 
+  <h2>News (QQQ and its biggest holdings)</h2>
+  <div class="card" id="news"><div class="sub">Headlines appear while the market is open.</div></div>
+
+  <h2>Shipping (live map, for interest only)</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <iframe title="Live ship map" src="https://www.vesselfinder.com/aismap?zoom=3&lat=30&lon=-40&names=false" style="width:100%;height:320px;border:0" loading="lazy"></iframe>
+  </div>
+
   <h2>Calendar</h2>
   <div class="card">
     <div class="tabs" id="calTabs"></div>
@@ -99,8 +107,7 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const URL_ = "https://api.github.com/repos/whitecraig860-commits/trading-bot/contents/live.json?ref=live-data";
-const BOTS = {options: "Options · stop after 2 losses", original: "Options · original", trail: "Options · stop after 2 + trailing exit",
-  trailtrend: "Options · stop after 2 + trailing exit + trend", his: "Options · his style (stop after 2, 12% stop + trail)",
+const BOTS = {options: "Options · stop after 2 losses",
   skipweak: "Options · stop after 2 + skip weak crosses", combo: "Options · stop after 2 + skip weak + 9:31 + in the money",
   picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)",
   brakes: "Options · profit brake +$50 / loss brake −$100",
@@ -332,6 +339,12 @@ function renderAllDays() {
     `<tr class="tot"><td>Total</td>${ks.map(k => Object.keys(per[k]).length ? cell(tot(k), k) : cell(undefined, k)).join("")}</tr></table></div>`;
 }
 
+function renderNews() {
+  const n = D.news || []; if (!n.length) return;
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  $("news").innerHTML = n.map(i => `<div class="row" style="padding:4px 0;border-bottom:1px dashed var(--line)"><span class="muted" style="font-size:12px">${esc(i.t.slice(5))} · ${esc((i.sym || []).join(" "))}</span><br><a href="${esc(i.url)}" target="_blank" rel="noopener" style="color:var(--text)">${esc(i.h)}</a> <span class="muted" style="font-size:12px">${esc(i.src)}</span></div>`).join("");
+}
+
 function renderControls() {
   $("botTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
   $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
@@ -344,7 +357,7 @@ function render() {
   if (!D) return;
   const stale = Date.now() / 1000 - (ts(D.updated) + 5 * 3600) > 10 * 60;
   $("status").textContent = `Updated ${hm(D.updated)} New York time, ${D.updated.slice(0, 10)}` + (stale ? " · not live right now" : " · live");
-  renderPerf(); renderCalendar(); renderChart(); renderTrades();
+  renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
 }
 
 async function load() {
