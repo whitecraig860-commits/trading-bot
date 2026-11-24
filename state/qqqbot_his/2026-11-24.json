@@ -1,0 +1,113 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-24 10:06:06",
+   "type": "P",
+   "strike": 640.0,
+   "expiry": "2026-11-25",
+   "entry": 7.78,
+   "trigger": "VWAP",
+   "qqq": 639.8,
+   "stop_px": 6.85,
+   "target_px": 7.97,
+   "trail": 0.015,
+   "best": 8.17,
+   "exit": 8.0,
+   "exit_t": "2026-11-24 10:07:31",
+   "why": "trail",
+   "pnl": 21.94
+  },
+  {
+   "t": "2026-11-24 10:15:06",
+   "type": "C",
+   "strike": 640.0,
+   "expiry": "2026-11-25",
+   "entry": 7.87,
+   "trigger": "VWAP",
+   "qqq": 640.13,
+   "stop_px": 6.93,
+   "target_px": 8.07,
+   "trail": 0.015,
+   "exit": 6.92,
+   "exit_t": "2026-11-24 10:16:11",
+   "why": "stop",
+   "pnl": -95.06
+  },
+  {
+   "t": "2026-11-24 10:17:06",
+   "type": "P",
+   "strike": 638.0,
+   "expiry": "2026-11-25",
+   "entry": 7.25,
+   "trigger": "VWAP",
+   "qqq": 638.22,
+   "stop_px": 6.38,
+   "target_px": 7.43,
+   "trail": 0.015,
+   "best": 7.78,
+   "exit": 7.66,
+   "exit_t": "2026-11-24 10:19:21",
+   "why": "trail",
+   "pnl": 40.94
+  },
+  {
+   "t": "2026-11-24 10:26:06",
+   "type": "P",
+   "strike": 636.0,
+   "expiry": "2026-11-25",
+   "entry": 7.53,
+   "trigger": "RANGE",
+   "qqq": 635.78,
+   "stop_px": 6.63,
+   "target_px": 7.72,
+   "trail": 0.015,
+   "best": 8.28,
+   "exit": 8.119,
+   "exit_t": "2026-11-24 10:28:11",
+   "why": "trail",
+   "pnl": 58.84
+  },
+  {
+   "t": "2026-11-24 11:22:06",
+   "type": "C",
+   "strike": 634.0,
+   "expiry": "2026-11-25",
+   "entry": 7.4,
+   "trigger": "EMA50",
+   "qqq": 634.13,
+   "stop_px": 6.51,
+   "target_px": 7.58,
+   "trail": 0.015,
+   "best": 7.61,
+   "exit": 7.38,
+   "exit_t": "2026-11-24 11:24:21",
+   "why": "trail",
+   "pnl": -2.06
+  },
+  {
+   "t": "2026-11-24 11:25:06",
+   "type": "C",
+   "strike": 635.0,
+   "expiry": "2026-11-25",
+   "entry": 7.23,
+   "trigger": "EMA50",
+   "qqq": 634.93,
+   "stop_px": 6.36,
+   "target_px": 7.41,
+   "trail": 0.015,
+   "exit": 6.22,
+   "exit_t": "2026-11-24 11:29:11",
+   "why": "stop",
+   "pnl": -101.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "C",
+  "P"
+ ],
+ "sent": [
+  "stopped"
+ ],
+ "seen_bars": 0
+}

@@ -1,0 +1,25 @@
+{
+ "trades": [
+  {
+   "t": "2026-11-24 10:00:06",
+   "type": "C",
+   "strike": 642.0,
+   "expiry": "2026-11-25",
+   "entry": 7.81,
+   "trigger": "OPEN30",
+   "qqq": 642.29,
+   "stop_px": 7.03,
+   "target_px": 8.59,
+   "exit": 6.96,
+   "exit_t": "2026-11-24 10:01:06",
+   "why": "stop",
+   "pnl": -85.06
+  }
+ ],
+ "open": null,
+ "range_done": [
+  "open30"
+ ],
+ "sent": [],
+ "seen_bars": 0
+}
