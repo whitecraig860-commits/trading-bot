@@ -140,9 +140,11 @@ def main() -> int:
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     original = None
+    ORIGINAL_ENABLED = False  # CC-006: the original (no loss stop) bot is retired; its code and history are kept
     try:  # the original rules with no loss stop, run side by side for comparison (summaries only, no trade messages)
-        original = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_original",
-                                   name="original, no loss stop", max_losses=0, trade_messages=False)
+        if ORIGINAL_ENABLED:
+            original = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / "qqqbot_original",
+                                       name="original, no loss stop", max_losses=0, trade_messages=False)
     except Exception as exc:
         print(f"Original paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     extras = {}
