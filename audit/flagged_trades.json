@@ -1,0 +1,112 @@
+[
+ {
+  "bot": "options",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "options",
+  "t": "2026-11-20 10:19:06",
+  "exit_t": "2026-11-20 10:24:01",
+  "pnl": 320.94,
+  "why": "target",
+  "problems": [
+   "ask 7.03 came from a quote 297 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "combo",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -127.06,
+  "why": "stop",
+  "problems": [
+   "ask 10.08 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "his",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "his",
+  "t": "2026-11-20 10:19:06",
+  "exit_t": "2026-11-20 10:24:41",
+  "pnl": 321.94,
+  "why": "trail",
+  "problems": [
+   "ask 7.03 came from a quote 297 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "original",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "original",
+  "t": "2026-11-20 10:19:06",
+  "exit_t": "2026-11-20 10:24:01",
+  "pnl": 320.94,
+  "why": "target",
+  "problems": [
+   "ask 7.03 came from a quote 297 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "skipweak",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "trail",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "trail",
+  "t": "2026-11-20 10:19:06",
+  "exit_t": "2026-11-20 10:24:41",
+  "pnl": 321.94,
+  "why": "trail",
+  "problems": [
+   "ask 7.03 came from a quote 297 s old (frozen/stale)"
+  ]
+ },
+ {
+  "bot": "trailtrend",
+  "t": "2026-11-19 10:32:36",
+  "exit_t": "2026-11-19 10:32:41",
+  "pnl": -147.06,
+  "why": "stop",
+  "problems": [
+   "ask 9.68 came from a quote 65852 s old (frozen/stale)"
+  ]
+ }
+]
