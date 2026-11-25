@@ -152,7 +152,6 @@ Template:
   - **Watchdog:** it now also checks the live page heartbeat between 10:00 and 16:00 NY. If there is no update for
     20+ minutes on a run older than 25 minutes, it cancels the run, restarts it and sends a Telegram message.
   - **25 Nov trades** rebuilt from live.json, the bots' own records up to 12:32. Every rebuilt file is marked
-    `recovered`. The bots did not run after 12:32.
   - **Fake-trade scan:** days without saved quotes are listed as "unverified", not flagged.
   - **£ rate** is fetched by the recorder (Frankfurter/ECB, falling back to open.er-api) and published; the browser
     tries the same sources if needed.
