@@ -122,9 +122,49 @@
   }
  ],
  "open": null,
- "range_done": [],
- "sent": [],
+ "range_done": [
+  "C"
+ ],
+ "sent": [
+  "stopped"
+ ],
  "seen_bars": 0,
- "recovered": "Rebuilt from the live page data (live.json, last update 12:32 NY): the run's machine stopped at 12:32 and its save step never ran. Trades are as the bot recorded them; the bot did not run after 12:32.",
- "open_at_stop": null
+ "sigs": [
+  [
+   "09:48",
+   "C"
+  ],
+  [
+   "09:49",
+   "P"
+  ],
+  [
+   "09:54",
+   "C"
+  ],
+  [
+   "09:59",
+   "C"
+  ],
+  [
+   "10:17",
+   "P"
+  ],
+  [
+   "10:18",
+   "C"
+  ],
+  [
+   "10:19",
+   "P"
+  ],
+  [
+   "10:34",
+   "C"
+  ],
+  [
+   "10:40",
+   "P"
+  ]
+ ]
 }

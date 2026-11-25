@@ -94,7 +94,5 @@
  "open": null,
  "range_done": [],
  "sent": [],
- "seen_bars": 0,
- "recovered": "Rebuilt from the live page data (live.json, last update 12:32 NY): the run's machine stopped at 12:32 and its save step never ran. Trades are as the bot recorded them; the bot did not run after 12:32.",
- "open_at_stop": null
+ "seen_bars": 0
 }
