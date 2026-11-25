@@ -110,7 +110,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="lb" id="dlog"></table>
     <div class="sub" style="margin-top:6px">Written by the bots at the moment of each decision from the inputs they actually used (no explanations added afterwards). The page shows each bot's last 60 records; the full log is saved in the repo every day. Indicator columns are the shared context (same numbers as "What the bots see").</div></div>
 
-  <h2>Bot accounts (options bots started with $1,000; shares bots with £1,000)</h2>
+  <h2>Bot accounts (every bot restarted with £1,000 on 27 Nov 2026)</h2>
   <div class="grid g3" id="accts"></div>
 
   <h2>Market conditions</h2>
@@ -160,9 +160,9 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <h2 id="tradesTitle">Trades</h2>
   <div class="trades" id="trades"></div>
 
-  <h2>Performance &amp; analytics (all trades so far)</h2>
+  <h2>Performance &amp; analytics (since the fresh start, 27 Nov)</h2>
   <div class="toolbar"><span class="label">Show:</span><select id="anBot"></select>
-    <span class="alt" style="white-space:normal">Every figure here is calculated from the bots' recorded closed trades (past days + today), nothing estimated.</span></div>
+    <span class="alt" style="white-space:normal">Every figure here is calculated from the bots' recorded closed trades since the fresh start on 27 Nov 2026, nothing estimated. Earlier trades are in the trade history below.</span></div>
   <div class="kpis" id="anKpi"></div>
   <div class="grid g3" style="margin-top:10px">
     <div class="card"><div class="label">Equity curve (starts at $1,000 a bot; dashed = portfolio)</div><div id="eqChart" style="height:220px"></div></div>
@@ -186,11 +186,11 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
 
   <h2>Trade history (search every trade)</h2>
   <div class="toolbar"><select id="thBot"></select><select id="thRes"><option value="">wins and losses</option><option value="win">wins</option><option value="loss">losses</option></select>
-    <input id="thDate" type="date"><input id="thQ" placeholder="search (VWAP, stop, CALL...)" style="min-width:180px"><span class="alt" id="thCount"></span></div>
+    <input id="thDate" type="date"><label class="label"><input type="checkbox" id="thOld"> include trades before the fresh start (27 Nov)</label><input id="thQ" placeholder="search (VWAP, stop, CALL...)" style="min-width:180px"><span class="alt" id="thCount"></span></div>
   <div class="card" style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="lb" id="thTable"></table>
     <div class="sub" style="margin-top:6px">Times in New York and UK time. Past days' trades are stored without their stop/target and conditions, so those show "–". Options P&L includes $0.06 fees a trade; shares have no fee modelled.</div></div>
 
-  <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid (only on quotes stamped in the last 60 seconds); exits differ by bot (the main bot: target +2.5%, stop −6%, 10 minutes; see each bot's name and the trade cards for its own stop and target). Shares bots: a £1,000 pretend account each. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open. Times are labelled New York (NY) or UK. Trades that could not be matched to a fresh recorded price are left out of all totals (see Alerts).</div>
+  <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid (only on quotes stamped in the last 60 seconds); exits differ by bot (the main bot: target +2.5%, stop −6%, 10 minutes; see each bot's name and the trade cards for its own stop and target). Every bot's account restarted at £1,000 on 27 Nov 2026 (dollar figures are £1,000 at the live rate plus the bot's dollar P&L); earlier trades are kept in the trade history but not counted. Shares bots size each trade from £1,000. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open. Times are labelled New York (NY) or UK. Trades that could not be matched to a fresh recorded price are left out of all totals (see Alerts).</div>
 </main>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
@@ -279,7 +279,7 @@ function stats(tr, week) {
 
 function renderPerf() {
   $("perf").innerHTML = visible().map(k => [k, BOTS[k]]).map(([k, name]) => {
-    const tr = tradesFor(k), s = stats(tr, (D.week || {})[k]), f = (v, fn) => v === null || v === undefined ? "–" : fn(v);
+    const tr = tradesFor(k), s = stats(tr, Object.fromEntries(Object.entries((D.week || {})[k] || {}).filter(([d]) => afterReset(d)))), f = (v, fn) => v === null || v === undefined ? "–" : fn(v);
     const open = tr.find(t => t.open);
     return `<div class="card"><div class="label">${name}</div>
       <div class="big ${s.today >= 0 ? "up" : "down"}">${usd(s.today, k === "shares" ? 2 : 0)} <span class="label">today</span></div>
@@ -295,7 +295,7 @@ function renderPerf() {
         <div><span>Losses in a row (most)</span><span>${s.best}</span></div>
         <div><span>Losses in a row (now)</span><span>${s.cur}</span></div>
         <div><span>Today</span><span class="${s.today >= 0 ? "up" : "down"}">${usd(s.today, 0)}</span></div>
-        <div><span>Last 7 days (${s.days} sessions)</span><span class="${s.wk >= 0 ? "up" : "down"}">${usd(s.wk, 0)}</span></div>
+        <div><span>Last 7 days since fresh start (${s.days} sessions)</span><span class="${s.wk >= 0 ? "up" : "down"}">${usd(s.wk, 0)}</span></div>
       </div></div>`; }).join("");
 }
 
@@ -390,7 +390,7 @@ function renderChart() {
 // ---------- calendar: each bot's result for every day it has run
 let calBot = store.get("calBot2", "all");
 function dayTotals(k) {
-  const days = {...((D.days || {})[k] || (D.week || {})[k] || {})};
+  const days = Object.fromEntries(Object.entries((D.days || {})[k] || (D.week || {})[k] || {}).filter(([d]) => afterReset(d)));
   const today = D.updated.slice(0, 10), done = tradesFor(k).filter(t => !t.open && t.pnl != null);
   if (done.length) days[today] = done.reduce((a, t) => a + t.pnl, 0);
   return days;
@@ -454,8 +454,12 @@ function renderControls() {
 }
 
 // ---------- stage 1: money, leaderboard, health, clocks
-const START = 1000, FEE_OPT = 0.06, SHARES_START = 1000 / 0.76;  // the shares bots size every trade from £1,000 (sharesbot.py)
-const startOf = k => k.startsWith("shares") ? SHARES_START : START;
+// FRESH START (owner, 26 Nov 2026): every bot's account restarts at £1,000 from this session. Earlier trades stay in the
+// trade history and the repo; they are not counted in balances, the leaderboard, analytics, calendar or reports.
+const RESET = "2026-11-27", afterReset = t => (t || "") >= RESET, FEE_OPT = 0.06;
+const START_GBP = 1000, gbpRate = () => FX && FX.rate ? FX.rate : 0.76;
+let START = START_GBP / 0.76;  // replaced by £1,000 at the live rate in startOf()
+const startOf = k => START_GBP / gbpRate();
 let cur = store.get("cur", "GBP"), FX = store.get("fx", null), fxErr = false;
 async function loadFx() {
   if (D && D.fx && D.fx.rate) { FX = {rate: D.fx.rate, date: D.fx.date, src: D.fx.source}; fxErr = false; store.set("fx", FX); return; }
@@ -514,7 +518,7 @@ function freshness() {
 
 function account(k) {
   const today = tradesFor(k), closedToday = today.filter(t => !t.open && t.pnl != null), open = today.find(t => t.open);
-  const hist = ((D.hist || {})[k] || []).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
+  const hist = ((D.hist || {})[k] || []).filter(r => afterReset(r[0])).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
   const closed = hist.concat(closedToday.map(t => ({t: t.t, exit_t: t.exit_t, pnl: t.pnl})));
   const S0 = startOf(k), realised = closed.reduce((a, t) => a + t.pnl, 0), balance = S0 + realised;
   const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
@@ -567,7 +571,7 @@ function renderMoney() {
   $("fx").innerHTML = FX ? `$1 = £${FX.rate.toFixed(4)} · rate for ${FX.date} (${FX.src || "frankfurter"})` + (fxStale() ? ` <span class="pill bad">STALE: last good rate kept</span>` : "") : `<span class="pill bad">£ rate unavailable: £ values not shown</span>`;
   const k = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
   $("port").innerHTML = [
-    k("Started with", money(init, 0, false), "", `${A.length} ${view === "twin" ? "twins" : view === "both" ? "bots and twins" : "bots"}: options $1,000 each, shares £1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
+    k("Started with", money(init, 0, false), "", `${A.length} ${view === "twin" ? "twins" : view === "both" ? "bots and twins" : "bots"} × £1,000 · fresh start ${RESET}`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
     k("Balance (cash after closed trades)", money(sum("balance"), 2, false)), k("Net P&L", money(eq - init), cls(eq - init), pct((eq - init) / init * 100) + " overall"),
     k("Today", money(todayP), cls(todayP), pct(todayP / (eq - todayP) * 100) + " today"), k("Realised", money(sum("realised")), cls(sum("realised"))),
     k("Unrealised", A.some(a => a.unreal !== null) ? money(sum("unreal")) : "–", cls(sum("unreal")), unk ? "* an open options trade has no live price yet" : "open options valued at the live bid"),
@@ -606,7 +610,7 @@ function renderMoney() {
   $("accts").innerHTML = A.map(a => { const [st, c] = botStatus(a, fr), r = (l, v, cl = "") => `<div><span>${l}</span><span class="${cl}">${v}</span></div>`;
     return `<div class="card"><div class="label">${BOTS[a.k]} <span class="pill ${c}">${st}</span></div>
       <div class="big ${cls(a.total)}">${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</div><div class="alt">equity · ${pct(a.ret)} since start</div>
-      <div class="stats">${r("Started with", money(a.S0, 0, false) + (a.k.startsWith("shares") ? " (£1,000)" : ""))}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
+      <div class="stats">${r("Started with", money(a.S0, 0, false) + " on " + RESET)}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
       ${r("Unrealised", a.unknown ? "not valued *" : money(a.unreal || 0), cls(a.unreal))}${r("Total P&L", money(a.total), cls(a.total))}${r("Today", money(a.todayPnl), cls(a.todayPnl))}
       ${r("Today %", pct(a.todayPct), cls(a.todayPct))}${r("Peak", money(a.peak, 2, false))}${r("Below peak", money(a.dd), cls(a.dd))}${r("Available cash", money(a.cash, 2, false), a.cash < 0 ? "down" : "")}
       ${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}${r("Fees (in P&L)", money(-a.fees))}</div></div>`; }).join("");
@@ -677,7 +681,8 @@ function hookClick() {
   });
 }
 
-function closedTrades(k) {
+function closedTrades(k, all = false) {
+  if (!all) return closedTrades(k, true).filter(t => afterReset(t.t));
   const unit = k.startsWith("shares") ? "QQQ" : "option";
   const hist = ((D.hist || {})[k] || []).map(r => ({k, t: r[0], exit_t: r[1], side: r[2], entry: r[3], exit: r[4], pnl: r[5], why: r[6], trigger: r[7], unit}));
   const today = tradesFor(k).filter(t => !t.open && t.pnl != null).map(t => ({k, t: t.t, exit_t: t.exit_t, side: t.side, entry: t.entry, exit: t.exit,
@@ -774,7 +779,9 @@ function renderHistory() {
   ["thBot", "thRes", "thDate", "thQ"].forEach(id => { $(id)[id === "thQ" ? "oninput" : "onchange"] = e => { store.set(id, e.target.value); renderHistory(); }; });
   $("thRes").value = store.get("thRes", ""); $("thDate").value = store.get("thDate", ""); $("thQ").value = store.get("thQ", "");
   const res = store.get("thRes", ""), day = store.get("thDate", ""), q = store.get("thQ", "").toLowerCase();
-  let T = (b === "all" || !keys.includes(b) ? keys : [b]).flatMap(closedTrades);
+  const inclOld = store.get("thOld", true);
+  $("thOld").checked = inclOld; $("thOld").onchange = e => { store.set("thOld", e.target.checked); renderHistory(); };
+  let T = (b === "all" || !keys.includes(b) ? keys : [b]).flatMap(k => closedTrades(k, inclOld));
   const live = (b === "all" ? keys : [b]).flatMap(k => tradesFor(k).filter(t => t.open).map(t => ({...t, k, open: true})));
   T = live.concat(T).filter(t => !res || (res === "win" ? t.pnl > 0 : t.pnl <= 0)).filter(t => !day || t.t.startsWith(day))
     .filter(t => !q || [sn(t.k), sideName(t.side), t.trigger, t.why, t.label, t.t].join(" ").toLowerCase().includes(q)).sort((a, c) => a.t < c.t ? 1 : -1);
@@ -785,7 +792,7 @@ function renderHistory() {
       return `<tr><td>${(t.k || "").replace("_ctx", "+c")}-${t.t.slice(5, 16).replace(/[-: ]/g, "")}</td><td style="text-align:left"><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${botColor(t.k)}"></span> ${sn(t.k)}</td>` +
         `<td>${sideName(t.side)}</td><td>${t.trigger || "–"}</td><td>${both(t.t)}<br><span class="alt">${t.t.slice(0, 10)}</span></td><td>${t.exit_t ? both(t.exit_t) : "open"}</td><td>${t.open ? "–" : (holdMin(t) ?? "–") + " min"}</td>` +
         `<td>${sh ? "shares (£1,000)" : "1 contract"}</td><td>${t.entry != null ? "$" + (+t.entry).toFixed(2) : "–"}</td><td>${t.exit != null ? "$" + (+t.exit).toFixed(2) : t.mark ? "now $" + t.mark.toFixed(2) : "–"}</td>` +
-        `<td>${typeof t.stop === "number" ? "$" + t.stop.toFixed(2) : "–"}</td><td>${typeof t.target === "number" ? "$" + t.target.toFixed(2) : t.target ? String(t.target).slice(0, 30) : "–"}</td><td>${t.why || (t.open ? "open" : "–")}${badNote(t) ? `<br><span class="pill bad">${badNote(t)}</span>` : ""}</td>` +
+        `<td>${typeof t.stop === "number" ? "$" + t.stop.toFixed(2) : "–"}</td><td>${typeof t.target === "number" ? "$" + t.target.toFixed(2) : t.target ? String(t.target).slice(0, 30) : "–"}</td><td>${t.why || (t.open ? "open" : "–")}${!afterReset(t.t) ? `<br><span class="pill">before fresh start</span>` : ""}${badNote(t) ? `<br><span class="pill bad">${badNote(t)}</span>` : ""}</td>` +
         `<td class="${cls(t.open ? unr : t.pnl)}">${t.open ? (unr !== null ? usd(unr, 2) + " open" : "open") : usd(t.pnl, 2)}</td><td>${ret !== null ? pct(ret) : "–"}</td><td>${sh ? "$0" : "$0.06"}</td><td>${t.ctx ? t.ctx.trend + (t.ctx.choppy ? " (choppy)" : "") : "–"}</td></tr>`; }).join("");
 }
 
