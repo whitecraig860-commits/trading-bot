@@ -105,53 +105,53 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 52,
-     "win_rate": 0.28846153846153844,
-     "avg_r": -0.07211259771368447,
-     "total_r": -3.7498550811115923,
+     "trades": 55,
+     "win_rate": 0.2909090909090909,
+     "avg_r": -0.11369532263602113,
+     "total_r": -6.253242744981162,
      "sessions": 60
     },
     "orb": {
      "trades": 54,
      "win_rate": 0.3333333333333333,
-     "avg_r": -0.10515753425467125,
-     "total_r": -5.678506849752248,
+     "avg_r": -0.08927597253769655,
+     "total_r": -4.820902517035614,
      "sessions": 60
     },
     "fade": {
-     "trades": 2,
-     "win_rate": 0.5,
-     "avg_r": 0.27819012704108237,
-     "total_r": 0.5563802540821647,
+     "trades": 3,
+     "win_rate": 0.6666666666666666,
+     "avg_r": 0.20135717889284946,
+     "total_r": 0.6040715366785484,
      "sessions": 60
     },
     "vwap": {
-     "trades": 199,
-     "win_rate": 0.19597989949748743,
-     "avg_r": -0.11434928045624448,
-     "total_r": -22.755506810792653,
+     "trades": 178,
+     "win_rate": 0.2303370786516854,
+     "avg_r": -0.06194405670399665,
+     "total_r": -11.026042093311403,
      "sessions": 60
     },
     "late": {
-     "trades": 50,
-     "win_rate": 0.32,
-     "avg_r": -0.25120141601306767,
-     "total_r": -12.560070800653383,
+     "trades": 49,
+     "win_rate": 0.32653061224489793,
+     "avg_r": -0.2320951831410975,
+     "total_r": -11.372663973913777,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-25T13:10:40.000265+00:00",
-   "last_bar": "2026-11-24 15:55:00-05:00",
-   "brief_day": "2026-11-24",
-   "stance": "down|None",
-   "pending": "none|None",
-   "pending_n": 1,
+   "record_at": "2026-11-25T19:30:40.000175+00:00",
+   "last_bar": "2026-11-25 14:30:00-05:00",
+   "brief_day": "2026-11-25",
+   "stance": "up|None",
+   "pending": null,
+   "pending_n": 0,
    "alerts": {},
    "changes": {
-    "2026-11-24": 3
+    "2026-11-25": 2
    },
-   "last_change_at": "2026-11-24T20:10:40.000209+00:00",
-   "stance_desc": "TRENDING DOWN"
+   "last_change_at": "2026-11-25T17:20:40.000264+00:00",
+   "stance_desc": "TRENDING UP"
   },
   "IWM": {
    "record": {
@@ -645,7 +645,9 @@
   "https://www.trumpstruth.org/statuses/43726",
   "https://www.trumpstruth.org/statuses/43724",
   "https://www.trumpstruth.org/statuses/43723",
-  "https://www.trumpstruth.org/statuses/43727"
+  "https://www.trumpstruth.org/statuses/43727",
+  "https://www.trumpstruth.org/statuses/43728",
+  "https://www.trumpstruth.org/statuses/43729"
  ],
  "trump_checks": [],
  "trump_seeded": true,
@@ -702,6 +704,10 @@
    2
   ],
   "China": [
+   1,
+   1
+  ],
+  "the stock market (talked up)": [
    1,
    1
   ]
