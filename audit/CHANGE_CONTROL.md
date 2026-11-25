@@ -124,3 +124,20 @@ Template:
     - every bot has a twin.
   - `tests/test_fixes.py` (14 tests) still passes.
 - **Decision.** Approved by the owner in chat on 25 Nov 2026; the owner merges the pull request.
+
+## CC-008: fake-trade check, alerts and reports (dashboard stage 4), 26 Nov 2026
+- **Problem.** The owner asked to make sure no fake trades remain.
+- **Evidence.** `research/fake_trade_scan.py` checked all 553 stored options trades against our recorded quotes:
+  - 11 could not be matched to a fresh quote, all on 19–20 Nov, before CC-001;
+  - none since;
+  - details in `audit/flagged_trades.md`.
+- **Change.**
+  - The live page leaves flagged trades out of every total and lists them under Alerts with the reason.
+  - The check now runs after every recorder session.
+  - The bots' state files are unchanged.
+  - Stage 4 page (display only): an alerts centre with severities, acknowledgement and thresholds; daily reports per bot
+    and for the portfolio; a weekly comparison.
+- **Effect.** Totals change on 19 and 20 Nov:
+  - "Stop after 2" goes from −$200.12 to −$53.06 on 19 Nov, and from +$178.52 to −$142.42 on 20 Nov;
+  - net effect on that bot −$173.88.
+- **Decision.** Owner request in chat on 26 Nov 2026; the owner merges the pull request.

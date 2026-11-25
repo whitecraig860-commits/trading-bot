@@ -68,6 +68,18 @@ class Publisher:
 _WEEK: dict = {}
 
 
+def flagged() -> set:
+    """Trades the daily check (research/fake_trade_scan.py) could not match to a fresh recorded quote: data errors, not
+    results. They are left out of every total on the live page (and listed there with the reason). State files unchanged."""
+    from pathlib import Path
+
+    try:
+        rows = json.loads((Path(__file__).resolve().parent.parent / "audit" / "flagged_trades.json").read_text())
+        return {(r["bot"], r["t"]) for r in rows}
+    except Exception:
+        return set()
+
+
 def week_history(today: str) -> dict:
     """Daily P&L for each bot on every day before today that it ran, from the saved state files (read once per run).
     The live page uses the last 7 days for its "last 7 days" figure and all of them for the calendar."""
@@ -97,7 +109,8 @@ def week_history(today: str) -> dict:
                     t = st.get("trade") or {}
                     out[key][day] = round(float(t.get("pnl_usd", 0) or 0), 2)
                 else:
-                    out[key][day] = round(sum(float(t["pnl"]) for t in st.get("trades", [])), 2)
+                    bad = flagged()
+                    out[key][day] = round(sum(float(t["pnl"]) for t in st.get("trades", []) if (key, t.get("t")) not in bad), 2)
             except Exception:
                 pass
     _WEEK[today] = out
@@ -105,6 +118,7 @@ def week_history(today: str) -> dict:
 
 
 _HIST: dict = {}
+_BAD: set = set()
 
 
 def trade_history(today: str) -> dict:
@@ -123,6 +137,8 @@ def trade_history(today: str) -> dict:
     except Exception:
         pass
     out = {k: [] for k, _ in folders}
+    _BAD.clear()
+    _BAD.update(flagged())
     for key, folder in folders:
         for f in sorted((root / folder).glob("20??-??-??.json")) if (root / folder).is_dir() else []:
             if f.stem >= today:
@@ -136,7 +152,7 @@ def trade_history(today: str) -> dict:
                             continue
                         out[key].append([t.get("t"), t.get("exit_t"), "L" if t.get("side", 1) > 0 else "S", t.get("entry"),
                                          t.get("exit"), round(float(t.get("pnl_usd") or 0), 2), t.get("why"), "one-a-day"])
-                    else:
+                    elif (key, t.get("t")) not in _BAD:
                         out[key].append([t.get("t"), t.get("exit_t"), t.get("type"), t.get("entry"), t.get("exit"),
                                          round(float(t["pnl"]), 2), t.get("why"), t.get("trigger")])
             except Exception:
@@ -190,6 +206,12 @@ def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, contr
     out["decisions"] = dec
     out["controls"] = controls.status() if controls is not None else {"error": "pause switch not running"}
     out["poll_errors"] = poll_errors
+    try:
+        from pathlib import Path
+
+        out["flagged"] = json.loads((Path(__file__).resolve().parent.parent / "audit" / "flagged_trades.json").read_text())
+    except Exception:
+        out["flagged"] = None
     from datetime import datetime, timezone
 
     out["now_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # heartbeat, unambiguous for the page
