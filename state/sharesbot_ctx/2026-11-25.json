@@ -1,0 +1,161 @@
+{
+ "trade": {
+  "side": 1,
+  "t": "2026-11-25 13:40:05",
+  "entry": 628.95,
+  "qty": 2.092,
+  "atr": 2.034999999999976,
+  "best": 5.899999999999977,
+  "exit": 630.58,
+  "exit_t": "2026-11-25 15:45:05",
+  "why": "time",
+  "pnl_usd": 3.41
+ },
+ "done": true,
+ "sent": [],
+ "checked": [
+  "12:40",
+  "12:50",
+  "13:00",
+  "13:10",
+  "13:20",
+  "13:30",
+  "13:40"
+ ],
+ "decisions": [
+  {
+   "t": "2026-11-25 12:40:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 622.39,
+    "vwap": 613.67,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.393,
+    "noise_band_pct": 1.479,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 61.0
+   }
+  },
+  {
+   "t": "2026-11-25 12:50:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 623.95,
+    "vwap": 613.99,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.529,
+    "noise_band_pct": 1.524,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 13:00:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 624.12,
+    "vwap": 614.31,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.503,
+    "noise_band_pct": 1.474,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 53.4
+   }
+  },
+  {
+   "t": "2026-11-25 13:10:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 625.03,
+    "vwap": 614.48,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.554,
+    "noise_band_pct": 1.527,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 54.2
+   }
+  },
+  {
+   "t": "2026-11-25 13:20:05",
+   "out": "rejected",
+   "why": "blocked by context: choppy market (Bullish, 4 EMA 20 crosses in 30 min)",
+   "ind": {
+    "price": 627.9,
+    "vwap": 614.95,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.318,
+    "noise_band_pct": 1.521,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 65.9
+   },
+   "sig": {
+    "side": "L",
+    "trigger": "one-a-day breakout",
+    "qqq": 627.9
+   }
+  },
+  {
+   "t": "2026-11-25 13:30:05",
+   "out": "rejected",
+   "why": "blocked by context: choppy market (Bullish, 4 EMA 20 crosses in 30 min)",
+   "ind": {
+    "price": 629.04,
+    "vwap": 615.33,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.296,
+    "noise_band_pct": 1.47,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 64.1
+   },
+   "sig": {
+    "side": "L",
+    "trigger": "one-a-day breakout",
+    "qqq": 629.04
+   }
+  },
+  {
+   "t": "2026-11-25 13:40:05",
+   "out": "entered",
+   "why": "breakout up: bought QQQ at 628.94",
+   "ind": {
+    "price": 628.94,
+    "vwap": 615.61,
+    "range_high": 617.68,
+    "range_low": 608.58,
+    "atr5m": 2.035,
+    "noise_band_pct": 1.48,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 57.4
+   },
+   "sig": {
+    "side": "L",
+    "trigger": "one-a-day breakout",
+    "qqq": 628.94
+   }
+  }
+ ]
+}
