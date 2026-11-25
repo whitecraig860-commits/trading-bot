@@ -165,7 +165,7 @@ Template:
 - **Decision.** The owner asked for missing or wrong information to be fixed (26 Nov 2026); the owner merges.
 
 ## CC-010: fresh start, every bot's account at £1,000 from 27 Nov 2026 (26 Nov 2026)
-- **Request.** "Reset all the bots to £1000 … leave everything else."
+- **Request.** "Reset all the bots to £1000 … leave everything else", then "all £1000 except the one share a day bot, keep him the same": the shares one-a-day bot is not reset and keeps its full record.
 - **Change.** Live page only.
   - Every bot's account (originals and twins, options and shares) starts at £1,000 on 27 Nov 2026.
   - Dollar figures are £1,000 at the live rate plus the bot's dollar P&L.
