@@ -9,7 +9,8 @@
 --vwap:#e3b341;--e9:#58a6ff;--e20:#bc8cff;--e50:#ff7b72;--vol:#3d4a5c}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f6f8fa;--card:#fff;--card2:#f3f5f8;--line:#d0d7de;--text:#1f2328;--muted:#656d76;--up:#1a7f37;--down:#cf222e;--accent:#0969da;--warn:#9a6700;--vol:#c9d1d9}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html{overflow-x:clip}
+body{overflow-x:clip;margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 main{max-width:1100px;margin:0 auto;padding:16px}
 h1{font-size:20px;margin:4px 0 2px}
 h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
@@ -44,7 +45,7 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
 #chart{height:420px}
 .pane{height:120px;margin-top:6px}
-.chartwrap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px}
+.chartwrap{overflow:hidden;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px}
 .trades{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
 .t{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:8px;padding:10px 12px;font-size:13px;cursor:pointer}
 .t.win{border-left-color:var(--up)}.t.loss{border-left-color:var(--down)}.t.open{border-left-color:var(--warn)}
@@ -59,7 +60,7 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 .pill.ok{color:var(--up);border-color:var(--up)}.pill.bad{color:var(--down);border-color:var(--down)}.pill.warn{color:var(--warn);border-color:var(--warn)}
 .banner{border:1px solid var(--down);background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
-.kpis .card{padding:10px 12px}.kpis .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.kpis .card{padding:10px 12px;min-width:0}.kpis .v{overflow-wrap:anywhere}.kpis .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
 .alt{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .kpis .v .alt,.big .alt{display:block;font-size:12px;font-weight:500}
 .lb{border-collapse:collapse;font-size:12.5px;width:100%;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -139,15 +140,43 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
     <span class="sep"></span>
     <span class="label">Add:</span>
     <div class="tabs" id="toggles"></div>
+    <span class="sep"></span>
+    <span class="label">Zoom:</span>
+    <div class="tabs" id="ranges"></div>
   </div>
   <div class="chartwrap">
     <div id="chart"></div>
     <div id="rsi" class="pane" hidden></div>
     <div id="macd" class="pane" hidden></div>
   </div>
+  <div class="sub" id="legend" style="margin-top:6px"></div>
+  <div class="card" id="tradeInfo" style="margin-top:8px" hidden></div>
 
   <h2 id="tradesTitle">Trades</h2>
   <div class="trades" id="trades"></div>
+
+  <h2>Performance &amp; analytics (all trades so far)</h2>
+  <div class="toolbar"><span class="label">Show:</span><select id="anBot"></select>
+    <span class="alt" style="white-space:normal">Every figure here is calculated from the bots' recorded closed trades (past days + today), nothing estimated.</span></div>
+  <div class="kpis" id="anKpi"></div>
+  <div class="grid g3" style="margin-top:10px">
+    <div class="card"><div class="label">Equity curve (starts at $1,000 a bot; dashed = portfolio)</div><div id="eqChart" style="height:220px"></div></div>
+    <div class="card"><div class="label">Drawdown from peak ($)</div><div id="ddChart" style="height:220px"></div></div>
+    <div class="card"><div class="label">Profit/loss per day ($)</div><div id="dayChart" style="height:220px"></div></div>
+  </div>
+  <div class="grid g3" style="margin-top:10px">
+    <div class="card" style="overflow-x:auto"><div class="label">By time of day (entry hour, New York)</div><table class="lb" id="anHour"></table></div>
+    <div class="card" style="overflow-x:auto"><div class="label">By weekday</div><table class="lb" id="anDow"></table></div>
+    <div class="card" style="overflow-x:auto"><div class="label">Trade results (how many trades in each $ band)</div><table class="lb" id="anDist"></table></div>
+  </div>
+  <div class="card" style="overflow-x:auto;margin-top:10px"><div class="label">Heatmap: each bot's total P&L by weekday, and by week</div><table class="lb" id="anHeat"></table></div>
+  <div class="card" style="overflow-x:auto;margin-top:10px"><div class="label">By market conditions at entry (only trades recorded with the shared context, from stage 2 onwards)</div><table class="lb" id="anRegime"></table></div>
+
+  <h2>Trade history (search every trade)</h2>
+  <div class="toolbar"><select id="thBot"></select><select id="thRes"><option value="">wins and losses</option><option value="win">wins</option><option value="loss">losses</option></select>
+    <input id="thDate" type="date"><input id="thQ" placeholder="search (VWAP, stop, CALL...)" style="min-width:180px"><span class="alt" id="thCount"></span></div>
+  <div class="card" style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="lb" id="thTable"></table>
+    <div class="sub" style="margin-top:6px">Times in New York and UK time. Past days' trades are stored without their stop/target and conditions, so those show "–". Options P&L includes $0.06 fees a trade; shares have no fee modelled.</div></div>
 
   <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid; target +2.5% and stop −6% of the option price, 10-minute limit. Shares bot: a £1,000 pretend account. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open; times are New York time.</div>
 </main>
@@ -168,7 +197,7 @@ const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 2
              ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
 const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }};
-let on = store.get("ind", {}), bot = store.get("bot", "options"), D = null, selected = null;
+let on = store.get("ind", {}), bot = store.get("bot", "all"), D = null, selected = null;
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const $ = id => document.getElementById(id);
 const usd = (v, d = 0) => (v >= 0 ? "+$" : "−$") + Math.abs(v).toFixed(d);
@@ -212,6 +241,7 @@ function makeCharts() {
 // ---------- trades in one shape for every bot
 function tradesFor(k) {
   if (!D) return [];
+  if (k === "all") return visible().flatMap(x => tradesFor(x).map(t => ({...t, k: x}))).sort((a, b) => a.t < b.t ? -1 : 1);
   if (k === "shares" || k === "shares_ctx") { const s = D[k]; if (!s) return [];
     return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} QQQ shares`, trigger: "one-a-day breakout",
       entry: s.entry, exit: s.exit, stop: s.entry - 10 * s.atr * s.side, target: "trail after " + (4 * s.atr).toFixed(2) + " in profit",
@@ -283,13 +313,13 @@ function renderConditions(bars, closes, vw, e9, e20, e50, rs) {
 
 function renderTrades() {
   const tr = tradesFor(bot);
-  $("tradesTitle").textContent = `Trades · ${BOTS[bot]} (${tr.length})`;
+  $("tradesTitle").textContent = `Trades today · ${bot === "all" ? "all bots" : BOTS[bot]} (${tr.length})`;
   $("trades").innerHTML = tr.length ? tr.slice().reverse().map((t, i) => {
     const idx = tr.length - 1 - i, st = t.open ? "open" : t.pnl > 0 ? "win" : "loss", dp = t.unit === "QQQ" ? 2 : 2;
     const pct = t.exit ? ((t.exit / t.entry - 1) * 100 * (t.side === "SHORT" ? -1 : 1)).toFixed(1) + "%" : "";
     const hold = t.exit_t ? Math.round((ts(t.exit_t) - ts(t.t)) / 60) : null;
     return `<div class="t ${st} ${selected === idx ? "sel" : ""}" data-i="${idx}">
-      <div class="top"><span>${t.side} · ${t.label}</span><span class="${st === "win" ? "up" : st === "loss" ? "down" : ""}">${t.open ? "OPEN" : usd(t.pnl, t.unit === "QQQ" ? 2 : 0)}</span></div>
+      ${t.k ? `<div class="label" style="color:${botColor(t.k)}">● ${sn(t.k)}</div>` : ""}<div class="top"><span>${t.side} · ${t.label}</span><span class="${st === "win" ? "up" : st === "loss" ? "down" : ""}">${t.open ? "OPEN" : usd(t.pnl, t.unit === "QQQ" ? 2 : 0)}</span></div>
       <div class="row"><span>Strategy</span><b>${t.trigger}</b></div>
       <div class="row"><span>Entry</span><b>$${t.entry.toFixed(dp)} at ${hm(t.t)}</b></div>
       <div class="row"><span>Exit</span><b>${t.exit ? "$" + t.exit.toFixed(dp) + " at " + hm(t.exit_t) : "–"}</b></div>
@@ -329,13 +359,16 @@ function renderChart() {
     macdS.h.setData(bars.map((b, i) => ({time: ts(b[0]), value: mm[i] - ss[i], color: mm[i] >= ss[i] ? css("--up") : css("--down")}))); }
   // markers: entry arrow (direction) and exit dot (win/loss) with the P&L
   const mk = [];
+  const allB = bot === "all";
   for (const t of tradesFor(bot)) {
-    const up = t.side === "CALL" || t.side === "LONG";
-    mk.push({time: ts(t.t.slice(0, 16)), position: up ? "belowBar" : "aboveBar", color: up ? css("--up") : css("--down"),
-             shape: up ? "arrowUp" : "arrowDown", text: `${t.side} ${t.trigger}`});
-    if (t.exit_t) mk.push({time: ts(t.exit_t.slice(0, 16)), position: up ? "aboveBar" : "belowBar", color: t.pnl > 0 ? css("--up") : css("--down"),
-             shape: "circle", text: `${usd(t.pnl, t.unit === "QQQ" ? 2 : 0)} ${t.why}`});
+    const up = t.side === "CALL" || t.side === "LONG", bc = allB ? botColor(t.k) : null, tag = allB ? sn(t.k) + " " : "";
+    mk.push({time: ts(t.t.slice(0, 16)), position: up ? "belowBar" : "aboveBar", color: bc || (up ? css("--up") : css("--down")),
+             shape: up ? "arrowUp" : "arrowDown", text: allB ? "" : `${t.side} ${t.trigger}`});
+    if (t.exit_t) mk.push({time: ts(t.exit_t.slice(0, 16)), position: up ? "aboveBar" : "belowBar", color: bc || (t.pnl > 0 ? css("--up") : css("--down")),
+             shape: t.pnl > 0 ? "circle" : "square", text: allB ? (t.pnl > 0 ? "W" : "L") : `${usd(t.pnl, t.unit === "QQQ" ? 2 : 0)} ${t.why}`});
   }
+  $("legend").innerHTML = (allB ? visible().map(k => `<span style="white-space:nowrap;margin-right:10px"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${botColor(k)}"></span> ${sn(k)}</span>`).join("") + "<br>" : "") +
+    "▲/▼ entry (call or long / put or short) · ● winning exit · ■ losing exit" + (allB ? " (W/L)" : "") + ". Click a candle to see the trades and market at that minute. Options stops and targets are option prices, so they are listed in the trade details, not drawn on the QQQ price.";
   mk.sort((a, b) => a.time - b.time);
   candles.setMarkers(mk);
   renderConditions(bars, closes.slice(w), vw, e.e9, e.e20, e.e50, rs);
@@ -398,7 +431,10 @@ function renderNews() {
 }
 
 function renderControls() {
-  $("botTabs").innerHTML = visible().map(k => [k, BOTS[k]]).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
+  if (bot !== "all" && !visible().includes(bot)) bot = "all";
+  $("botTabs").innerHTML = `<button class="chip ${bot === "all" ? "on" : ""}" data-b="all">ALL BOTS</button>` + visible().map(k => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}"><span class="dot" style="background:${botColor(k)}"></span>${sn(k)}</button>`).join("");
+  $("ranges").innerHTML = [[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [0, "whole day"]].map(([m, n]) => `<button class="chip" data-r="${m}">${n}</button>`).join("");
+  document.querySelectorAll("[data-r]").forEach(b => b.onclick = () => zoom(+b.dataset.r));
   $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
   document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => { bot = b.dataset.b; store.set("bot", bot); selected = null; render(); });
   document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { on[b.dataset.k] = !on[b.dataset.k]; store.set("ind", on); render(); });
@@ -589,13 +625,150 @@ function renderBotSee() {
       `The +context twins only buy calls when this says Bullish, puts when Bearish, and nothing when choppy.`;
 }
 
+// ---------- stage 3: chart helpers, analytics, trade history
+const PAL = ["#58a6ff", "#f0883e", "#3fb950", "#bc8cff", "#ff7b72", "#e3b341", "#39c5cf", "#db61a2", "#a5d6ff", "#7ee787"];
+const botColor = k => PAL[Math.max(0, ORIG.indexOf(TWIN_OF(k) || k)) % PAL.length];
+function zoom(m) {
+  if (!chart || !D || !(D.bars || []).length) return;
+  const last = ts(D.bars[D.bars.length - 1][0]);
+  if (!m) chart.timeScale().fitContent(); else chart.timeScale().setVisibleRange({from: last - m * 60, to: last + 60});
+}
+let clickHooked = false;
+function hookClick() {
+  if (!chart || clickHooked) return; clickHooked = true;
+  chart.subscribeClick(p => {
+    if (!p || !p.time || !D) return;
+    const bar = (D.bars || []).find(b => ts(b[0]) === p.time), near = tradesFor("all").filter(t => Math.abs(ts(t.t.slice(0, 16)) - p.time) <= 60 || (t.exit_t && Math.abs(ts(t.exit_t.slice(0, 16)) - p.time) <= 60));
+    const c = (D.decisions && Object.values(D.decisions).flatMap(d => d.recent).find(r => r.ind && r.t && Math.abs(ts(r.t.slice(0, 16)) - 60 - p.time) <= 30)) || null;
+    $("tradeInfo").hidden = false;
+    $("tradeInfo").innerHTML = `<div class="label">Market at ${bar ? both(bar[0]) : "this time"}</div>` +
+      (bar ? `<div class="sub">QQQ open ${bar[1]} · high ${bar[2]} · low ${bar[3]} · close ${bar[4]} · volume ${bar[5].toLocaleString()}</div>` : "") +
+      (c ? `<div class="sub">Shared context the bots saw: trend ${c.ind.trend}${c.ind.choppy ? " (choppy)" : ""} · VWAP ${c.ind.vwap} · EMA 9/20/50 ${c.ind.ema9}/${c.ind.ema20}/${c.ind.ema50} · RSI ${c.ind.rsi}</div>` : "") +
+      (near.length ? near.map(t => `<div style="margin-top:6px;border-left:3px solid ${botColor(t.k)};padding-left:8px"><b>${sn(t.k)}</b> · ${t.side} ${t.label} · ${t.trigger} · entry $${t.entry.toFixed(2)} ${both(t.t)}` +
+        (t.exit_t ? ` · exit $${t.exit.toFixed(2)} ${both(t.exit_t)} (${t.why}) · <span class="${cls(t.pnl)}">${usd(t.pnl, 2)}</span>` : " · open") +
+        ` · stop ${typeof t.stop === "number" ? "$" + t.stop.toFixed(2) : "–"} · take profit ${typeof t.target === "number" ? "$" + t.target.toFixed(2) : t.target}</div>`).join("") : `<div class="sub">No trades entered or exited in this minute.</div>`);
+  });
+}
+
+function closedTrades(k) {
+  const unit = k.startsWith("shares") ? "QQQ" : "option";
+  const hist = ((D.hist || {})[k] || []).map(r => ({k, t: r[0], exit_t: r[1], side: r[2], entry: r[3], exit: r[4], pnl: r[5], why: r[6], trigger: r[7], unit}));
+  const today = tradesFor(k).filter(t => !t.open && t.pnl != null).map(t => ({k, t: t.t, exit_t: t.exit_t, side: t.side, entry: t.entry, exit: t.exit,
+    pnl: t.pnl, why: t.why, trigger: t.trigger, ctx: t.ctx, stop: t.stop, target: t.target, label: t.label, unit}));
+  return hist.concat(today);
+}
+// Known data error kept in the stored history (audit/CHANGE_CONTROL.md CC-001): priced on a frozen quote. Flagged, not hidden.
+const badNote = t => t.k === "options" && (t.t || "").startsWith("2026-11-20") && Math.abs(t.pnl - 320.94) < 0.01 ? "⚠ priced on a frozen quote (CC-001): not a real result" : "";
+const sideName = s => ({C: "CALL", P: "PUT", L: "LONG", S: "SHORT"}[s] || s);
+const holdMin = t => t.exit_t && t.t ? Math.round((nyDate(t.exit_t) - nyDate(t.t)) / 60000) : null;
+let eqC, ddC, dayC;
+function mini(id) { return LightweightCharts.createChart($(id), {...baseOpts(220), timeScale: {borderColor: css("--line"), timeVisible: false}}); }
+function series(times, vals) { const out = []; let last = -Infinity;
+  times.forEach((t, i) => { let x = Math.floor(t / 1000); if (x <= last) x = last + 1; last = x; out.push({time: x, value: vals[i]}); }); return out; }
+
+function renderAnalytics() {
+  const keys = visible(), sel = store.get("anBot", "all");
+  $("anBot").innerHTML = `<option value="all">all shown bots (portfolio)</option>` + keys.map(k => `<option value="${k}" ${sel === k ? "selected" : ""}>${sn(k)}</option>`).join("");
+  $("anBot").onchange = e => { store.set("anBot", e.target.value); renderAnalytics(); };
+  const use = sel === "all" || !keys.includes(sel) ? keys : [sel];
+  const T = use.flatMap(closedTrades).filter(t => t.exit_t).sort((a, b) => a.exit_t < b.exit_t ? -1 : 1);
+  const w = T.filter(t => t.pnl > 0), l = T.filter(t => t.pnl <= 0), sm = a => a.reduce((x, t) => x + t.pnl, 0);
+  let eq = 0, pk = 0, mdd = 0, run = 0, wrun = 0, maxL = 0, maxW = 0;
+  for (const t of T) { eq += t.pnl; pk = Math.max(pk, eq); mdd = Math.min(mdd, eq - pk);
+    if (t.pnl > 0) { wrun++; run = 0; } else { run++; wrun = 0; } maxL = Math.max(maxL, run); maxW = Math.max(maxW, wrun); }
+  const holds = T.map(holdMin).filter(x => x !== null), byDay = {};
+  for (const t of T) byDay[t.exit_t.slice(0, 10)] = (byDay[t.exit_t.slice(0, 10)] || 0) + t.pnl;
+  const weeks = {}, months = {};
+  for (const [d, v] of Object.entries(byDay)) { const dt = new Date(d + "T12:00:00Z"), mon = new Date(dt - ((dt.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10);
+    weeks[mon] = (weeks[mon] || 0) + v; months[d.slice(0, 7)] = (months[d.slice(0, 7)] || 0) + v; }
+  const best = T.reduce((a, t) => !a || t.pnl > a.pnl ? t : a, null), worst = T.reduce((a, t) => !a || t.pnl < a.pnl ? t : a, null);
+  const k = (lab, v, c = "", sub = "") => `<div class="card"><div class="label">${lab}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
+  const start = START * use.length, f2 = (v, fn) => v === null || v === undefined || isNaN(v) ? "–" : fn(v);
+  $("anKpi").innerHTML = T.length ? [
+    k("Net P&L", money(sm(T)), cls(sm(T)), pct(sm(T) / start * 100) + ` of $${start.toLocaleString()}`), k("Trades", T.length, "", `${Object.keys(byDay).length} trading days`),
+    k("Win rate", (w.length / T.length * 100).toFixed(0) + "%", "", `${w.length} won · ${l.length} lost`), k("Profit factor", f2(sm(l) ? sm(w) / -sm(l) : null, v => v.toFixed(2))),
+    k("Average trade", money(sm(T) / T.length), cls(sm(T))), k("Avg win / avg loss", `${f2(w.length ? sm(w) / w.length : null, v => usd(v, 1))} / ${f2(l.length ? sm(l) / l.length : null, v => usd(v, 1))}`, "",
+      `reward/risk ${f2(w.length && l.length ? (sm(w) / w.length) / -(sm(l) / l.length) : null, v => v.toFixed(2))}`),
+    k("Best trade", money(best.pnl), "up", `${sn(best.k)} · ${best.exit_t.slice(0, 10)}${badNote(best) ? "<br>" + badNote(best) : ""}`), k("Worst trade", money(worst.pnl), "down", `${sn(worst.k)} · ${worst.exit_t.slice(0, 10)}`),
+    k("Max drawdown", money(mdd), "down"), k("Average holding time", holds.length ? (holds.reduce((a, b) => a + b, 0) / holds.length).toFixed(0) + " min" : "–"),
+    k("Longest streaks", `${maxW} wins / ${maxL} losses`), k("Last 4 weeks", Object.entries(weeks).sort().slice(-4).map(([d, v]) => `<span class="${cls(v)}">${usd(v, 0)}</span>`).join(" "), "", "week by week, oldest first"),
+    k("By month", Object.entries(months).sort().map(([m, v]) => `${m}: <span class="${cls(v)}">${usd(v, 0)}</span>`).join("<br>"))].join("")
+    : `<div class="sub">No closed trades yet for this selection.</div>`;
+  // charts
+  if (typeof LightweightCharts !== "undefined") {
+    if (!eqC) { eqC = mini("eqChart"); ddC = mini("ddChart"); dayC = mini("dayChart");
+      ["eqChart", "ddChart", "dayChart"].forEach(id => { $(id).style.overflow = "hidden"; });
+      const fit = () => [eqC, ddC, dayC].forEach((c, i) => c.applyOptions({width: $(["eqChart", "ddChart", "dayChart"][i]).parentElement.clientWidth - 28}));
+      new ResizeObserver(fit).observe(document.body); fit(); }
+    for (const c of [eqC, ddC, dayC]) (c._s || []).forEach(x => c.removeSeries(x));
+    eqC._s = []; ddC._s = []; dayC._s = [];
+    for (const kk of use) { const tt = closedTrades(kk).filter(t => t.exit_t).sort((a, b) => a.exit_t < b.exit_t ? -1 : 1); if (!tt.length) continue;
+      let e = START; const sr = eqC.addLineSeries({color: botColor(kk), lineWidth: kk.endsWith("_ctx") ? 1 : 2, lineStyle: kk.endsWith("_ctx") ? 1 : 0, priceLineVisible: false, lastValueVisible: false});
+      sr.setData(series(tt.map(t => +nyDate(t.exit_t)), tt.map(t => (e += t.pnl)))); eqC._s.push(sr); }
+    if (use.length > 1 && T.length) { let e = START * use.length;
+      const ps = eqC.addLineSeries({color: css("--text"), lineWidth: 2, lineStyle: 2, priceLineVisible: false, priceScaleId: "left"});
+      eqC.applyOptions({leftPriceScale: {visible: true, borderColor: css("--line")}});
+      ps.setData(series(T.map(t => +nyDate(t.exit_t)), T.map(t => (e += t.pnl)))); eqC._s.push(ps); }
+    let e2 = 0, p2 = 0; const dd = ddC.addAreaSeries({lineColor: css("--down"), topColor: css("--down") + "55", bottomColor: css("--down") + "11", priceLineVisible: false});
+    dd.setData(series(T.map(t => +nyDate(t.exit_t)), T.map(t => { e2 += t.pnl; p2 = Math.max(p2, e2); return e2 - p2; }))); ddC._s.push(dd);
+    const hs = dayC.addHistogramSeries({priceLineVisible: false});
+    hs.setData(Object.keys(byDay).sort().map(d => ({time: d, value: +byDay[d].toFixed(2), color: byDay[d] >= 0 ? css("--up") : css("--down")}))); dayC._s.push(hs);
+    [eqC, ddC, dayC].forEach(c => c.timeScale().fitContent());
+  } else ["eqChart", "ddChart", "dayChart"].forEach(id => $(id).textContent = "Chart library didn't load.");
+  // tables
+  const group = (fn, order) => { const g = {}; for (const t of T) { const x = fn(t); (g[x] = g[x] || []).push(t); }
+    return (order || Object.keys(g).sort()).filter(x => g[x]).map(x => [x, g[x]]); };
+  const row = ([lab, a]) => { const s2 = sm(a), ww = a.filter(t => t.pnl > 0).length;
+    return `<tr><td>${lab}</td><td>${a.length}</td><td>${(ww / a.length * 100).toFixed(0)}%</td><td class="${cls(s2)}">${usd(s2, 0)}</td><td class="${cls(s2)}">${usd(s2 / a.length, 1)}</td></tr>`; };
+  const head = n => `<tr><th>${n}</th><th>Trades</th><th>Win rate</th><th>Total</th><th>Per trade</th></tr>`;
+  $("anHour").innerHTML = head("Hour") + group(t => t.t.slice(11, 13) + ":00").map(row).join("");
+  const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri"], dow = t => DOW[(new Date(t.t.slice(0, 10) + "T12:00:00Z").getUTCDay() + 6) % 7];
+  $("anDow").innerHTML = head("Day") + group(dow, DOW).map(row).join("");
+  const bands = [[-Infinity, -100, "below −$100"], [-100, -50, "−$100 to −$50"], [-50, 0, "−$50 to $0"], [0, 25, "$0 to +$25"], [25, 50, "+$25 to +$50"], [50, 100, "+$50 to +$100"], [100, Infinity, "above +$100"]];
+  const mx = Math.max(1, ...bands.map(([a, b]) => T.filter(t => t.pnl > a && t.pnl <= b).length));
+  $("anDist").innerHTML = `<tr><th>Result</th><th>Trades</th><th style="text-align:left">Share</th></tr>` + bands.map(([a, b, n]) => { const c = T.filter(t => t.pnl > a && t.pnl <= b).length;
+    return `<tr><td>${n}</td><td>${c}</td><td style="text-align:left"><span style="display:inline-block;height:9px;width:${c / mx * 120}px;background:${b <= 0 ? css("--down") : css("--up")};border-radius:2px"></span></td></tr>`; }).join("");
+  const allT = keys.flatMap(closedTrades), wkKeys = [...new Set(allT.filter(t => t.exit_t).map(t => { const d = new Date(t.exit_t.slice(0, 10) + "T12:00:00Z"); return new Date(d - ((d.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10); }))].sort().slice(-6);
+  const cellH = v => { if (v === undefined) return `<td class="muted">–</td>`; const a = Math.min(1, Math.abs(v) / 200);
+    return `<td style="background:${v >= 0 ? css("--up") : css("--down")}${Math.round(20 + a * 140).toString(16).padStart(2, "0")}">${usd(v, 0)}</td>`; };
+  $("anHeat").innerHTML = `<tr><th>Bot</th>${DOW.map(d => `<th>${d}</th>`).join("")}${wkKeys.map(w => `<th>wk ${w.slice(5)}</th>`).join("")}</tr>` + keys.map(kk => { const tt = closedTrades(kk);
+    const by = f => { const o = {}; for (const t of tt) { const x = f(t); o[x] = (o[x] || 0) + t.pnl; } return o; };
+    const bd = by(dow), bw = by(t => { const d = new Date(t.exit_t.slice(0, 10) + "T12:00:00Z"); return new Date(d - ((d.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10); });
+    return `<tr><td>${sn(kk)}</td>${DOW.map(d => cellH(bd[d])).join("")}${wkKeys.map(w => cellH(bw[w])).join("")}</tr>`; }).join("");
+  const R = T.filter(t => t.ctx);
+  $("anRegime").innerHTML = R.length ? head("Trend at entry") + group(t => t.ctx.trend + (t.ctx.choppy ? " (choppy)" : "")).filter(([, a]) => R.includes(a[0])).map(row).join("") +
+      head("Volatility at entry") + group(t => t.ctx ? t.ctx.volatility : "?").filter(([x]) => x !== "?").map(row).join("")
+    : `<tr><td class="muted" style="text-align:left">No trades with recorded conditions yet: trades from the next market session onwards carry them.</td></tr>`;
+}
+
+function renderHistory() {
+  const keys = visible(), b = store.get("thBot", "all");
+  $("thBot").innerHTML = `<option value="all">all shown bots</option>` + keys.map(k => `<option value="${k}" ${b === k ? "selected" : ""}>${sn(k)}</option>`).join("");
+  ["thBot", "thRes", "thDate", "thQ"].forEach(id => { $(id)[id === "thQ" ? "oninput" : "onchange"] = e => { store.set(id, e.target.value); renderHistory(); }; });
+  $("thRes").value = store.get("thRes", ""); $("thDate").value = store.get("thDate", ""); $("thQ").value = store.get("thQ", "");
+  const res = store.get("thRes", ""), day = store.get("thDate", ""), q = store.get("thQ", "").toLowerCase();
+  let T = (b === "all" || !keys.includes(b) ? keys : [b]).flatMap(closedTrades);
+  const live = (b === "all" ? keys : [b]).flatMap(k => tradesFor(k).filter(t => t.open).map(t => ({...t, k, open: true})));
+  T = live.concat(T).filter(t => !res || (res === "win" ? t.pnl > 0 : t.pnl <= 0)).filter(t => !day || t.t.startsWith(day))
+    .filter(t => !q || [sn(t.k), sideName(t.side), t.trigger, t.why, t.label, t.t].join(" ").toLowerCase().includes(q)).sort((a, c) => a.t < c.t ? 1 : -1);
+  $("thCount").textContent = `${T.length} trade${T.length === 1 ? "" : "s"}` + (T.length > 500 ? " (showing newest 500)" : "");
+  $("thTable").innerHTML = `<tr><th>Trade ID</th><th>Bot</th><th>Side</th><th>Strategy</th><th>Entry (NY · UK)</th><th>Exit (NY · UK)</th><th>Held</th><th>Size</th><th>Entry $</th><th>Exit $</th><th>Stop</th><th>Take profit</th><th>Exit reason</th><th>P&L</th><th>Return</th><th>Fees</th><th>Trend at entry</th></tr>` +
+    T.slice(0, 500).map(t => { const sh = t.unit === "QQQ" || (t.k || "").startsWith("shares"), ret = t.exit && t.entry ? (t.exit / t.entry - 1) * 100 * (["S", "SHORT", "P"].includes(t.side) && sh ? -1 : 1) : null;
+      const unr = t.open && t.mark ? (t.mark - t.entry) * 100 - FEE_OPT : null;
+      return `<tr><td>${(t.k || "").replace("_ctx", "+c")}-${t.t.slice(5, 16).replace(/[-: ]/g, "")}</td><td style="text-align:left"><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${botColor(t.k)}"></span> ${sn(t.k)}</td>` +
+        `<td>${sideName(t.side)}</td><td>${t.trigger || "–"}</td><td>${both(t.t)}<br><span class="alt">${t.t.slice(0, 10)}</span></td><td>${t.exit_t ? both(t.exit_t) : "open"}</td><td>${t.open ? "–" : (holdMin(t) ?? "–") + " min"}</td>` +
+        `<td>${sh ? "shares (£1,000)" : "1 contract"}</td><td>${t.entry != null ? "$" + (+t.entry).toFixed(2) : "–"}</td><td>${t.exit != null ? "$" + (+t.exit).toFixed(2) : t.mark ? "now $" + t.mark.toFixed(2) : "–"}</td>` +
+        `<td>${typeof t.stop === "number" ? "$" + t.stop.toFixed(2) : "–"}</td><td>${typeof t.target === "number" ? "$" + t.target.toFixed(2) : t.target ? String(t.target).slice(0, 30) : "–"}</td><td>${t.why || (t.open ? "open" : "–")}${badNote(t) ? `<br><span class="pill bad">${badNote(t)}</span>` : ""}</td>` +
+        `<td class="${cls(t.open ? unr : t.pnl)}">${t.open ? (unr !== null ? usd(unr, 2) + " open" : "open") : usd(t.pnl, 2)}</td><td>${ret !== null ? pct(ret) : "–"}</td><td>${sh ? "$0" : "$0.06"}</td><td>${t.ctx ? t.ctx.trend + (t.ctx.choppy ? " (choppy)" : "") : "–"}</td></tr>`; }).join("");
+}
+
 function render() {
   renderControls();
   if (!D) return;
   const fr = freshness();
   $("status").innerHTML = `Data updated ${both(D.updated)} (${ago(fr.hb)}) · page checked ${zt(new Date(), "Europe/London", {second: "2-digit"})} UK · ` +
     (fr.stale ? `<span class="pill ${fr.open ? "bad" : "warn"}">not live${fr.open ? ": STALE" : " (market closed)"}</span>` : `<span class="pill ok">live</span>`);
-  renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
+  renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades(); hookClick(); renderAnalytics(); renderHistory();
 }
 
 async function load() {
