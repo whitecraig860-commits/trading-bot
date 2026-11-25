@@ -46,7 +46,7 @@ def check(tr, when, price, field):
 
 
 def main():
-    out = []
+    out, unver = [], []
     n = 0
     for f in sorted(glob.glob(str(ROOT / "state/qqqbot*/20??-??-??.json"))):
         key = Path(f).parent.name.replace("qqqbot_", "").replace("qqqbot", "options")
@@ -55,19 +55,25 @@ def main():
         st = json.loads(Path(f).read_text())
         for tr in st.get("trades", []):
             n += 1
+            if quotes(tr["t"][:10]) is None:
+                unver.append({"bot": key, "t": tr["t"], "pnl": tr["pnl"]})
+                continue
             probs = [p for p in (check(tr, tr["t"], tr["entry"], "ask"),
                                  check(tr, tr["exit_t"], tr["exit"], "bid") if tr.get("exit_t") else None) if p]
             if probs:
                 out.append({"bot": key, "t": tr["t"], "exit_t": tr.get("exit_t"), "pnl": tr["pnl"], "why": tr.get("why"),
                             "problems": probs})
     (ROOT / "audit/flagged_trades.json").write_text(json.dumps(out, indent=1))
+    (ROOT / "audit/unverified_trades.json").write_text(json.dumps(unver, indent=1))
     lines = [f"# Trades checked against recorded quotes\n\n{n} stored options trades checked; {len(out)} flagged "
              f"(entry or exit not matched to a fresh recorded quote). Flagged trades are excluded from the live page's "
              f"totals and shown with a warning. Bot state files are unchanged.\n",
+             f"{len(unver)} trades could not be checked because that day's recorded quotes were not saved "
+             f"({', '.join(sorted({u['t'][:10] for u in unver})) or 'none'}); they are kept and marked unverified.\n",
              "| Bot | Entry | Exit | P&L | Problem |", "|---|---|---|---|---|"]
     lines += [f"| {x['bot']} | {x['t']} | {x['exit_t']} | {x['pnl']:+.2f} | {'; '.join(x['problems'])} |" for x in out]
     (ROOT / "audit/flagged_trades.md").write_text("\n".join(lines) + "\n")
-    print(n, "checked;", len(out), "flagged;", round(sum(x["pnl"] for x in out), 2), "USD")
+    print(n, "checked;", len(unver), "unverifiable;", len(out), "flagged;", round(sum(x["pnl"] for x in out), 2), "USD")
     for x in out[:40]:
         print(x["bot"], x["t"], x["pnl"], x["problems"])
 
