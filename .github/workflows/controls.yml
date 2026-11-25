@@ -1,0 +1,53 @@
+name: Bot controls (pause / resume)
+
+# Paper trading only. Press "Run workflow" on GitHub's Actions tab to pause or resume the paper bots. Every bot reads
+# the switch at most a minute later and will not open new trades while paused (open trades still close normally).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        type: choice
+        options: ["pause ALL bots (emergency)", "resume ALL bots", "pause one bot", "resume one bot", "show current state"]
+        required: true
+      bot:
+        description: "Bot key for one-bot actions, e.g. combo, combo_ctx, options, options_ctx, shares, shares_ctx"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: controls
+  cancel-in-progress: false
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update controls.json on the live-data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTION: ${{ inputs.action }}
+          BOT: ${{ inputs.bot }}
+        run: |
+          set -euo pipefail
+          resp=$(gh api "repos/$REPO/contents/controls.json?ref=live-data" 2>/dev/null || echo '{}')
+          sha=$(echo "$resp" | jq -r '.sha // empty')
+          cur=$(echo "$resp" | jq -r '.content // empty' | base64 -d 2>/dev/null || true)
+          [ -z "$cur" ] && cur='{"pause_all":false,"paused":[]}'
+          case "$ACTION" in
+            "pause ALL bots (emergency)") new=$(echo "$cur" | jq '.pause_all=true') ;;
+            "resume ALL bots") new=$(echo "$cur" | jq '.pause_all=false | .paused=[]') ;;
+            "pause one bot") [ -n "$BOT" ] || { echo "Give a bot key"; exit 1; }; new=$(echo "$cur" | jq --arg b "$BOT" '.paused=((.paused // []) + [$b] | unique)') ;;
+            "resume one bot") [ -n "$BOT" ] || { echo "Give a bot key"; exit 1; }; new=$(echo "$cur" | jq --arg b "$BOT" '.paused=((.paused // []) - [$b])') ;;
+            *) echo "$cur"; exit 0 ;;
+          esac
+          new=$(echo "$new" | jq --arg u "$(date -u +%FT%TZ)" --arg n "$ACTION $BOT" '.updated=$u | .note=$n')
+          echo "New state: $new"
+          args=(-X PUT "repos/$REPO/contents/controls.json" -f message="Controls: $ACTION $BOT" -f branch=live-data -f content="$(echo "$new" | base64 -w0)")
+          [ -n "$sha" ] && args+=(-f sha="$sha")
+          gh api "${args[@]}" > /dev/null
+          echo "Saved. Bots read it within about a minute."

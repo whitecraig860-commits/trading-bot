@@ -136,7 +136,7 @@ def main() -> int:
     try:  # the paper bot rides on the same prices; if it breaks, recording carries on without it
         import qqqbot
 
-        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses")
+        bot = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, name="stop after 2 losses", key="options")
     except Exception as exc:
         print(f"Paper bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     original = None
@@ -151,11 +151,21 @@ def main() -> int:
     for key, (folder, name, settings) in (qqqbot.EXTRA_BOTS.items() if bot else []):
         try:  # comparison bots: same entries, different exits; each in its own try so one can never stop another
             extras[key] = qqqbot.PaperBot(qqqbot.alpaca_bars(feed.stk), begin, state_dir=qqqbot.STATE.parent / folder,
-                                          name=name, trade_messages=False, summaries=False, **settings)
+                                          name=name, trade_messages=False, summaries=False, key=key, **settings)
         except Exception as exc:
             print(f"Comparison bot {key} not started: {type(exc).__name__}: {str(exc)[:120]}")
     if bot and extras:
-        bot.compare = lambda upto: [b.total_line(upto) for b in extras.values()]
+        bot.compare = lambda upto: [b.total_line(upto) for k, b in extras.items() if not k.endswith("_ctx")]  # twins: page only
+    controls = None
+    try:  # the owner's pause switch (tracker/controls.py); every bot checks it before opening a trade
+        import controls as controls_mod
+
+        controls = controls_mod.Controls()
+        for b in [bot, *extras.values()]:
+            if b is not None:
+                b.controls = controls.check
+    except Exception as exc:
+        print(f"Pause switch not available: {type(exc).__name__}")
     live = None
     try:  # the live web page; never affects recording or the bots
         import livepage
@@ -172,6 +182,17 @@ def main() -> int:
                                          begin, qqqbot.send_telegram)
     except Exception as exc:
         print(f"Shares bot not started: {type(exc).__name__}: {str(exc)[:120]}")
+    shares_ctx = None
+    try:  # its "+context" twin (research/CONTEXT_TWINS_PROTOCOL.md): no Telegram messages, own state folder
+        if shares and getattr(qqqbot, "CONTEXT_TWINS", False):
+            shares_ctx = sharesbot.SharesBot(qqqbot.alpaca_bars(feed.stk), lambda n: sharesbot.history_bars(feed.stk, n),
+                                             begin, lambda m: None, state_dir=sharesbot.STATE.parent / "sharesbot_ctx",
+                                             ctx_gate=True, key="shares_ctx")
+        for b in (shares, shares_ctx):
+            if b is not None and controls is not None:
+                b.controls = controls.check
+    except Exception as exc:
+        print(f"Shares twin not started: {type(exc).__name__}: {str(exc)[:120]}")
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -206,24 +227,27 @@ def main() -> int:
                         xb.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} comparison bot {key}: {type(exc).__name__}: {str(exc)[:120]}")
-                if shares and seen_today:
-                    try:
-                        shares.on_poll(t)
-                    except Exception as exc:
-                        print(f"{t:%H:%M:%S} shares bot: {type(exc).__name__}: {str(exc)[:120]}")
-                fb = extras.get("oneaday")
-                if fb and shares:  # the options copy of the shares bot's one-a-day trade
-                    try:
-                        st = shares.s.get("trade") or {}
-                        if st and not st.get("exit") and fb.pending is None:
-                            fb.pending = ("C" if st["side"] > 0 else "P", "ONEADAY", float(st["entry"]), 1.0)
-                        if st and st.get("exit"):
-                            fb.follow_exit = True
-                    except Exception as exc:
-                        print(f"{t:%H:%M:%S} one-a-day options bot: {type(exc).__name__}: {str(exc)[:120]}")
+                for sb, nm in ((shares, "shares bot"), (shares_ctx, "shares twin")):
+                    if sb and seen_today:
+                        try:
+                            sb.on_poll(t)
+                        except Exception as exc:
+                            print(f"{t:%H:%M:%S} {nm}: {type(exc).__name__}: {str(exc)[:120]}")
+                for fk in ("oneaday", "oneaday_ctx"):
+                    fb = extras.get(fk)
+                    if fb and shares:  # the options copies of the shares bot's one-a-day trade (the twin adds its own check)
+                        try:
+                            st = shares.s.get("trade") or {}
+                            if st and not st.get("exit") and fb.pending is None:
+                                fb.pending = ("C" if st["side"] > 0 else "P", "ONEADAY", float(st["entry"]), 1.0)
+                            if st and st.get("exit"):
+                                fb.follow_exit = True
+                        except Exception as exc:
+                            print(f"{t:%H:%M:%S} one-a-day options bot {fk}: {type(exc).__name__}: {str(exc)[:120]}")
                 if live and seen_today and live.due():
                     try:
-                        live.publish(livepage.payload(t, bot, shares, original, extras))
+                        live.publish(livepage.payload(t, bot, shares, original, extras, shares_ctx=shares_ctx,
+                                                      controls=controls, poll_errors=errors))
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:
