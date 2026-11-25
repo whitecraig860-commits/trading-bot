@@ -17,10 +17,25 @@ ROOT = Path(__file__).resolve().parent.parent
 Q: dict = {}
 
 
+def read(f):
+    """A recorded quote file; a file cut off mid-write (a frozen run, e.g. 25 Nov 2026) is read up to where it ends."""
+    import io
+
+    buf = []
+    try:
+        with gzip.open(f, "rt") as fh:
+            for line in fh:
+                buf.append(line)
+    except (EOFError, OSError):
+        if buf and not buf[-1].endswith("\n"):
+            buf.pop()  # drop a half-written last line
+    return pd.read_csv(io.StringIO("".join(buf)), dtype={"expiry": str})
+
+
 def quotes(day):
     if day not in Q:
         fs = sorted(glob.glob(str(ROOT / f"state/quotes/{day}*.csv.gz")))
-        Q[day] = pd.concat([pd.read_csv(gzip.open(f), dtype={"expiry": str}) for f in fs]) if fs else None
+        Q[day] = pd.concat([read(f) for f in fs]) if fs else None
         if Q[day] is not None:
             q = Q[day]
             q["pt"] = pd.to_datetime(q.poll_time)
