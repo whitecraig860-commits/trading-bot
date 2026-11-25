@@ -1,0 +1,21 @@
+Study 14 (research/HIS_EXITS_PROTOCOL.md), GitHub Actions run 45495495331, 24 Nov 2026. Real QQQ and option bars, Mar 2024 - Oct 2026.
+
+=== 1 cent(s) a side ===
+HX exits, all signals              trades  7943 win  86% avg win    +6.1 avg loss   -84.1 worst    -329 per day  -78.62 t -14.91 2026 -95.86 | 2024:-61.8 2025:-78.4 2026:-95.9
+   exits: {'lock +2%': 6607, 'stop (QQQ 2 ATR)': 1038, 'take profit +25%': 172, 'end of day': 80, 'trail': 46}
+HX exits, picks like him           trades  2035 win  88% avg win    +6.0 avg loss  -109.7 worst    -346 per day  -22.79 t -8.18 2026 -36.36 | 2024:-17.6 2025:-15.8 2026:-36.4
+   exits: {'lock +2%': 1760, 'stop (QQQ 2 ATR)': 229, 'take profit +25%': 35, 'end of day': 8, 'trail': 3}
+main-bot exits, all signals        trades  6477 per day  -38.25
+main-bot exits, picks like him     trades  2277 per day  -11.69
+
+=== 5 cent(s) a side ===
+HX exits, all signals              trades  1773 win  24% avg win    +8.9 avg loss   -24.5 worst    -337 per day  -43.65 t -10.54 2026 -63.90 | 2024:-34.7 2025:-34.3 2026:-63.9
+HX exits, picks like him           trades  1303 win  14% avg win   +11.2 avg loss   -18.7 worst    -354 per day  -28.38 t -11.38 2026 -40.48 | 2024:-25.8 2025:-20.5 2026:-40.5
+main-bot exits, all signals        trades  2337 per day  -44.03
+main-bot exits, picks like him     trades  1508 per day  -25.23
+
+Placebo (random 10% of signals, HX exits): picks -22.79 vs placebo median -19.08, best -11.92; beats 3/20
+
+Verdict against the pre-registered judgement: FAIL. Negative at 1 and 5 cents, every year, and in 2026; t strongly negative;
+selection beats only 3 of 20 random placebos (needed 19). The rule reproduces his high win rate (86-88%) but the average loss
+(-$84 to -$110) is 14-18 times the average win (+$6), so it loses money. No production change proposed.
