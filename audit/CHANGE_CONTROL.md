@@ -163,3 +163,14 @@ Template:
     - "Losing over $50" names the session date when the market is closed;
     - the bottom note no longer says every options bot uses +2.5% / −6% / 10 min.
 - **Decision.** The owner asked for missing or wrong information to be fixed (26 Nov 2026); the owner merges.
+
+## CC-010: fresh start, every bot's account at £1,000 from 27 Nov 2026 (26 Nov 2026)
+- **Request.** "Reset all the bots to £1000 … leave everything else."
+- **Change.** Live page only.
+  - Every bot's account (originals and twins, options and shares) starts at £1,000 on 27 Nov 2026.
+  - Dollar figures are £1,000 at the live rate plus the bot's dollar P&L.
+  - Balances, leaderboard, analytics, calendar, reports and alerts count trades from 27 Nov 2026 only.
+  - Earlier trades remain in the repo, the state files and the trade history; there is a checkbox to include them,
+    and they are marked "before fresh start".
+  - Bot rules, sizing and logs are unchanged.
+- **Decision.** Owner request in chat; the owner merges.
