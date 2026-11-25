@@ -54,12 +54,48 @@ h2{font-size:15px;margin:18px 0 8px;color:var(--muted);font-weight:600;text-tran
 .t .row b{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
 .note{color:var(--muted);font-size:12px;margin-top:14px}
+.topbar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:13px;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.topbar b{font-weight:600}.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.pill.ok{color:var(--up);border-color:var(--up)}.pill.bad{color:var(--down);border-color:var(--down)}.pill.warn{color:var(--warn);border-color:var(--warn)}
+.banner{border:1px solid var(--down);background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.kpis .card{padding:10px 12px}.kpis .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.alt{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpis .v .alt,.big .alt{display:block;font-size:12px;font-weight:500}
+.lb{border-collapse:collapse;font-size:12.5px;width:100%;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lb th,.lb td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:right}
+.lb th:first-child,.lb td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
+.lb th{color:var(--muted);font-weight:600}
+select,input{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:13px}
+details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px}
 </style>
 </head>
 <body>
 <main>
   <h1>QQQ paper bots · live</h1>
   <div class="sub" id="status">Loading…</div>
+  <div class="topbar" id="clocks"></div>
+  <div id="banners"></div>
+
+  <h2>Portfolio (all bots)</h2>
+  <div class="toolbar"><span class="label">Show first in:</span><div class="tabs" id="curTabs"></div><span class="alt" id="fx"></span></div>
+  <div class="kpis" id="port"></div>
+
+  <h2>Bot health</h2>
+  <div class="toolbar"><span class="label">Warn when data is older than</span><input id="staleMin" type="number" min="1" max="120" style="width:60px"> <span class="label">minutes</span></div>
+  <div class="card" style="overflow-x:auto"><table class="lb" id="health"></table></div>
+
+  <h2>Leaderboard</h2>
+  <div class="toolbar"><span class="label">Rank by:</span><select id="rankBy">
+    <option value="net">Highest profit</option><option value="ret">Best return %</option><option value="wr">Highest win rate</option>
+    <option value="pf">Best profit factor</option><option value="dd">Lowest drawdown</option><option value="radj">Best risk-adjusted (profit ÷ drawdown)</option>
+    <option value="cons">Most consistent (share of winning days)</option></select>
+    <label class="label"><input type="checkbox" id="hideSmall"> hide bots with too few trades</label></div>
+  <div class="card" style="overflow-x:auto"><table class="lb" id="lead"></table>
+    <div class="sub" style="margin-top:6px">"Too few trades" = under 30 closed trades: results that small are mostly luck. Win rate alone is never used to rank. Options bots' open trades can't be valued live (we don't publish the option's live price yet), so their equity uses the last closed balance and is marked *.</div></div>
+
+  <h2>Bot accounts (each started with $1,000)</h2>
+  <div class="grid g3" id="accts"></div>
 
   <h2>Market conditions</h2>
   <div class="card">
@@ -352,12 +388,155 @@ function renderControls() {
   document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { on[b.dataset.k] = !on[b.dataset.k]; store.set("ind", on); render(); });
 }
 
+// ---------- stage 1: money, leaderboard, health, clocks
+const START = 1000, FEE_OPT = 0.06;
+let cur = store.get("cur", "GBP"), FX = store.get("fx", null), fxErr = false;
+async function loadFx() {
+  try { const r = await fetch("https://api.frankfurter.app/latest?from=USD&to=GBP"); if (!r.ok) throw 0;
+    const j = await r.json(); FX = {rate: j.rates.GBP, date: j.date, got: new Date().toISOString()}; fxErr = false; store.set("fx", FX);
+  } catch (e) { fxErr = true; }
+}
+const fxStale = () => !FX || fxErr || (Date.now() - Date.parse(FX.date + "T16:00:00Z")) > 4 * 86400e3;
+function money(v, dp = 2, sign = true) {
+  if (v === null || v === undefined || isNaN(v)) return "–";
+  const f = (x, sym) => (sign ? (x >= 0 ? "+" : "−") : (x < 0 ? "−" : "")) + sym + Math.abs(x).toLocaleString("en-GB", {minimumFractionDigits: dp, maximumFractionDigits: dp});
+  const u = f(v, "$"), g = FX ? f(v * FX.rate, "£") : "£?";
+  return cur === "GBP" ? `${g} <span class="alt">${u}</span>` : `${u} <span class="alt">${g}</span>`;
+}
+const pct = v => v === null || isNaN(v) ? "–" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%";
+const cls = v => v > 0 ? "up" : v < 0 ? "down" : "";
+const zt = (d, tz, o = {}) => d.toLocaleString("en-GB", {timeZone: tz, hour: "2-digit", minute: "2-digit", ...o});
+// New York wall-clock text ("2026-11-24 10:06:06") -> Date, correct across daylight saving
+function nyDate(s) { if (!s) return null; const guess = Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +s.slice(11, 13), +s.slice(14, 16), +(s.slice(17, 19) || 0));
+  const p = new Date(guess).toLocaleString("en-US", {timeZone: "America/New_York", hourCycle: "h23"});
+  const back = Date.parse(p + " UTC"); return new Date(guess + (guess - back)); }
+const both = s => { const d = nyDate(s); return d ? `${zt(d, "America/New_York")} NY · ${zt(d, "Europe/London")} UK` : "–"; };
+const ago = d => { if (!d) return "never"; const m = Math.round((Date.now() - d) / 60000); return m < 1 ? "just now" : m < 120 ? m + " min ago" : Math.round(m / 60) + " h ago"; };
+function session(now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23"}).formatToParts(now).map(x => [x.type, x.value]));
+  const mins = +p.hour * 60 + +p.minute, wk = !["Sat", "Sun"].includes(p.weekday);
+  if (wk && mins >= 570 && mins < 960) return {open: true, txt: `Market open · closes in ${Math.floor((960 - mins) / 60)}h ${(960 - mins) % 60}m`};
+  if (wk && mins < 570) return {open: false, txt: `Market closed · opens in ${Math.floor((570 - mins) / 60)}h ${(570 - mins) % 60}m`};
+  return {open: false, txt: "Market closed · opens next weekday 09:30 NY"};
+}
+function renderClocks() {
+  const n = new Date(), s = session(n);
+  $("clocks").innerHTML = `<span>New York <b>${zt(n, "America/New_York", {weekday: "short", day: "numeric", month: "short", second: "2-digit"})}</b></span>` +
+    `<span>UK <b>${zt(n, "Europe/London", {weekday: "short", day: "numeric", month: "short", second: "2-digit"})}</b></span>` +
+    `<span class="pill ${s.open ? "ok" : "warn"}">${s.txt}</span><span class="alt">holidays and early closes are not shown here</span>`;
+}
+setInterval(renderClocks, 1000); renderClocks();
+
+const staleMin = () => store.get("staleMin", 10);
+function freshness() {
+  const hb = D && D.now_utc ? new Date(D.now_utc) : D ? nyDate(D.updated) : null, age = hb ? (Date.now() - hb) / 60000 : Infinity;
+  return {hb, age, stale: age > staleMin(), open: session().open};
+}
+
+function account(k) {
+  const today = tradesFor(k), closedToday = today.filter(t => !t.open && t.pnl != null), open = today.find(t => t.open);
+  const hist = ((D.hist || {})[k] || []).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
+  const closed = hist.concat(closedToday.map(t => ({t: t.t, exit_t: t.exit_t, pnl: t.pnl})));
+  const realised = closed.reduce((a, t) => a + t.pnl, 0), balance = START + realised;
+  const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
+  let unreal = null, exposure = 0, risk = 0, unknown = false;
+  if (open) {
+    if (k === "shares") { const q = D.shares.qty || 0, sd = open.side === "SHORT" ? -1 : 1;
+      unreal = last ? (last - open.entry) * sd * q : null; exposure = open.entry * q; risk = Math.abs(open.entry - open.stop) * q; }
+    else { exposure = open.entry * 100; risk = (open.entry - open.stop) * 100; unknown = true; }
+  }
+  const equity = balance + (unreal || 0);
+  let eq = START, peak = START, maxdd = 0; for (const t of closed) { eq += t.pnl; peak = Math.max(peak, eq); maxdd = Math.min(maxdd, eq - peak); }
+  peak = Math.max(peak, equity);
+  const w = closed.filter(t => t.pnl > 0), l = closed.filter(t => t.pnl <= 0), sw = w.reduce((a, t) => a + t.pnl, 0), sl = l.reduce((a, t) => a + t.pnl, 0);
+  let run = 0; for (let i = closed.length - 1; i >= 0 && closed[i].pnl <= 0; i--) run++;
+  const days = dayTotals(k), dv = Object.values(days);
+  const todayPnl = closedToday.reduce((a, t) => a + t.pnl, 0) + (unreal || 0);
+  const mean = closed.length ? realised / closed.length : null;
+  const sd = closed.length > 1 ? Math.sqrt(closed.reduce((a, t) => a + (t.pnl - mean) ** 2, 0) / (closed.length - 1)) : null;
+  return {k, balance, equity, realised, unreal, unknown, total: equity - START, todayPnl, todayPct: todayPnl / (equity - todayPnl) * 100,
+    ret: (equity - START) / START * 100, peak, dd: equity - peak, maxdd, cash: balance - exposure, exposure, risk: Math.max(risk, 0), open,
+    n: closed.length, fees: k === "shares" ? 0 : (closed.length + (open ? 0.5 : 0)) * FEE_OPT, wr: closed.length ? w.length / closed.length : null,
+    aw: w.length ? sw / w.length : null, al: l.length ? sl / l.length : null, pf: sl ? sw / -sl : (w.length ? Infinity : null), avg: mean,
+    rr: w.length && l.length ? (sw / w.length) / -(sl / l.length) : null, run, cons: dv.length ? dv.filter(v => v > 0).length / dv.length : null,
+    stab: sd && mean !== null ? sd : null, radj: maxdd ? (equity - START) / -maxdd : null, small: closed.length < 30, todayTrades: closedToday,
+    lastTrade: closed.length ? closed[closed.length - 1].exit_t : null, ndays: dv.length};
+}
+
+function botStatus(a, fr) {
+  if (fr.stale && fr.open) return ["Stale data", "bad"];
+  if (!fr.open) return ["Market closed", "warn"];
+  let r = 0; for (let i = a.todayTrades.length - 1; i >= 0 && a.todayTrades[i].pnl <= 0; i--) r++;
+  if (r >= 2 && !a.open) return ["2 losses in a row today", "warn"];
+  if (a.open) return ["In a trade", "ok"];
+  return ["Watching", "ok"];
+}
+
+function renderMoney() {
+  const fr = freshness(), A = Object.keys(BOTS).map(account);
+  const sum = f => A.reduce((x, a) => x + (a[f] || 0), 0);
+  const init = START * A.length, eq = sum("equity"), todayP = sum("todayPnl");
+  // portfolio peak and drawdown from end-of-day totals across all bots
+  const allDays = {}; for (const k of Object.keys(BOTS)) for (const [d, v] of Object.entries(dayTotals(k))) allDays[d] = (allDays[d] || 0) + v;
+  let pe = init, pk = init, pdd = 0; for (const d of Object.keys(allDays).sort()) { pe += allDays[d]; pk = Math.max(pk, pe); pdd = Math.min(pdd, pe - pk); }
+  const unk = A.some(a => a.unknown);
+  $("curTabs").innerHTML = ["GBP", "USD"].map(c => `<button class="chip ${cur === c ? "on" : ""}" data-cur="${c}">${c === "GBP" ? "£ GBP" : "$ USD"}</button>`).join("");
+  document.querySelectorAll("[data-cur]").forEach(b => b.onclick = () => { cur = b.dataset.cur; store.set("cur", cur); render(); });
+  $("fx").innerHTML = FX ? `$1 = £${FX.rate.toFixed(4)} · ECB rate for ${FX.date} (frankfurter.app)` + (fxStale() ? ` <span class="pill bad">STALE: last good rate kept</span>` : "") : `<span class="pill bad">£ rate unavailable: £ values not shown</span>`;
+  const k = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
+  $("port").innerHTML = [
+    k("Started with", money(init, 0, false), "", `${A.length} bots × $1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
+    k("Balance (cash after closed trades)", money(sum("balance"), 2, false)), k("Net P&L", money(eq - init), cls(eq - init), pct((eq - init) / init * 100) + " overall"),
+    k("Today", money(todayP), cls(todayP), pct(todayP / (eq - todayP) * 100) + " today"), k("Realised", money(sum("realised")), cls(sum("realised"))),
+    k("Unrealised", A.some(a => a.unreal !== null) ? money(sum("unreal")) : "–", cls(sum("unreal")), unk ? "* options trades open now: not valued live" : ""),
+    k("Available cash", money(sum("cash"), 2, false)), k("In open trades", money(sum("exposure"), 2, false), "", `${A.filter(a => a.open).length} open`),
+    k("At risk (to stops)", money(sum("risk"), 2, false), sum("risk") ? "down" : ""), k("Fees (in P&L)", money(-sum("fees"))),
+    k("Peak (end of day)", money(pk, 2, false)), k("Drawdown now", money(pe - pk), cls(pe - pk)), k("Worst drawdown", money(pdd), cls(pdd))].join("");
+  // banners
+  const b = [];
+  if (fr.stale && fr.open) b.push(`DATA IS STALE: last update ${ago(fr.hb)} (limit ${staleMin()} min). Numbers below are NOT live.`);
+  if (fxStale()) b.push("The £ exchange rate is stale or unavailable; £ figures use the last good rate shown above.");
+  const losing = A.filter(a => a.todayPnl < -50); if (losing.length) b.push(`Losing over $50 today: ${losing.map(a => SHORT[a.k] || a.k).join(", ")}.`);
+  $("banners").innerHTML = b.map(x => `<div class="banner">⚠️ ${x}</div>`).join("");
+  // health
+  $("staleMin").value = staleMin(); $("staleMin").onchange = e => { store.set("staleMin", Math.max(1, +e.target.value || 10)); render(); };
+  const lastBar = nyDate(D.last_bar || (D.bars && D.bars.length ? D.bars[D.bars.length - 1][0] : null));
+  $("health").innerHTML = `<tr><th>Bot</th><th>Status</th><th>Heartbeat</th><th>Last market data</th><th>Last trade closed</th><th>Open trade</th><th>Errors</th></tr>` +
+    A.map(a => { const [st, c] = botStatus(a, fr);
+      return `<tr><td>${SHORT[a.k] || a.k}</td><td><span class="pill ${c}">${st}</span></td><td>${ago(fr.hb)}</td><td>${lastBar ? both(D.last_bar || D.bars[D.bars.length - 1][0]) + " · " + ago(lastBar) : "none"}</td>` +
+        `<td>${a.lastTrade ? both(a.lastTrade) : "–"}</td><td>${a.open ? a.open.label + " since " + hm(a.open.t) : "–"}</td><td class="muted">not recorded yet</td></tr>`; }).join("") +
+    `<tr><td colspan="7" class="alt" style="text-align:left">All bots run in one GitHub job, so they share one heartbeat and one market-data feed (Alpaca IEX). Error counts and the decision log arrive in stage 2.</td></tr>`;
+  // leaderboard
+  const by = store.get("rankBy", "net"), hide = store.get("hideSmall", false);
+  $("rankBy").value = by; $("rankBy").onchange = e => { store.set("rankBy", e.target.value); render(); };
+  $("hideSmall").checked = hide; $("hideSmall").onchange = e => { store.set("hideSmall", e.target.checked); render(); };
+  const key = {net: a => a.total, ret: a => a.ret, wr: a => a.wr ?? -1, pf: a => a.pf ?? -1, dd: a => a.maxdd, radj: a => a.radj ?? -1e9, cons: a => a.cons ?? -1}[by];
+  const rows = A.filter(a => !hide || !a.small).sort((x, y) => key(y) - key(x));
+  const f2 = (v, fn) => v === null || v === undefined ? "–" : fn(v);
+  $("lead").innerHTML = `<tr><th>#</th><th>Bot</th><th>Status</th><th>Balance</th><th>Equity</th><th>Net P&L</th><th>Today</th><th>Return</th><th>Trades</th><th>Win rate</th><th>Avg win</th><th>Avg loss</th><th>Profit factor</th><th>Avg trade</th><th>Reward/risk</th><th>Max drawdown</th><th>Losses in a row</th><th>Winning days</th><th>Spread of results</th></tr>` +
+    rows.map((a, i) => { const [st, c] = botStatus(a, fr);
+      return `<tr><td>${i + 1}</td><td style="text-align:left">${BOTS[a.k]}${a.small ? ` <span class="pill warn">too few trades</span>` : ""}</td><td><span class="pill ${c}">${st}</span></td>` +
+      `<td>${money(a.balance, 2, false)}</td><td>${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</td><td class="${cls(a.total)}">${money(a.total)}</td><td class="${cls(a.todayPnl)}">${money(a.todayPnl)}</td>` +
+      `<td class="${cls(a.ret)}">${pct(a.ret)}</td><td>${a.n}</td><td>${f2(a.wr, v => (v * 100).toFixed(0) + "%")}</td><td class="up">${f2(a.aw, v => usd(v, 1))}</td><td class="down">${f2(a.al, v => usd(v, 1))}</td>` +
+      `<td>${f2(a.pf, v => v === Infinity ? "∞" : v.toFixed(2))}</td><td class="${cls(a.avg)}">${f2(a.avg, v => usd(v, 2))}</td><td>${f2(a.rr, v => v.toFixed(2))}</td><td class="down">${usd(a.maxdd, 0)}</td>` +
+      `<td>${a.run}</td><td>${f2(a.cons, v => (v * 100).toFixed(0) + "% of " + a.ndays)}</td><td>${f2(a.stab, v => "±$" + v.toFixed(0) + " a trade")}</td></tr>`; }).join("");
+  // account cards
+  $("accts").innerHTML = A.map(a => { const [st, c] = botStatus(a, fr), r = (l, v, cl = "") => `<div><span>${l}</span><span class="${cl}">${v}</span></div>`;
+    return `<div class="card"><div class="label">${BOTS[a.k]} <span class="pill ${c}">${st}</span></div>
+      <div class="big ${cls(a.total)}">${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</div><div class="alt">equity · ${pct(a.ret)} since start</div>
+      <div class="stats">${r("Started with", money(START, 0, false))}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
+      ${r("Unrealised", a.unknown ? "not valued *" : money(a.unreal || 0), cls(a.unreal))}${r("Total P&L", money(a.total), cls(a.total))}${r("Today", money(a.todayPnl), cls(a.todayPnl))}
+      ${r("Today %", pct(a.todayPct), cls(a.todayPct))}${r("Peak", money(a.peak, 2, false))}${r("Below peak", money(a.dd), cls(a.dd))}${r("Available cash", money(a.cash, 2, false), a.cash < 0 ? "down" : "")}
+      ${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}${r("Fees (in P&L)", money(-a.fees))}</div></div>`; }).join("");
+}
+
 function render() {
   renderControls();
   if (!D) return;
-  const stale = Date.now() / 1000 - (ts(D.updated) + 5 * 3600) > 10 * 60;
-  $("status").textContent = `Updated ${hm(D.updated)} New York time, ${D.updated.slice(0, 10)}` + (stale ? " · not live right now" : " · live");
-  renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
+  const fr = freshness();
+  $("status").innerHTML = `Data updated ${both(D.updated)} (${ago(fr.hb)}) · page checked ${zt(new Date(), "Europe/London", {second: "2-digit"})} UK · ` +
+    (fr.stale ? `<span class="pill ${fr.open ? "bad" : "warn"}">not live${fr.open ? ": STALE" : " (market closed)"}</span>` : `<span class="pill ok">live</span>`);
+  renderMoney(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
 }
 
 async function load() {
@@ -374,7 +553,7 @@ async function load() {
   D = data; render();
 }
 const ok = makeCharts();
-load(); setInterval(load, 60000);
+loadFx().then(load); setInterval(load, 60000); setInterval(loadFx, 3600e3);
 </script>
 </body>
 </html>
