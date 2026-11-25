@@ -104,6 +104,47 @@ def week_history(today: str) -> dict:
     return out
 
 
+_HIST: dict = {}
+
+
+def trade_history(today: str) -> dict:
+    """Every closed trade of each bot on the days before today, from the same saved state files (read once per run).
+    Compact rows: [entry time, exit time, side, entry, exit, pnl USD, exit reason, trigger]. Display and statistics only."""
+    if today in _HIST:
+        return _HIST[today]
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent / "state"
+    folders = [("options", "qqqbot"), ("shares", "sharesbot")]
+    try:
+        import qqqbot
+
+        folders += [(k, v[0]) for k, v in qqqbot.EXTRA_BOTS.items()]
+    except Exception:
+        pass
+    out = {k: [] for k, _ in folders}
+    for key, folder in folders:
+        for f in sorted((root / folder).glob("20??-??-??.json")) if (root / folder).is_dir() else []:
+            if f.stem >= today:
+                continue
+            try:
+                st = json.loads(f.read_text())
+                rows = [st["trade"]] if key == "shares" and st.get("trade") else st.get("trades", [])
+                for t in rows:
+                    if key == "shares":
+                        if t.get("exit") is None:
+                            continue
+                        out[key].append([t.get("t"), t.get("exit_t"), "L" if t.get("side", 1) > 0 else "S", t.get("entry"),
+                                         t.get("exit"), round(float(t.get("pnl_usd") or 0), 2), t.get("why"), "one-a-day"])
+                    else:
+                        out[key].append([t.get("t"), t.get("exit_t"), t.get("type"), t.get("entry"), t.get("exit"),
+                                         round(float(t["pnl"]), 2), t.get("why"), t.get("trigger")])
+            except Exception:
+                pass
+    _HIST[today] = out
+    return out
+
+
 def _ohlcv(df) -> list:
     return [[t.strftime("%Y-%m-%d %H:%M"), round(float(r.open), 2), round(float(r.high), 2), round(float(r.low), 2),
              round(float(r.close), 2), int(r.volume)] for t, r in df.iterrows()]
@@ -124,6 +165,7 @@ def payload(now, bot, shares, original=None, extras=None) -> dict:
         today = now.strftime("%Y-%m-%d")
         out["days"] = week_history(today)  # every past day, for the calendar
         since = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        out["hist"] = trade_history(today)
         out["week"] = {k: {d: v for d, v in days.items() if d >= since} for k, days in out["days"].items()}
     except Exception:
         pass
@@ -136,6 +178,10 @@ def payload(now, bot, shares, original=None, extras=None) -> dict:
     for key, xb in (extras or {}).items():
         out[key] = {"trades": xb.s["trades"], "open": xb.s["open"]}
     out["news"] = news(now)
+    from datetime import datetime, timezone
+
+    out["now_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # heartbeat, unambiguous for the page
+    out["last_bar"] = bars[-1][0] if bars else None
     return json.loads(json.dumps(out, default=float))
 
 
