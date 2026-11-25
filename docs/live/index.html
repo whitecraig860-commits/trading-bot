@@ -78,6 +78,11 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="topbar" id="clocks"></div>
   <div id="banners"></div>
 
+  <h2>Alerts</h2>
+  <div class="toolbar"><div class="tabs" id="alSev"></div><label class="label"><input type="checkbox" id="alAck"> show acknowledged</label>
+    <span class="label">Daily loss alert at</span><input id="alLoss" type="number" style="width:70px"><span class="label">$ · drawdown alert at</span><input id="alDD" type="number" style="width:70px"><span class="label">$</span></div>
+  <div class="card" id="alerts"></div>
+
   <h2>Portfolio (all bots)</h2>
   <div class="toolbar"><span class="label">Bots shown:</span><div class="tabs" id="viewTabs"></div><span class="sep"></span><span class="label">Show first in:</span><div class="tabs" id="curTabs"></div><span class="alt" id="fx"></span></div>
   <div class="kpis" id="port"></div>
@@ -171,6 +176,13 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   </div>
   <div class="card" style="overflow-x:auto;margin-top:10px"><div class="label">Heatmap: each bot's total P&L by weekday, and by week</div><table class="lb" id="anHeat"></table></div>
   <div class="card" style="overflow-x:auto;margin-top:10px"><div class="label">By market conditions at entry (only trades recorded with the shared context, from stage 2 onwards)</div><table class="lb" id="anRegime"></table></div>
+
+  <h2>Daily &amp; weekly reports</h2>
+  <div class="toolbar"><span class="label">Day:</span><select id="rpDay"></select><span class="alt" style="white-space:normal">Built from the recorded trades and the day's data. Market conditions, errors and decisions are only kept for today's session.</span></div>
+  <div class="card" id="rpPort"></div>
+  <div class="card" style="overflow-x:auto;margin-top:10px"><table class="lb" id="rpBots"></table></div>
+  <h3 style="font-size:14px;margin:14px 0 6px">Weekly comparison (last 5 trading days vs the 5 before)</h3>
+  <div class="card" style="overflow-x:auto"><table class="lb" id="rpWeek"></table></div>
 
   <h2>Trade history (search every trade)</h2>
   <div class="toolbar"><select id="thBot"></select><select id="thRes"><option value="">wins and losses</option><option value="win">wins</option><option value="loss">losses</option></select>
@@ -658,7 +670,7 @@ function closedTrades(k) {
   return hist.concat(today);
 }
 // Known data error kept in the stored history (audit/CHANGE_CONTROL.md CC-001): priced on a frozen quote. Flagged, not hidden.
-const badNote = t => t.k === "options" && (t.t || "").startsWith("2026-11-20") && Math.abs(t.pnl - 320.94) < 0.01 ? "⚠ priced on a frozen quote (CC-001): not a real result" : "";
+const badNote = t => (D.flagged || []).some(f => f.bot === t.k && f.t === t.t) ? "⚠ data error: not matched to a fresh recorded price, excluded from totals" : "";
 const sideName = s => ({C: "CALL", P: "PUT", L: "LONG", S: "SHORT"}[s] || s);
 const holdMin = t => t.exit_t && t.t ? Math.round((nyDate(t.exit_t) - nyDate(t.t)) / 60000) : null;
 let eqC, ddC, dayC;
@@ -762,13 +774,117 @@ function renderHistory() {
         `<td class="${cls(t.open ? unr : t.pnl)}">${t.open ? (unr !== null ? usd(unr, 2) + " open" : "open") : usd(t.pnl, 2)}</td><td>${ret !== null ? pct(ret) : "–"}</td><td>${sh ? "$0" : "$0.06"}</td><td>${t.ctx ? t.ctx.trend + (t.ctx.choppy ? " (choppy)" : "") : "–"}</td></tr>`; }).join("");
 }
 
+// ---------- stage 4: alerts and reports
+const ACKK = "acks_" + new Date().toISOString().slice(0, 10);
+function alertsList() {
+  const fr = freshness(), A = visible().map(account), out = [], lossLim = store.get("alLoss", 100), ddLim = store.get("alDD", 200);
+  const add = (id, sev, txt) => out.push({id, sev, txt});
+  if (fr.open && fr.stale) add("stale", "critical", `Data feed stale: last update ${ago(fr.hb)} while the market is open. Bots may have stopped or the job is not running.`);
+  if (!fr.open && fr.stale) add("closed", "info", "Market closed: data is from the last session (not live).");
+  if (D.poll_errors) add("pollerr", "warning", `${D.poll_errors} market-data polls failed in this session (the bots skip a failed poll).`);
+  const c = D.controls || {};
+  if (c.error) add("ctrl", c.read_ago_s == null ? "critical" : "warning", `Pause switch read failed (${c.error})` + (c.read_ago_s == null ? ": bots will not open trades." : ": last known state kept."));
+  if (c.pause_all) add("pauseall", "critical", "EMERGENCY PAUSE is on: no bot opens new trades.");
+  (c.paused || []).forEach(k => add("p_" + k, "info", `${sn(k)} is paused by you.`));
+  if (D.ctx && !D.ctx.ok) add("ctx", "warning", `Shared context unavailable (${D.ctx.why}): the +context twins will not trade.`);
+  if (fxStale()) add("fx", "warning", "£ exchange rate stale or unavailable.");
+  if (fr.open && !(D.news || []).length) add("news", "info", "No news headlines received (news feed may be down).");
+  for (const a of A) {
+    const n = sn(a.k);
+    if (a.todayPnl <= -lossLim) add("loss_" + a.k, "critical", `${n}: down ${usd(a.todayPnl, 0)} today (alert at −$${lossLim}).`);
+    if (a.dd <= -ddLim) add("dd_" + a.k, "warning", `${n}: ${usd(a.dd, 0)} below its peak (alert at −$${ddLim}).`);
+    let r = 0; for (let i = a.todayTrades.length - 1; i >= 0 && a.todayTrades[i].pnl <= 0; i--) r++;
+    if (r >= 2) add("run_" + a.k, "warning", `${n}: ${r} losses in a row today.`);
+    if (a.todayTrades.length > 15) add("freq_" + a.k, "warning", `${n}: ${a.todayTrades.length} trades today (unusually many).`);
+    if (a.exposure > START) add("size_" + a.k, "warning", `${n}: open trade costs $${a.exposure.toFixed(0)}, more than its $1,000 account.`);
+    if (a.cash < 0) add("cash_" + a.k, "info", `${n}: account below what one options contract costs (cash ${usd(a.cash, 0)}); on a real $1,000 account this trade could not be placed.`);
+    if (a.open && a.open.mark_t && fr.open && (Date.now() - nyDate(a.open.mark_t)) / 60000 > 5) add("mark_" + a.k, "warning", `${n}: no fresh price for its open option for over 5 minutes.`);
+  }
+  if ((D.flagged || []).length) add("flag", "info", `${D.flagged.length} stored trades were priced on frozen quotes (19–20 Nov, before the fix) and are excluded from every total. Details below.`);
+  add("econ", "info", "Economic calendar alerts unavailable: no free data source with event times, forecasts and actual figures is connected.");
+  return out;
+}
+function renderAlerts() {
+  const acks = store.get(ACKK, []), sev = store.get("alSevF", "all"), showAck = store.get("alShowAck", false);
+  $("alLoss").value = store.get("alLoss", 100); $("alDD").value = store.get("alDD", 200); $("alAck").checked = showAck;
+  $("alLoss").onchange = e => { store.set("alLoss", Math.abs(+e.target.value) || 100); render(); };
+  $("alDD").onchange = e => { store.set("alDD", Math.abs(+e.target.value) || 200); render(); };
+  $("alAck").onchange = e => { store.set("alShowAck", e.target.checked); renderAlerts(); };
+  const L = alertsList(), cnt = s => L.filter(a => (s === "all" || a.sev === s) && !acks.includes(a.id)).length;
+  $("alSev").innerHTML = ["all", "critical", "warning", "info"].map(s => `<button class="chip ${sev === s ? "on" : ""}" data-sev="${s}">${s} (${cnt(s)})</button>`).join("");
+  document.querySelectorAll("[data-sev]").forEach(b => b.onclick = () => { store.set("alSevF", b.dataset.sev); renderAlerts(); });
+  const show = L.filter(a => (sev === "all" || a.sev === sev) && (showAck || !acks.includes(a.id))).sort((a, b) => ["critical", "warning", "info"].indexOf(a.sev) - ["critical", "warning", "info"].indexOf(b.sev));
+  const pc = {critical: "bad", warning: "warn", info: ""};
+  $("alerts").innerHTML = (show.length ? show.map(a => `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px dashed var(--line);${acks.includes(a.id) ? "opacity:.5" : ""}">
+      <span class="pill ${pc[a.sev]}">${a.sev}</span><span style="flex:1">${a.txt}</span>${acks.includes(a.id) ? `<span class="alt">acknowledged</span>` : `<button class="chip" data-ack="${a.id}">Acknowledge</button>`}</div>`).join("")
+    : `<div class="sub">No alerts${acks.length ? " (some acknowledged)" : ""}.</div>`) +
+    ((D.flagged || []).length ? `<details><summary>Trades excluded as data errors (${D.flagged.length})</summary><table class="lb" style="margin-top:6px"><tr><th>Bot</th><th>Entry</th><th>P&L it showed</th><th style="text-align:left">Why excluded</th></tr>` +
+      D.flagged.map(f => `<tr><td>${sn(f.bot)}</td><td>${f.t}</td><td>${usd(f.pnl, 2)}</td><td style="text-align:left;white-space:normal">${f.problems.join("; ")}</td></tr>`).join("") + `</table><div class="sub">Checked every day after the close by research/fake_trade_scan.py against the prices we recorded (audit/flagged_trades.md). Acknowledgements are kept in this browser for today only.</div></details>` : "");
+  document.querySelectorAll("[data-ack]").forEach(b => b.onclick = () => { store.set(ACKK, [...store.get(ACKK, []), b.dataset.ack]); renderAlerts(); });
+}
+
+function dayReport(k, day) {
+  const T = closedTrades(k).filter(t => t.exit_t && t.exit_t.slice(0, 10) === day).sort((a, b) => a.exit_t < b.exit_t ? -1 : 1);
+  const before = closedTrades(k).filter(t => t.exit_t && t.exit_t.slice(0, 10) < day).reduce((x, t) => x + t.pnl, 0);
+  const sm = a => a.reduce((x, t) => x + t.pnl, 0), w = T.filter(t => t.pnl > 0), l = T.filter(t => t.pnl <= 0);
+  let e = 0, pk = 0, dd = 0, run = 0, mr = 0; for (const t of T) { e += t.pnl; pk = Math.max(pk, e); dd = Math.min(dd, e - pk); run = t.pnl <= 0 ? run + 1 : 0; mr = Math.max(mr, run); }
+  const startB = START + before, pnl = sm(T);
+  const trig = {}; T.forEach(t => trig[t.trigger] = (trig[t.trigger] || 0) + 1);
+  return {k, n: T.length, startB, endB: startB + pnl, pnl, ret: pnl / startB * 100, w: w.length, l: l.length, wr: T.length ? w.length / T.length : null,
+    aw: w.length ? sm(w) / w.length : null, al: l.length ? sm(l) / l.length : null, pf: sm(l) ? sm(w) / -sm(l) : (w.length ? Infinity : null), dd, mr,
+    best: T.reduce((a, t) => !a || t.pnl > a.pnl ? t : a, null), worst: T.reduce((a, t) => !a || t.pnl < a.pnl ? t : a, null), trig,
+    stopped: mr >= 2 && T.length && T[T.length - 1].pnl <= 0};
+}
+function renderReports() {
+  const keys = visible(), days = [...new Set(keys.flatMap(k => closedTrades(k).filter(t => t.exit_t).map(t => t.exit_t.slice(0, 10))))].sort().reverse();
+  let day = store.get("rpDay", days[0]); if (!days.includes(day)) day = days[0];
+  $("rpDay").innerHTML = days.map(d => `<option ${d === day ? "selected" : ""}>${d}</option>`).join("");
+  $("rpDay").onchange = e => { store.set("rpDay", e.target.value); renderReports(); };
+  if (!day) { $("rpPort").innerHTML = `<div class="sub">No trading days recorded yet.</div>`; return; }
+  const R = keys.map(k => dayReport(k, day)), act = R.filter(r => r.n), tot = R.reduce((a, r) => a + r.pnl, 0), n = R.reduce((a, r) => a + r.n, 0);
+  const wins = R.reduce((a, r) => a + r.w, 0), sb = R.reduce((a, r) => a + r.startB, 0), isToday = D.updated && day === D.updated.slice(0, 10);
+  const ranked = act.slice().sort((a, b) => b.pnl - a.pnl), good = ranked.filter(r => r.pnl > 0), bad = ranked.filter(r => r.pnl < 0).reverse();
+  const allT = act.flatMap(r => closedTrades(r.k).filter(t => t.exit_t && t.exit_t.slice(0, 10) === day));
+  const best = allT.reduce((a, t) => !a || t.pnl > a.pnl ? t : a, null), worst = allT.reduce((a, t) => !a || t.pnl < a.pnl ? t : a, null);
+  const cx = isToday && D.ctx && D.ctx.ok ? `QQQ ${D.ctx.price}, trend ${D.ctx.trend}${D.ctx.choppy ? " (choppy)" : ""}, volatility ${D.ctx.volatility}, RSI ${D.ctx.rsi} (latest shared context).` : "Not kept for past days.";
+  const monitor = [...R.filter(r => r.mr >= 3).map(r => `${sn(r.k)} had ${r.mr} losses in a row`), ...R.filter(r => r.pnl <= -100).map(r => `${sn(r.k)} lost ${usd(r.pnl, 0)}`), ...R.filter(r => r.n > 15).map(r => `${sn(r.k)} traded ${r.n} times`)];
+  $("rpPort").innerHTML = `<div class="label">Portfolio report · ${new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC"})}</div>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+      <div><span>Start balance (all shown bots)</span><span>${money(sb, 2, false)}</span></div><div><span>End balance</span><span>${money(sb + tot, 2, false)}</span></div>
+      <div><span>Day P&L</span><span class="${cls(tot)}">${money(tot)}</span></div><div><span>Day return</span><span class="${cls(tot)}">${pct(tot / sb * 100)}</span></div>
+      <div><span>Trades</span><span>${n} (${wins} won, ${n - wins} lost)</span></div><div><span>Win rate</span><span>${n ? (wins / n * 100).toFixed(0) + "%" : "–"}</span></div>
+      <div><span>Best trade</span><span class="up">${best ? usd(best.pnl, 2) + " · " + sn(best.k) : "–"}</span></div><div><span>Worst trade</span><span class="down">${worst ? usd(worst.pnl, 2) + " · " + sn(worst.k) : "–"}</span></div>
+      ${isToday ? `<div><span>Data errors this session</span><span>${D.poll_errors || 0} failed polls</span></div><div><span>Bot health</span><span>${freshness().stale && freshness().open ? "STALE" : "updating"}</span></div>` : ""}</div>
+    <div class="sub" style="margin-top:8px"><b>Market:</b> ${cx}</div>
+    <div class="sub"><b>Important news:</b> ${isToday && (D.news || []).length ? D.news.slice(0, 3).map(x => x.h).join(" · ") + " (headlines only)" : "not kept for past days"}</div>
+    <div class="sub"><b>Went well:</b> ${good.length ? good.slice(0, 3).map(r => `${sn(r.k)} ${usd(r.pnl, 0)}`).join(", ") : "no bot made money"}.</div>
+    <div class="sub"><b>Went badly:</b> ${bad.length ? bad.slice(0, 3).map(r => `${sn(r.k)} ${usd(r.pnl, 0)}`).join(", ") : "no bot lost money"}.</div>
+    <div class="sub"><b>Worth monitoring:</b> ${monitor.length ? monitor.join("; ") : "nothing unusual"}.</div>
+    <div class="sub"><b>${R.length - act.length}</b> bot(s) made no trades this day.</div>`;
+  const f2 = (v, fn) => v === null || v === undefined ? "–" : fn(v);
+  $("rpBots").innerHTML = `<tr><th>Bot</th><th>Start</th><th>End</th><th>Day P&L</th><th>Return</th><th>Trades</th><th>W / L</th><th>Win rate</th><th>Avg win</th><th>Avg loss</th><th>Profit factor</th><th>Drawdown in day</th><th>Best</th><th>Worst</th><th>Losses in a row</th><th style="text-align:left">What it did</th></tr>` +
+    R.sort((a, b) => b.pnl - a.pnl).map(r => `<tr><td>${sn(r.k)}</td><td>${usd(r.startB, 0).replace("+", "")}</td><td>${usd(r.endB, 0).replace("+", "")}</td><td class="${cls(r.pnl)}">${usd(r.pnl, 2)}</td><td class="${cls(r.ret)}">${pct(r.ret)}</td>` +
+      `<td>${r.n}</td><td>${r.w} / ${r.l}</td><td>${f2(r.wr, v => (v * 100).toFixed(0) + "%")}</td><td class="up">${f2(r.aw, v => usd(v, 1))}</td><td class="down">${f2(r.al, v => usd(v, 1))}</td><td>${f2(r.pf, v => v === Infinity ? "∞" : v.toFixed(2))}</td>` +
+      `<td class="down">${usd(r.dd, 0)}</td><td>${r.best ? usd(r.best.pnl, 0) : "–"}</td><td>${r.worst ? usd(r.worst.pnl, 0) : "–"}</td><td>${r.mr}</td>` +
+      `<td style="text-align:left;white-space:normal;min-width:220px">${r.n ? `${r.n} trade${r.n > 1 ? "s" : ""} (${Object.entries(r.trig).map(([t, c]) => `${c} ${t}`).join(", ")})${r.stopped ? "; ended the day on a losing run" : ""}` : "no trades"}</td></tr>`).join("");
+  // weekly comparison
+  const allDays = [...new Set(keys.flatMap(k => closedTrades(k).filter(t => t.exit_t).map(t => t.exit_t.slice(0, 10))))].sort(), last5 = allDays.slice(-5), prev5 = allDays.slice(-10, -5);
+  const sumIn = (k, ds) => closedTrades(k).filter(t => t.exit_t && ds.includes(t.exit_t.slice(0, 10))), sm2 = a => a.reduce((x, t) => x + t.pnl, 0);
+  $("rpWeek").innerHTML = `<tr><th>Bot</th><th>Last 5 days</th><th>Trades</th><th>5 days before</th><th>Trades</th><th>Change</th><th style="text-align:left">Verdict</th></tr>` + keys.map(k => {
+    const a = sumIn(k, last5), b = sumIn(k, prev5), x = sm2(a), y = sm2(b);
+    const v = !a.length && !b.length ? ["no trades", ""] : !b.length ? ["not running the week before: nothing to compare", ""] : a.length + b.length < 10 ? ["too few trades to judge", "warn"]
+      : x < 0 && y < 0 ? ["losing both weeks: investigate", "bad"] : x < y - 50 ? ["deteriorating", "warn"] : x > 0 && x >= y ? ["performing well", "ok"] : ["mixed", ""];
+    return `<tr><td>${sn(k)}</td><td class="${cls(x)}">${usd(x, 0)}</td><td>${a.length}</td><td class="${cls(y)}">${prev5.length ? usd(y, 0) : "–"}</td><td>${b.length}</td><td class="${cls(x - y)}">${prev5.length ? usd(x - y, 0) : "–"}</td><td style="text-align:left"><span class="pill ${v[1]}">${v[0]}</span></td></tr>`; }).join("") +
+    `<tr><td colspan="7" class="alt" style="text-align:left;white-space:normal">Days: ${last5.join(", ") || "–"} vs ${prev5.join(", ") || "–"}. Under 10 trades across both weeks is too few to call anything. A good or bad week is still mostly luck at these sample sizes.</td></tr>`;
+}
+
 function render() {
   renderControls();
   if (!D) return;
   const fr = freshness();
   $("status").innerHTML = `Data updated ${both(D.updated)} (${ago(fr.hb)}) · page checked ${zt(new Date(), "Europe/London", {second: "2-digit"})} UK · ` +
     (fr.stale ? `<span class="pill ${fr.open ? "bad" : "warn"}">not live${fr.open ? ": STALE" : " (market closed)"}</span>` : `<span class="pill ok">live</span>`);
-  renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades(); hookClick(); renderAnalytics(); renderHistory();
+  renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades(); hookClick(); renderAnalytics(); renderHistory(); renderAlerts(); renderReports();
 }
 
 async function load() {
