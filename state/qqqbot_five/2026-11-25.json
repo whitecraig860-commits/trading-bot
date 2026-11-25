@@ -3311,6 +3311,422 @@
     "volatility": "Normal",
     "rsi": 59.1
    }
+  },
+  {
+   "t": "2026-11-25 15:54:29",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 632.97,
+    "vwap": 619.5,
+    "ema9": 632.53,
+    "ema20": 631.9,
+    "ema50": 631.77,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 60.4
+   }
+  },
+  {
+   "t": "2026-11-25 15:55:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 632.81,
+    "vwap": 619.61,
+    "ema9": 632.59,
+    "ema20": 631.99,
+    "ema50": 631.81,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 58.8
+   }
+  },
+  {
+   "t": "2026-11-25 15:56:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 634.0,
+    "vwap": 619.69,
+    "ema9": 632.87,
+    "ema20": 632.18,
+    "ema50": 631.9,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 66.1
+   }
+  },
+  {
+   "t": "2026-11-25 15:57:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 634.5,
+    "vwap": 619.75,
+    "ema9": 633.2,
+    "ema20": 632.4,
+    "ema50": 632.0,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 68.7
+   }
+  },
+  {
+   "t": "2026-11-25 15:58:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 634.33,
+    "vwap": 619.84,
+    "ema9": 633.42,
+    "ema20": 632.58,
+    "ema50": 632.09,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 66.8
+   }
+  },
+  {
+   "t": "2026-11-25 15:59:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 634.29,
+    "vwap": 619.94,
+    "ema9": 633.6,
+    "ema20": 632.75,
+    "ema50": 632.18,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 66.4
+   }
+  },
+  {
+   "t": "2026-11-25 16:00:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:01:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:02:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:03:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:04:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:05:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:06:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:07:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:08:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:09:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:10:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:11:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:12:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:13:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:14:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:15:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:16:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:17:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:18:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
+  },
+  {
+   "t": "2026-11-25 16:19:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 633.92,
+    "vwap": 620.21,
+    "ema9": 633.66,
+    "ema20": 632.86,
+    "ema50": 632.25,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.2
+   }
   }
  ]
 }
