@@ -38,6 +38,8 @@ jobs:
         run: |
           git config user.name "setup-scanner-bot"
           git config user.email "setup-scanner-bot@users.noreply.github.com"
+          python research/fake_trade_scan.py || echo "fake-trade check failed (totals keep the last list)"
+          git add audit/flagged_trades.json audit/flagged_trades.md || true
           git add state/quotes state/qqqbot state/qqqbot_original state/sharesbot
           if [ -d state/sharesbot_ctx ]; then git add state/sharesbot_ctx; fi
           for d in state/qqqbot_*; do if [ -d "$d" ]; then git add "$d"; fi; done
