@@ -141,3 +141,25 @@ Template:
   - "Stop after 2" goes from −$200.12 to −$53.06 on 19 Nov, and from +$178.52 to −$142.42 on 20 Nov;
   - net effect on that bot −$173.88.
 - **Decision.** Owner request in chat on 26 Nov 2026; the owner merges the pull request.
+
+## CC-009: 25 Nov frozen run, watchdog heartbeat, recovered trades, live page corrections, 26 Nov 2026
+- **Problem.**
+  - The 25 Nov recorder run's machine stopped at 12:32 NY, but GitHub kept showing it as "running" for a day.
+  - So the watchdog never restarted it, and the run's save step never ran: no state files and no quotes for 25 Nov.
+  - The page showed a stale £ rate, and some labels were wrong.
+- **Change.**
+  - **Run cancelled** (it was dead).
+  - **Watchdog:** it now also checks the live page heartbeat between 10:00 and 16:00 NY. If there is no update for
+    20+ minutes on a run older than 25 minutes, it cancels the run, restarts it and sends a Telegram message.
+  - **25 Nov trades** rebuilt from live.json, the bots' own records up to 12:32. Every rebuilt file is marked
+  - **Fake-trade scan:** days without saved quotes are listed as "unverified", not flagged.
+  - **£ rate** is fetched by the recorder (Frankfurter/ECB, falling back to open.er-api) and published; the browser
+    tries the same sources if needed.
+  - **Page corrections:**
+    - the shares bots start at £1,000 (≈$1,316), not $1,000;
+    - the Trend card uses the bots' own shared context when available;
+    - the Errors column shows failed polls;
+    - US holidays and 13:00 early closes are in the clock;
+    - "Losing over $50" names the session date when the market is closed;
+    - the bottom note no longer says every options bot uses +2.5% / −6% / 10 min.
+- **Decision.** The owner asked for missing or wrong information to be fixed (26 Nov 2026); the owner merges.

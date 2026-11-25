@@ -65,6 +65,34 @@ class Publisher:
             self.busy = False
 
 
+_FX: dict = {"t": 0.0, "v": None}
+
+
+def fx() -> dict | None:
+    """USD->GBP from free public sources (ECB reference rate via Frankfurter; fallback open.er-api.com), at most hourly.
+    Fetched here because the page's own browser request can be blocked. Returns the last good value if all fail."""
+    import time
+
+    if time.time() - _FX["t"] < 3600 and _FX["v"]:
+        return _FX["v"]
+    _FX["t"] = time.time()
+    import requests
+
+    srcs = [("https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP", lambda j: (j["rates"]["GBP"], j["date"]), "ECB via frankfurter.dev"),
+            ("https://api.frankfurter.app/latest?from=USD&to=GBP", lambda j: (j["rates"]["GBP"], j["date"]), "ECB via frankfurter.app"),
+            ("https://open.er-api.com/v6/latest/USD", lambda j: (j["rates"]["GBP"], j["time_last_update_utc"][5:16]), "open.er-api.com")]
+    for url, get, name in srcs:
+        try:
+            r = requests.get(url, timeout=8)
+            r.raise_for_status()
+            rate, date = get(r.json())
+            _FX["v"] = {"rate": float(rate), "date": str(date), "source": name}
+            return _FX["v"]
+        except Exception as exc:
+            print(f"FX {name}: {type(exc).__name__}")
+    return _FX["v"]
+
+
 _WEEK: dict = {}
 
 
@@ -206,6 +234,7 @@ def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, contr
     out["decisions"] = dec
     out["controls"] = controls.status() if controls is not None else {"error": "pause switch not running"}
     out["poll_errors"] = poll_errors
+    out["fx"] = fx()
     try:
         from pathlib import Path
 

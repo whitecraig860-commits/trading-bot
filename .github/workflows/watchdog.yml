@@ -20,15 +20,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Is the option price recorder running during US market hours? If not, start it
+      - name: Is the option price recorder running during US market hours? If not (or frozen), start it
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           hm=$((10#$(TZ=America/New_York date +%H%M))); day=$(TZ=America/New_York date +%u)
           if [ "$day" -gt 5 ] || [ "$hm" -lt 905 ] || [ "$hm" -ge 1610 ]; then echo "Outside recording hours."; exit 0; fi
           n=$(gh run list -R "$REPO" --workflow recorder.yml --limit 10 --json status --jq '[.[] | select(.status!="completed")] | length') || { echo "Couldn't ask GitHub."; exit 0; }
-          if [ "$n" -gt 0 ]; then echo "The recorder is running."; exit 0; fi
+          if [ "$n" -gt 0 ]; then
+            # "Running" is not enough: on 25 Nov 2026 a run's machine vanished at 12:32 and GitHub kept showing it as running
+            # for a day, so nothing was restarted. Check the live page's heartbeat too (written every 2 minutes).
+            if [ "$hm" -lt 1000 ] || [ "$hm" -ge 1600 ]; then echo "The recorder is running."; exit 0; fi
+            upd=$(gh api "repos/$REPO/contents/live.json?ref=live-data" -H "Accept: application/vnd.github.raw+json" --jq '.updated' 2>/dev/null || true)
+            if [ -z "$upd" ]; then echo "The recorder is running (heartbeat not readable)."; exit 0; fi
+            age=$(( ( $(date -u +%s) - $(TZ=America/New_York date -d "$upd" +%s) ) / 60 ))
+            if [ "$age" -lt 20 ]; then echo "The recorder is running (heartbeat $age min old)."; exit 0; fi
+            stuck=$(gh run list -R "$REPO" --workflow recorder.yml --limit 10 --json databaseId,status,createdAt --jq '[.[] | select(.status!="completed") | select((now - (.createdAt|fromdateiso8601)) > 1500) | .databaseId] | .[]') || stuck=""
+            if [ -z "$stuck" ]; then echo "Heartbeat $age min old but the run is new; waiting."; exit 0; fi
+            for id in $stuck; do gh run cancel "$id" -R "$REPO" || true; done
+            sleep 20
+            gh workflow run recorder.yml -R "$REPO" --ref main && msg="restarted it" || msg="could NOT restart it (trying again in 10 minutes)"
+            if [ -n "${TELEGRAM_TOKEN:-}" ]; then curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" -d chat_id="$TELEGRAM_CHAT_ID" --data-urlencode text="⚙️ Watchdog: the paper bots stopped updating ($age min without a heartbeat) although GitHub showed them running. I cancelled the frozen run and $msg. Trades since the last save may be missing." || true; fi
+            exit 0
+          fi
           gh workflow run recorder.yml -R "$REPO" --ref main && echo "Started the recorder." || echo "Could not start the recorder; trying again in 10 minutes."
       - name: Is the market pulse running? If not, restart it and say so
         env:

@@ -110,7 +110,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="lb" id="dlog"></table>
     <div class="sub" style="margin-top:6px">Written by the bots at the moment of each decision from the inputs they actually used (no explanations added afterwards). The page shows each bot's last 60 records; the full log is saved in the repo every day. Indicator columns are the shared context (same numbers as "What the bots see").</div></div>
 
-  <h2>Bot accounts (each started with $1,000)</h2>
+  <h2>Bot accounts (options bots started with $1,000; shares bots with £1,000)</h2>
   <div class="grid g3" id="accts"></div>
 
   <h2>Market conditions</h2>
@@ -190,7 +190,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto;max-height:520px;overflow-y:auto"><table class="lb" id="thTable"></table>
     <div class="sub" style="margin-top:6px">Times in New York and UK time. Past days' trades are stored without their stop/target and conditions, so those show "–". Options P&L includes $0.06 fees a trade; shares have no fee modelled.</div></div>
 
-  <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid; target +2.5% and stop −6% of the option price, 10-minute limit. Shares bot: a £1,000 pretend account. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open; times are New York time.</div>
+  <div class="note">Paper only: no real money and no orders. Options bots: 1 contract a trade, bought at the real ask and sold at the real bid (only on quotes stamped in the last 60 seconds); exits differ by bot (the main bot: target +2.5%, stop −6%, 10 minutes; see each bot's name and the trade cards for its own stop and target). Shares bots: a £1,000 pretend account each. The chart is QQQ itself (1-minute candles); trade prices on the cards are option prices. Updates every 2 minutes while the US market is open. Times are labelled New York (NY) or UK. Trades that could not be matched to a fresh recorded price are left out of all totals (see Alerts).</div>
 </main>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
@@ -304,7 +304,8 @@ function renderConditions(bars, closes, vw, e9, e20, e50, rs) {
   const last = closes[n], open = bars[0][1], hi = Math.max(...bars.map(b => b[2])), lo = Math.min(...bars.map(b => b[3]));
   const prevClose = D.prev && D.prev.length ? D.prev[D.prev.length - 1][4] : null;
   const slope = e20[n] - e20[Math.max(0, n - 10)];
-  const trend = e9[n] > e20[n] && e20[n] > e50[n] && slope > 0 ? ["Bullish", "up"] : e9[n] < e20[n] && e20[n] < e50[n] && slope < 0 ? ["Bearish", "down"] : ["Sideways", "muted"];
+  let trend = e9[n] > e20[n] && e20[n] > e50[n] && slope > 0 ? ["Bullish", "up"] : e9[n] < e20[n] && e20[n] < e50[n] && slope < 0 ? ["Bearish", "down"] : ["Sideways", "muted"];
+  if (D.ctx && D.ctx.ok) trend = [D.ctx.trend, D.ctx.trend === "Bullish" ? "up" : D.ctx.trend === "Bearish" ? "down" : "muted"];  // the bots' own figure
   const crosses = (() => { let c = 0; for (let i = Math.max(1, n - 30); i <= n; i++) if ((closes[i] - e20[i]) * (closes[i - 1] - e20[i - 1]) < 0) c++; return c; })();
   const tr = bars.slice(-15).map((b, i, a) => i ? Math.max(b[2] - b[3], Math.abs(b[2] - a[i - 1][4]), Math.abs(b[3] - a[i - 1][4])) : b[2] - b[3]);
   const atr = tr.slice(1).reduce((a, b) => a + b, 0) / 14, atrDay = bars.map(b => b[2] - b[3]).reduce((a, b) => a + b, 0) / bars.length;
@@ -453,14 +454,21 @@ function renderControls() {
 }
 
 // ---------- stage 1: money, leaderboard, health, clocks
-const START = 1000, FEE_OPT = 0.06;
+const START = 1000, FEE_OPT = 0.06, SHARES_START = 1000 / 0.76;  // the shares bots size every trade from £1,000 (sharesbot.py)
+const startOf = k => k.startsWith("shares") ? SHARES_START : START;
 let cur = store.get("cur", "GBP"), FX = store.get("fx", null), fxErr = false;
 async function loadFx() {
-  try { const r = await fetch("https://api.frankfurter.app/latest?from=USD&to=GBP"); if (!r.ok) throw 0;
-    const j = await r.json(); FX = {rate: j.rates.GBP, date: j.date, got: new Date().toISOString()}; fxErr = false; store.set("fx", FX);
-  } catch (e) { fxErr = true; }
+  if (D && D.fx && D.fx.rate) { FX = {rate: D.fx.rate, date: D.fx.date, src: D.fx.source}; fxErr = false; store.set("fx", FX); return; }
+  const srcs = [["https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP", j => [j.rates.GBP, j.date], "ECB via frankfurter.dev"],
+    ["https://api.frankfurter.app/latest?from=USD&to=GBP", j => [j.rates.GBP, j.date], "ECB via frankfurter.app"],
+    ["https://open.er-api.com/v6/latest/USD", j => [j.rates.GBP, new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10)], "open.er-api.com"]];
+  for (const [u, get, name] of srcs) {
+    try { const r = await fetch(u); if (!r.ok) throw 0; const [rate, date] = get(await r.json()); if (!rate) throw 0;
+      FX = {rate, date, src: name, got: new Date().toISOString()}; fxErr = false; store.set("fx", FX); return; } catch (e) {}
+  }
+  fxErr = true;
 }
-const fxStale = () => !FX || fxErr || (Date.now() - Date.parse(FX.date + "T16:00:00Z")) > 4 * 86400e3;
+const fxStale = () => { if (!FX) return true; const d = Date.parse(FX.date.length > 10 ? FX.date + " UTC" : FX.date + "T16:00:00Z"); return (fxErr && !D?.fx) || isNaN(d) || Date.now() - d > 4 * 86400e3; };
 function money(v, dp = 2, sign = true) {
   if (v === null || v === undefined || isNaN(v)) return "–";
   const f = (x, sym) => (sign ? (x >= 0 ? "+" : "−") : (x < 0 ? "−" : "")) + sym + Math.abs(x).toLocaleString("en-GB", {minimumFractionDigits: dp, maximumFractionDigits: dp});
@@ -476,10 +484,17 @@ function nyDate(s) { if (!s) return null; const guess = Date.UTC(+s.slice(0, 4),
   const back = Date.parse(p + " UTC"); return new Date(guess + (guess - back)); }
 const both = s => { const d = nyDate(s); return d ? `${zt(d, "America/New_York")} NY · ${zt(d, "Europe/London")} UK` : "–"; };
 const ago = d => { if (!d) return "never"; const m = Math.round((Date.now() - d) / 60000); return m < 1 ? "just now" : m < 120 ? m + " min ago" : Math.round(m / 60) + " h ago"; };
+// NYSE full-day holidays and 13:00 early closes (published exchange calendar). Update each year.
+const HOLIDAYS = ["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+  "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24"];
+const EARLY = ["2026-11-27", "2026-12-24", "2027-11-26"];
 function session(now = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23"}).formatToParts(now).map(x => [x.type, x.value]));
-  const mins = +p.hour * 60 + +p.minute, wk = !["Sat", "Sun"].includes(p.weekday);
-  if (wk && mins >= 570 && mins < 960) return {open: true, txt: `Market open · closes in ${Math.floor((960 - mins) / 60)}h ${(960 - mins) % 60}m`};
+  const day = now.toLocaleDateString("en-CA", {timeZone: "America/New_York"}), close = EARLY.includes(day) ? 780 : 960;
+  const mins = +p.hour * 60 + +p.minute, wk = !["Sat", "Sun"].includes(p.weekday) && !HOLIDAYS.includes(day);
+  if (!wk && HOLIDAYS.includes(day)) return {open: false, txt: "US market holiday today: closed"};
+  if (wk && mins >= 570 && mins < close) return {open: true, txt: `Market open · closes in ${Math.floor((close - mins) / 60)}h ${(close - mins) % 60}m${close < 960 ? " (early close 13:00 NY)" : ""}`};
+  if (false && wk && mins >= 570 && mins < 960) return {open: true, txt: `Market open · closes in ${Math.floor((960 - mins) / 60)}h ${(960 - mins) % 60}m`};
   if (wk && mins < 570) return {open: false, txt: `Market closed · opens in ${Math.floor((570 - mins) / 60)}h ${(570 - mins) % 60}m`};
   return {open: false, txt: "Market closed · opens next weekday 09:30 NY"};
 }
@@ -487,7 +502,7 @@ function renderClocks() {
   const n = new Date(), s = session(n);
   $("clocks").innerHTML = `<span>New York <b>${zt(n, "America/New_York", {weekday: "short", day: "numeric", month: "short", second: "2-digit"})}</b></span>` +
     `<span>UK <b>${zt(n, "Europe/London", {weekday: "short", day: "numeric", month: "short", second: "2-digit"})}</b></span>` +
-    `<span class="pill ${s.open ? "ok" : "warn"}">${s.txt}</span><span class="alt">holidays and early closes are not shown here</span>`;
+    `<span class="pill ${s.open ? "ok" : "warn"}">${s.txt}</span><span class="alt">US holidays and early closes included</span>`;
 }
 setInterval(renderClocks, 1000); renderClocks();
 
@@ -501,7 +516,7 @@ function account(k) {
   const today = tradesFor(k), closedToday = today.filter(t => !t.open && t.pnl != null), open = today.find(t => t.open);
   const hist = ((D.hist || {})[k] || []).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
   const closed = hist.concat(closedToday.map(t => ({t: t.t, exit_t: t.exit_t, pnl: t.pnl})));
-  const realised = closed.reduce((a, t) => a + t.pnl, 0), balance = START + realised;
+  const S0 = startOf(k), realised = closed.reduce((a, t) => a + t.pnl, 0), balance = S0 + realised;
   const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
   let unreal = null, exposure = 0, risk = 0, unknown = false;
   if (open) {
@@ -511,7 +526,7 @@ function account(k) {
       if (open.mark) unreal = (open.mark - open.entry) * 100 - FEE_OPT; else unknown = true; }
   }
   const equity = balance + (unreal || 0);
-  let eq = START, peak = START, maxdd = 0; for (const t of closed) { eq += t.pnl; peak = Math.max(peak, eq); maxdd = Math.min(maxdd, eq - peak); }
+  let eq = S0, peak = S0, maxdd = 0; for (const t of closed) { eq += t.pnl; peak = Math.max(peak, eq); maxdd = Math.min(maxdd, eq - peak); }
   peak = Math.max(peak, equity);
   const w = closed.filter(t => t.pnl > 0), l = closed.filter(t => t.pnl <= 0), sw = w.reduce((a, t) => a + t.pnl, 0), sl = l.reduce((a, t) => a + t.pnl, 0);
   let run = 0; for (let i = closed.length - 1; i >= 0 && closed[i].pnl <= 0; i--) run++;
@@ -519,12 +534,12 @@ function account(k) {
   const todayPnl = closedToday.reduce((a, t) => a + t.pnl, 0) + (unreal || 0);
   const mean = closed.length ? realised / closed.length : null;
   const sd = closed.length > 1 ? Math.sqrt(closed.reduce((a, t) => a + (t.pnl - mean) ** 2, 0) / (closed.length - 1)) : null;
-  return {k, balance, equity, realised, unreal, unknown, total: equity - START, todayPnl, todayPct: todayPnl / (equity - todayPnl) * 100,
-    ret: (equity - START) / START * 100, peak, dd: equity - peak, maxdd, cash: balance - exposure, exposure, risk: Math.max(risk, 0), open,
+  return {k, S0, balance, equity, realised, unreal, unknown, total: equity - S0, todayPnl, todayPct: todayPnl / (equity - todayPnl) * 100,
+    ret: (equity - S0) / S0 * 100, peak, dd: equity - peak, maxdd, cash: balance - exposure, exposure, risk: Math.max(risk, 0), open,
     n: closed.length, fees: k.startsWith("shares") ? 0 : (closed.length + (open ? 0.5 : 0)) * FEE_OPT, wr: closed.length ? w.length / closed.length : null,
     aw: w.length ? sw / w.length : null, al: l.length ? sl / l.length : null, pf: sl ? sw / -sl : (w.length ? Infinity : null), avg: mean,
     rr: w.length && l.length ? (sw / w.length) / -(sl / l.length) : null, run, cons: dv.length ? dv.filter(v => v > 0).length / dv.length : null,
-    stab: sd && mean !== null ? sd : null, radj: maxdd ? (equity - START) / -maxdd : null, small: closed.length < 30, todayTrades: closedToday,
+    stab: sd && mean !== null ? sd : null, radj: maxdd ? (equity - S0) / -maxdd : null, small: closed.length < 30, todayTrades: closedToday,
     lastTrade: closed.length ? closed[closed.length - 1].exit_t : null, ndays: dv.length};
 }
 
@@ -542,17 +557,17 @@ function renderMoney() {
   $("viewTabs").innerHTML = [["orig", "Original bots"], ["twin", "+context twins"], ["both", "Both, side by side"]].map(([v, n]) => `<button class="chip ${view === v ? "on" : ""}" data-view="${v}">${n}</button>`).join("");
   document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; store.set("view", view); render(); });
   const sum = f => A.reduce((x, a) => x + (a[f] || 0), 0);
-  const init = START * A.length, eq = sum("equity"), todayP = sum("todayPnl");
+  const init = A.reduce((x, a) => x + a.S0, 0), eq = sum("equity"), todayP = sum("todayPnl");
   // portfolio peak and drawdown from end-of-day totals across all bots
   const allDays = {}; for (const k of visible()) for (const [d, v] of Object.entries(dayTotals(k))) allDays[d] = (allDays[d] || 0) + v;
   let pe = init, pk = init, pdd = 0; for (const d of Object.keys(allDays).sort()) { pe += allDays[d]; pk = Math.max(pk, pe); pdd = Math.min(pdd, pe - pk); }
   const unk = A.some(a => a.unknown);
   $("curTabs").innerHTML = ["GBP", "USD"].map(c => `<button class="chip ${cur === c ? "on" : ""}" data-cur="${c}">${c === "GBP" ? "£ GBP" : "$ USD"}</button>`).join("");
   document.querySelectorAll("[data-cur]").forEach(b => b.onclick = () => { cur = b.dataset.cur; store.set("cur", cur); render(); });
-  $("fx").innerHTML = FX ? `$1 = £${FX.rate.toFixed(4)} · ECB rate for ${FX.date} (frankfurter.app)` + (fxStale() ? ` <span class="pill bad">STALE: last good rate kept</span>` : "") : `<span class="pill bad">£ rate unavailable: £ values not shown</span>`;
+  $("fx").innerHTML = FX ? `$1 = £${FX.rate.toFixed(4)} · rate for ${FX.date} (${FX.src || "frankfurter"})` + (fxStale() ? ` <span class="pill bad">STALE: last good rate kept</span>` : "") : `<span class="pill bad">£ rate unavailable: £ values not shown</span>`;
   const k = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
   $("port").innerHTML = [
-    k("Started with", money(init, 0, false), "", `${A.length} ${view === "twin" ? "twins" : view === "both" ? "bots and twins" : "bots"} × $1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
+    k("Started with", money(init, 0, false), "", `${A.length} ${view === "twin" ? "twins" : view === "both" ? "bots and twins" : "bots"}: options $1,000 each, shares £1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
     k("Balance (cash after closed trades)", money(sum("balance"), 2, false)), k("Net P&L", money(eq - init), cls(eq - init), pct((eq - init) / init * 100) + " overall"),
     k("Today", money(todayP), cls(todayP), pct(todayP / (eq - todayP) * 100) + " today"), k("Realised", money(sum("realised")), cls(sum("realised"))),
     k("Unrealised", A.some(a => a.unreal !== null) ? money(sum("unreal")) : "–", cls(sum("unreal")), unk ? "* an open options trade has no live price yet" : "open options valued at the live bid"),
@@ -563,7 +578,7 @@ function renderMoney() {
   const b = [];
   if (fr.stale && fr.open) b.push(`DATA IS STALE: last update ${ago(fr.hb)} (limit ${staleMin()} min). Numbers below are NOT live.`);
   if (fxStale()) b.push("The £ exchange rate is stale or unavailable; £ figures use the last good rate shown above.");
-  const losing = A.filter(a => a.todayPnl < -50); if (losing.length) b.push(`Losing over $50 today: ${losing.map(a => sn(a.k)).join(", ")}.`);
+  const losing = A.filter(a => a.todayPnl < -50); if (losing.length) b.push(`Losing over $50 ${fr.open && !fr.stale ? "today" : "in the last session (" + D.updated.slice(0, 10) + ")"}: ${losing.map(a => sn(a.k)).join(", ")}.`);
   $("banners").innerHTML = b.map(x => `<div class="banner">⚠️ ${x}</div>`).join("");
   // health
   $("staleMin").value = staleMin(); $("staleMin").onchange = e => { store.set("staleMin", Math.max(1, +e.target.value || 10)); render(); };
@@ -571,8 +586,8 @@ function renderMoney() {
   $("health").innerHTML = `<tr><th>Bot</th><th>Status</th><th>Heartbeat</th><th>Last market data</th><th>Last trade closed</th><th>Open trade</th><th>Errors</th></tr>` +
     A.map(a => { const [st, c] = botStatus(a, fr);
       return `<tr><td>${sn(a.k)}</td><td><span class="pill ${c}">${st}</span></td><td>${ago(fr.hb)}</td><td>${lastBar ? both(D.last_bar || D.bars[D.bars.length - 1][0]) + " · " + ago(lastBar) : "none"}</td>` +
-        `<td>${a.lastTrade ? both(a.lastTrade) : "–"}</td><td>${a.open ? a.open.label + " since " + hm(a.open.t) : "–"}</td><td class="muted">not recorded yet</td></tr>`; }).join("") +
-    `<tr><td colspan="7" class="alt" style="text-align:left">All bots run in one GitHub job, so they share one heartbeat and one market-data feed (Alpaca IEX). Error counts and the decision log arrive in stage 2.</td></tr>`;
+        `<td>${a.lastTrade ? both(a.lastTrade) : "–"}</td><td>${a.open ? a.open.label + " since " + hm(a.open.t) : "–"}</td><td class="${D.poll_errors ? "down" : "muted"}">${D.poll_errors == null ? "not reported" : D.poll_errors + " failed polls (shared)"}</td></tr>`; }).join("") +
+    `<tr><td colspan="7" class="alt" style="text-align:left">All bots run in one GitHub job, so they share one heartbeat and one market-data feed (Alpaca IEX). Failed polls are counted for the whole job because every bot runs on the same data.</td></tr>`;
   // leaderboard
   const by = store.get("rankBy", "net"), hide = store.get("hideSmall", false);
   $("rankBy").value = by; $("rankBy").onchange = e => { store.set("rankBy", e.target.value); render(); };
@@ -591,7 +606,7 @@ function renderMoney() {
   $("accts").innerHTML = A.map(a => { const [st, c] = botStatus(a, fr), r = (l, v, cl = "") => `<div><span>${l}</span><span class="${cl}">${v}</span></div>`;
     return `<div class="card"><div class="label">${BOTS[a.k]} <span class="pill ${c}">${st}</span></div>
       <div class="big ${cls(a.total)}">${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</div><div class="alt">equity · ${pct(a.ret)} since start</div>
-      <div class="stats">${r("Started with", money(START, 0, false))}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
+      <div class="stats">${r("Started with", money(a.S0, 0, false) + (a.k.startsWith("shares") ? " (£1,000)" : ""))}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
       ${r("Unrealised", a.unknown ? "not valued *" : money(a.unreal || 0), cls(a.unreal))}${r("Total P&L", money(a.total), cls(a.total))}${r("Today", money(a.todayPnl), cls(a.todayPnl))}
       ${r("Today %", pct(a.todayPct), cls(a.todayPct))}${r("Peak", money(a.peak, 2, false))}${r("Below peak", money(a.dd), cls(a.dd))}${r("Available cash", money(a.cash, 2, false), a.cash < 0 ? "down" : "")}
       ${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}${r("Fees (in P&L)", money(-a.fees))}</div></div>`; }).join("");
@@ -695,7 +710,7 @@ function renderAnalytics() {
     weeks[mon] = (weeks[mon] || 0) + v; months[d.slice(0, 7)] = (months[d.slice(0, 7)] || 0) + v; }
   const best = T.reduce((a, t) => !a || t.pnl > a.pnl ? t : a, null), worst = T.reduce((a, t) => !a || t.pnl < a.pnl ? t : a, null);
   const k = (lab, v, c = "", sub = "") => `<div class="card"><div class="label">${lab}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
-  const start = START * use.length, f2 = (v, fn) => v === null || v === undefined || isNaN(v) ? "–" : fn(v);
+  const start = use.reduce((x, k) => x + startOf(k), 0), f2 = (v, fn) => v === null || v === undefined || isNaN(v) ? "–" : fn(v);
   $("anKpi").innerHTML = T.length ? [
     k("Net P&L", money(sm(T)), cls(sm(T)), pct(sm(T) / start * 100) + ` of $${start.toLocaleString()}`), k("Trades", T.length, "", `${Object.keys(byDay).length} trading days`),
     k("Win rate", (w.length / T.length * 100).toFixed(0) + "%", "", `${w.length} won · ${l.length} lost`), k("Profit factor", f2(sm(l) ? sm(w) / -sm(l) : null, v => v.toFixed(2))),
@@ -715,9 +730,9 @@ function renderAnalytics() {
     for (const c of [eqC, ddC, dayC]) (c._s || []).forEach(x => c.removeSeries(x));
     eqC._s = []; ddC._s = []; dayC._s = [];
     for (const kk of use) { const tt = closedTrades(kk).filter(t => t.exit_t).sort((a, b) => a.exit_t < b.exit_t ? -1 : 1); if (!tt.length) continue;
-      let e = START; const sr = eqC.addLineSeries({color: botColor(kk), lineWidth: kk.endsWith("_ctx") ? 1 : 2, lineStyle: kk.endsWith("_ctx") ? 1 : 0, priceLineVisible: false, lastValueVisible: false});
+      let e = startOf(kk); const sr = eqC.addLineSeries({color: botColor(kk), lineWidth: kk.endsWith("_ctx") ? 1 : 2, lineStyle: kk.endsWith("_ctx") ? 1 : 0, priceLineVisible: false, lastValueVisible: false});
       sr.setData(series(tt.map(t => +nyDate(t.exit_t)), tt.map(t => (e += t.pnl)))); eqC._s.push(sr); }
-    if (use.length > 1 && T.length) { let e = START * use.length;
+    if (use.length > 1 && T.length) { let e = start;
       const ps = eqC.addLineSeries({color: css("--text"), lineWidth: 2, lineStyle: 2, priceLineVisible: false, priceScaleId: "left"});
       eqC.applyOptions({leftPriceScale: {visible: true, borderColor: css("--line")}});
       ps.setData(series(T.map(t => +nyDate(t.exit_t)), T.map(t => (e += t.pnl)))); eqC._s.push(ps); }
@@ -796,7 +811,7 @@ function alertsList() {
     let r = 0; for (let i = a.todayTrades.length - 1; i >= 0 && a.todayTrades[i].pnl <= 0; i--) r++;
     if (r >= 2) add("run_" + a.k, "warning", `${n}: ${r} losses in a row today.`);
     if (a.todayTrades.length > 15) add("freq_" + a.k, "warning", `${n}: ${a.todayTrades.length} trades today (unusually many).`);
-    if (a.exposure > START) add("size_" + a.k, "warning", `${n}: open trade costs $${a.exposure.toFixed(0)}, more than its $1,000 account.`);
+    if (a.exposure > a.S0) add("size_" + a.k, "warning", `${n}: open trade costs $${a.exposure.toFixed(0)}, more than its $1,000 account.`);
     if (a.cash < 0) add("cash_" + a.k, "info", `${n}: account below what one options contract costs (cash ${usd(a.cash, 0)}); on a real $1,000 account this trade could not be placed.`);
     if (a.open && a.open.mark_t && fr.open && (Date.now() - nyDate(a.open.mark_t)) / 60000 > 5) add("mark_" + a.k, "warning", `${n}: no fresh price for its open option for over 5 minutes.`);
   }
@@ -828,7 +843,7 @@ function dayReport(k, day) {
   const before = closedTrades(k).filter(t => t.exit_t && t.exit_t.slice(0, 10) < day).reduce((x, t) => x + t.pnl, 0);
   const sm = a => a.reduce((x, t) => x + t.pnl, 0), w = T.filter(t => t.pnl > 0), l = T.filter(t => t.pnl <= 0);
   let e = 0, pk = 0, dd = 0, run = 0, mr = 0; for (const t of T) { e += t.pnl; pk = Math.max(pk, e); dd = Math.min(dd, e - pk); run = t.pnl <= 0 ? run + 1 : 0; mr = Math.max(mr, run); }
-  const startB = START + before, pnl = sm(T);
+  const startB = startOf(k) + before, pnl = sm(T);
   const trig = {}; T.forEach(t => trig[t.trigger] = (trig[t.trigger] || 0) + 1);
   return {k, n: T.length, startB, endB: startB + pnl, pnl, ret: pnl / startB * 100, w: w.length, l: l.length, wr: T.length ? w.length / T.length : null,
     aw: w.length ? sm(w) / w.length : null, al: l.length ? sm(l) / l.length : null, pf: sm(l) ? sm(w) / -sm(l) : (w.length ? Infinity : null), dd, mr,
@@ -901,7 +916,7 @@ async function load() {
   D = data; render();
 }
 const ok = makeCharts();
-loadFx().then(load); setInterval(load, 60000); setInterval(loadFx, 3600e3);
+load().then(loadFx).then(() => D && render()); setInterval(load, 60000); setInterval(loadFx, 3600e3);
 </script>
 </body>
 </html>
