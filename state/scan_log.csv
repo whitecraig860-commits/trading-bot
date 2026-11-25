@@ -389,3 +389,5 @@ run_utc,bar,symbol,setup,direction,score,alerted
 2026-11-21T00:25:41.727673+00:00,2026-11-20,LIND,pullback,long,56,False
 2026-11-22T10:14:47.470698+00:00,2026-11-20,AAPL,pullback,long,88,False
 2026-11-23T02:36:21.065599+00:00,2026-11-20,AAPL,pullback,long,88,False
+2026-11-25T00:25:42.108023+00:00,2026-11-24,GKOS,breakout,long,65,False
+2026-11-25T00:25:42.108023+00:00,2026-11-24,KNSA,breakout,long,65,False
