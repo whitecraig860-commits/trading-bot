@@ -78,7 +78,7 @@ def week_history(today: str) -> dict:
 
     root = Path(__file__).resolve().parent.parent / "state"
     d0 = date.fromisoformat(today)
-    folders = [("options", "qqqbot"), ("shares", "sharesbot")]  # "original" retired (CC-006)
+    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx")]  # "original" retired (CC-006)
     try:
         import qqqbot
 
@@ -93,7 +93,7 @@ def week_history(today: str) -> dict:
                 continue
             try:
                 st = json.loads(f.read_text())
-                if key == "shares":
+                if key.startswith("shares"):
                     t = st.get("trade") or {}
                     out[key][day] = round(float(t.get("pnl_usd", 0) or 0), 2)
                 else:
@@ -115,7 +115,7 @@ def trade_history(today: str) -> dict:
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent / "state"
-    folders = [("options", "qqqbot"), ("shares", "sharesbot")]
+    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx")]
     try:
         import qqqbot
 
@@ -129,9 +129,9 @@ def trade_history(today: str) -> dict:
                 continue
             try:
                 st = json.loads(f.read_text())
-                rows = [st["trade"]] if key == "shares" and st.get("trade") else st.get("trades", [])
+                rows = [st["trade"]] if key.startswith("shares") and st.get("trade") else st.get("trades", [])
                 for t in rows:
-                    if key == "shares":
+                    if key.startswith("shares"):
                         if t.get("exit") is None:
                             continue
                         out[key].append([t.get("t"), t.get("exit_t"), "L" if t.get("side", 1) > 0 else "S", t.get("entry"),
@@ -150,7 +150,7 @@ def _ohlcv(df) -> list:
              round(float(r.close), 2), int(r.volume)] for t, r in df.iterrows()]
 
 
-def payload(now, bot, shares, original=None, extras=None) -> dict:
+def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, controls=None, poll_errors=0) -> dict:
     """What the live page shows. Built from data the bots already hold: no extra market-data requests."""
     bars, prev = [], []
     if bot is not None and getattr(bot, "bars", None) is not None and len(bot.bars):
@@ -178,6 +178,18 @@ def payload(now, bot, shares, original=None, extras=None) -> dict:
     for key, xb in (extras or {}).items():
         out[key] = {"trades": xb.s["trades"], "open": xb.s["open"]}
     out["news"] = news(now)
+    # Stage 2: the shared context the bots used (same object as the page shows), each bot's recent decisions, the pause
+    # switch as the bots see it, and health counters. All read from the running bots; nothing computed for display only.
+    out["ctx"] = getattr(bot, "ctx", None)
+    out["shares_ctx"] = shares_ctx.s.get("trade") if shares_ctx is not None else None
+    dec = {}
+    for k, b in [("options", bot), ("shares", shares), ("shares_ctx", shares_ctx), *((extras or {}).items())]:
+        if b is not None:
+            dd = b.s.get("decisions", [])
+            dec[k] = {"n": len(dd), "signals": sum(1 for x in dd if x.get("sig")), "recent": dd[-60:]}
+    out["decisions"] = dec
+    out["controls"] = controls.status() if controls is not None else {"error": "pause switch not running"}
+    out["poll_errors"] = poll_errors
     from datetime import datetime, timezone
 
     out["now_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # heartbeat, unambiguous for the page

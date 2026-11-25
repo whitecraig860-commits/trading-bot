@@ -96,3 +96,31 @@ Template:
 | 6. Tests | Recorder imports with the reduced list; remaining bots make identical trades (replay); live page renders without the four boxes; daily message lists only active bots. |
 | 7. Results | 14 tests pass; main + the 8 remaining options bots make identical trades on 6 replayed test days (old main code vs new code); daily message lists only active bots; the live page's bot list no longer contains the four. |
 | 8. Decision | Approved by the user in chat; goes live only when the user merges the pull request. |
+
+## CC-007: dashboard stage 2 (decision log, pause switch, live option value, "+context" twins), 25 Nov 2026
+- **Problem.** The owner wants to see why each bot does or doesn't trade, be able to pause bots, and have bots that use
+  the dashboard's information.
+- **Change.**
+  - **Decision log:** every bot records one decision a minute (no signal / entered / rejected with the reason / holding)
+    plus each exit, with the shared indicators it saw.
+  - **Pause switch:** `tracker/controls.py` plus the "Bot controls" workflow. It is checked before every entry.
+    - If the switch is unreadable, the bot does not trade.
+    - A failed read keeps the last known state.
+  - **Live value of an open option:** the bid at each 5-second check, shown on the page.
+  - **Twins:** a "+context" twin of every bot (research/CONTEXT_TWINS_PROTOCOL.md).
+- **Effect on the original bots.** Their entry and exit rules are unchanged. The only new way an original can skip a
+  trade is the pause switch, which is the owner's control.
+- **Tests.**
+  - `tests/test_stage2.py` (11 tests) covers:
+    - decisions logged with inputs;
+    - no-signal minutes;
+    - exits logged;
+    - the open trade valued;
+    - the pause blocks trading and says why;
+    - an unreadable switch means no trade;
+    - the gate rules;
+    - a twin blocked by context;
+    - the original ignores context;
+    - every bot has a twin.
+  - `tests/test_fixes.py` (14 tests) still passes.
+- **Decision.** Approved by the owner in chat on 25 Nov 2026; the owner merges the pull request.

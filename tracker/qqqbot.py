@@ -80,6 +80,14 @@ EXTRA_BOTS = {
     "oneaday": ("qqqbot_oneaday", "one-a-day breakout on options (follows the shares bot)",
                 {"mode": "follow", "target": 9.0, "stop": 0.99, "hold_min": 600, "max_losses": 0}),
 }
+# "+context" twins (research/CONTEXT_TWINS_PROTOCOL.md, approved by the owner 25 Nov 2026): a copy of every bot that also
+# reads the shared dashboard context (tracker/context.py) and only enters with the trend shown on the page, never when the
+# market is choppy or the context is unavailable. The originals are unchanged. False = no twins.
+CONTEXT_TWINS = True
+if CONTEXT_TWINS:
+    for _k, (_f, _n, _st) in list(EXTRA_BOTS.items()):
+        EXTRA_BOTS[_k + "_ctx"] = (_f + "_ctx", _n + " +context", {**_st, "ctx_gate": True})
+    EXTRA_BOTS["options_ctx"] = ("qqqbot_ctx", "stop after 2 losses +context", {"ctx_gate": True})
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
@@ -128,7 +136,7 @@ class PaperBot:
                  stop: float = STOP, hold_min: float = HOLD_MIN, trail: float = 0.0, with_trend: bool = False,
                  summaries: bool = True, first: str = "09:45", itm: bool = False, skip: str | None = None,
                  pick: bool = False, profit_brake: float = 0.0, loss_brake: float = 0.0, max_spread: float = 0.0,
-                 resume_wait: float = 0.0, mode: str = "cross"):
+                 resume_wait: float = 0.0, mode: str = "cross", ctx_gate: bool = False, key: str = ""):
         # target/stop/hold_min: the exit rule. trail > 0: on reaching the target do not sell at once, keep the trade
         # and sell when the bid falls `trail` below its best since. with_trend: calls only while QQQ is above today's
         # opening price, puts only while below. The defaults are the tested baseline rules, unchanged.
@@ -151,6 +159,11 @@ class PaperBot:
         # (the same crosses on 5-minute candles), "open30" (the opening move at 10:00, one trade a day), "follow" (buy the
         # at-the-money option when the shares bot enters, sell when it exits; the recorder sets .pending / .follow_exit).
         self.mode = mode
+        # ctx_gate: the "+context" twin rule (research/CONTEXT_TWINS_PROTOCOL.md, tracker/context.py): only enter with the
+        # shared dashboard trend, never in a choppy market or when the context is unavailable. Off for the original bots.
+        self.ctx_gate, self.key = ctx_gate, key
+        self.controls = None  # set by the recorder: a function giving the pause switch state (tracker/controls.py)
+        self.ctx = None       # the shared market context at the last decision
         self.pending, self.follow_exit, self.prev_all = None, False, None
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
@@ -159,7 +172,7 @@ class PaperBot:
         self.trade_messages = TRADE_MESSAGES if trade_messages is None else trade_messages
         self.day = now.strftime("%Y-%m-%d")
         self.path = self.dir / f"{self.day}.json"
-        self.s = {"trades": [], "open": None, "range_done": [], "sent": [], "seen_bars": 0}
+        self.s = {"trades": [], "open": None, "range_done": [], "sent": [], "seen_bars": 0, "decisions": []}
         if self.path.exists():
             self.s.update(json.loads(self.path.read_text()))
         self.last_min = None
@@ -247,6 +260,7 @@ class PaperBot:
             age = (now.replace(tzinfo=None) - pd.Timestamp(o["t"])).total_seconds() / 60
             why = None
             if bid > 0:
+                o["mark"], o["mark_t"] = bid, now.strftime("%Y-%m-%d %H:%M:%S")  # live value for the page (bid)
                 if self.trail and bid >= o["entry"] * (1 + self.target):
                     o["best"] = max(o.get("best", 0.0), bid)
                 if self.trail and o.get("best"):
@@ -290,14 +304,45 @@ class PaperBot:
                 self.s["sent"].append("stopped")
                 self._tell(f"⏸ <b>Stopped for the day</b> after {run} losses in a row (paper). Back tomorrow.")
                 self.save()
+            raw, reason = sig, None
+            try:
+                import context
+                self.ctx = context.market(self.bars, self.prev)
+            except Exception as exc:
+                self.ctx = {"ok": False, "why": f"context error {type(exc).__name__}"}
             if sig and self.skip:
                 sig = self._skip_check(sig, now)
+                if not sig:
+                    reason = f"skipped: weak cross (rule {self.skip})"
             if sig and self.pick and not self._pick_ok(sig, tod):
-                sig = None
+                sig, reason = None, "skipped: not a 'pick like him' signal (EMA 9/20, candle strength, before 12:00)"
             if sig and self.with_trend and self.bars is not None and len(self.bars):
                 day_open = float(self.bars.open.iloc[0])
                 if (sig[0] == "C" and sig[2] <= day_open) or (sig[0] == "P" and sig[2] >= day_open):
-                    sig = None  # against today's direction: skipped
+                    sig, reason = None, "skipped: against today's direction"  # against today's direction: skipped
+            pause = None
+            if sig and self.controls:
+                try:
+                    pause = self.controls(self.key)
+                except Exception:
+                    pause = "pause switch unreadable: not trading (safe default)"
+                if pause:
+                    sig, reason = None, "blocked: " + pause
+            if sig and self.ctx_gate:
+                try:
+                    import context
+                    g = context.gate(self.ctx, sig[0])
+                except Exception as exc:
+                    g = f"context check failed ({type(exc).__name__})"
+                if g:
+                    sig, reason = None, "blocked by context: " + g
+            if sig and self.s["open"]:
+                reason = "already in a trade"
+            elif sig and tod >= FLAT:
+                reason = "too late in the day"
+            elif sig and stopped:
+                reason = f"stopped for the day ({run} losses in a row)" if run >= (self.max_losses or 99) else "stopped for the day (daily brake)"
+            entered = False
             if sig and not self.s["open"] and tod < FLAT and not stopped:
                 side, trig, px = sig[:3]
                 today = now.strftime("%Y-%m-%d")
@@ -313,17 +358,42 @@ class PaperBot:
                 if self.resume_wait and self.resumed_at is not None and \
                         (now - self.resumed_at).total_seconds() < self.resume_wait * 60:
                     ask = 0.0  # prices only just came back: don't buy yet
+                if ask < 0.5:
+                    reason = "no fresh option price (or abnormal spread / just resumed)" if not q or ask <= 0 else f"option too cheap ({ask:.2f})"
                 if ask >= 0.5:
+                    entered = True
                     self.s["open"] = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "type": side, "strike": k,
                                       "expiry": exps[0], "entry": ask, "trigger": trig, "qqq": round(px, 2),
                                       "stop_px": round(ask * (1 - self.stop), 2), "target_px": round(ask * (1 + self.target), 2)}
                     if self.trail:
                         self.s["open"]["trail"] = self.trail
+                    if self.ctx and self.ctx.get("ok"):  # the shared context at entry, for the trade history
+                        self.s["open"]["ctx"] = {k: self.ctx.get(k) for k in ("trend", "volatility", "vwap", "ema20", "rsi", "choppy")}
                     print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
                     self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
                                f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
                     self.save()
+            self._log(now, raw, entered, reason)
             self._summaries(now)
+
+    def _log(self, now: datetime, raw, entered: bool, reason: str | None):
+        """One decision record a minute: what it saw, what it did and why. Written from the actual inputs at the time."""
+        c = self.ctx or {}
+        ind = {k: c.get(k) for k in ("price", "vwap", "ema9", "ema20", "ema50", "trend", "choppy", "volatility", "rsi")} if c.get("ok") else None
+        if raw is None:
+            out, why = ("holding", "managing the open trade") if self.s["open"] else ("no signal", "no trigger on the candle that just closed")
+        elif entered:
+            out, why = "entered", f"{raw[1]} {'up' if raw[0] == 'C' else 'down'} cross at {raw[2]:.2f}: bought the {'CALL' if raw[0] == 'C' else 'PUT'}"
+        else:
+            out, why = "rejected", reason or "not entered"
+        rec = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "out": out, "why": why, "ind": ind}
+        if raw is not None:
+            rec["sig"] = {"side": raw[0], "trigger": raw[1], "qqq": round(float(raw[2]), 2)}
+        if self.ctx_gate:
+            rec["ctx_rule"] = "twin: needs the shared trend on its side and no chop"
+        self.s.setdefault("decisions", []).append(rec)
+        if raw is not None or len(self.s["decisions"]) % 15 == 0:
+            self.save()
 
     def _signal_five(self, b, want):
         """VWAP / 50 EMA crosses on 5-minute candles, judged when a 5-minute candle has just closed."""
@@ -397,6 +467,8 @@ class PaperBot:
         pnl = (bid - o["entry"]) * 100 - 2 * FEE
         self.s["trades"].append(dict(o, exit=bid, exit_t=now.strftime("%Y-%m-%d %H:%M:%S"), why=why, pnl=round(pnl, 2)))
         self.s["open"] = None
+        self.s.setdefault("decisions", []).append({"t": now.strftime("%Y-%m-%d %H:%M:%S"), "out": "exited",
+            "why": f"{why}: sold at the bid {bid:.2f} (bought {o['entry']:.2f}), {pnl:+.2f} USD", "ind": None})
         print(f"{now:%H:%M:%S} SOLD @ {bid:.2f} ({why}) {pnl:+.0f}")
         self._tell(f"🔴 <b>SOLD</b> 1× QQQ {int(o['strike'])} {'CALL' if o['type'] == 'C' else 'PUT'} @ {bid:.2f}\n"
                    f"<b>{'+' if pnl >= 0 else '−'}${abs(pnl):,.0f}</b> ({(bid / o['entry'] - 1):+.1%}) · {now:%a %m/%d · %I:%M:%S %p} ET · {why}")

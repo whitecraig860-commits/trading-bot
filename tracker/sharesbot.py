@@ -43,11 +43,15 @@ def history_bars(stock_client, now: datetime) -> pd.DataFrame:
 
 
 class SharesBot:
-    def __init__(self, bars_fn, hist_fn, now: datetime, say, state_dir: Path = STATE):
+    def __init__(self, bars_fn, hist_fn, now: datetime, say, state_dir: Path = STATE, ctx_gate: bool = False,
+                 key: str = "shares"):
+        # ctx_gate: the "+context" twin (research/CONTEXT_TWINS_PROTOCOL.md): also needs the shared dashboard trend on
+        # its side and no chop (tracker/context.py). key: its name for the pause switch and the live page.
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
+        self.ctx_gate, self.key, self.controls = ctx_gate, key, None
         self.day = now.strftime("%Y-%m-%d")
         self.path = self.dir / f"{self.day}.json"
-        self.s = {"trade": None, "done": False, "sent": [], "checked": []}
+        self.s = {"trade": None, "done": False, "sent": [], "checked": [], "decisions": []}
         if self.path.exists():
             self.s.update(json.loads(self.path.read_text()))
         self.sigma = None
@@ -105,6 +109,35 @@ class SharesBot:
         c = float(b.close.iloc[-1])
         side = 1 if (c > hi + 0.3 * atr and c > vw and c > o * (1 + sg)) else \
             -1 if (c < lo - 0.3 * atr and c < vw and c < o * (1 - sg)) else 0
+        ind = {"price": round(c, 2), "vwap": round(vw, 2), "range_high": round(float(hi), 2), "range_low": round(float(lo), 2),
+               "atr5m": round(float(atr), 3), "noise_band_pct": round(float(sg) * 100, 3)}
+        why, raw = ("no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band"
+                    if not side else None), side
+        try:
+            import context
+            ctx = context.market(b, self.prev if len(self.prev) else None)
+            if ctx.get("ok"):
+                ind.update({k: ctx[k] for k in ("trend", "choppy", "volatility", "rsi")})
+        except Exception as exc:
+            ctx = {"ok": False, "why": f"context error {type(exc).__name__}"}
+        if side and self.controls:
+            try:
+                p = self.controls(self.key)
+            except Exception:
+                p = "pause switch unreadable: not trading (safe default)"
+            if p:
+                side, why = 0, "blocked: " + p
+        if side and self.ctx_gate:
+            try:
+                g = context.gate(ctx, side)
+            except Exception as exc:
+                g = f"context check failed ({type(exc).__name__})"
+            if g:
+                side, why = 0, "blocked by context: " + g
+        self.s.setdefault("decisions", []).append({"t": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "out": "entered" if side else ("rejected" if raw else "no signal"),
+            "why": (f"breakout {'up' if side > 0 else 'down'}: {'bought' if side > 0 else 'shorted'} QQQ at {c:.2f}" if side else why),
+            "ind": ind, **({"sig": {"side": "L" if raw > 0 else "S", "trigger": "one-a-day breakout", "qqq": round(c, 2)}} if raw else {})})
         if side:
             px = c + SLIP * side
             qty = round(ACCOUNT_GBP * GBP_USD / px, 4)

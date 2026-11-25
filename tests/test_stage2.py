@@ -1,0 +1,126 @@
+"""Stage 2 tests: decision log, pause switch, context twins, live option value. No network, no orders.
+Run:  python tests/test_stage2.py"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from datetime import timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_fixes import DAY, make_bot, rows  # noqa: E402
+
+import context  # noqa: E402
+import controls  # noqa: E402
+import qqqbot  # noqa: E402
+
+T = DAY.replace(hour=10, minute=1, second=5)
+
+
+class DecisionLog(unittest.TestCase):
+    def test_entry_is_logged_with_inputs(self):
+        b = make_bot()
+        b.on_poll(T, rows(T, 662))
+        self.assertIsNotNone(b.s["open"])
+        d = b.s["decisions"][-1]
+        self.assertEqual(d["out"], "entered")
+        self.assertEqual(d["sig"]["side"], "C")
+        self.assertIsNotNone(d["ind"])  # the shared context it saw
+        self.assertIn("trend", b.s["open"]["ctx"])
+
+    def test_no_signal_minutes_are_logged(self):
+        b = make_bot()
+        t = DAY.replace(hour=9, minute=40, second=5)  # before the first signal time
+        b.on_poll(t, rows(t, 660))
+        self.assertEqual(b.s["decisions"][-1]["out"], "no signal")
+
+    def test_exit_is_logged_and_open_trade_is_valued(self):
+        b = make_bot()
+        b.on_poll(T, rows(T, 662))
+        t2 = T + timedelta(seconds=5)
+        b.on_poll(t2, rows(t2, 662, bid=5.02))
+        self.assertEqual(b.s["open"]["mark"], 5.02)  # the live bid the page uses for unrealised P&L
+        t3 = T + timedelta(minutes=11)
+        b.on_poll(t3, rows(t3, 662))
+        self.assertEqual(len(b.s["trades"]), 1)
+        self.assertTrue(any(x["out"] == "exited" for x in b.s["decisions"]))
+
+
+class PauseSwitch(unittest.TestCase):
+    def test_pause_blocks_new_trades_and_says_why(self):
+        b = make_bot(key="combo")
+        b.controls = lambda k: "EMERGENCY PAUSE (all bots)"
+        b.on_poll(T, rows(T, 662))
+        self.assertIsNone(b.s["open"])
+        self.assertEqual(b.s["decisions"][-1]["out"], "rejected")
+        self.assertIn("EMERGENCY PAUSE", b.s["decisions"][-1]["why"])
+
+    def test_unreadable_switch_means_no_trade(self):
+        b = make_bot()
+
+        def boom(k):
+            raise RuntimeError("x")
+        b.controls = boom
+        b.on_poll(T, rows(T, 662))
+        self.assertIsNone(b.s["open"])
+
+    def test_controls_state_rules(self):
+        c = controls.Controls()
+        c.last_try = 1e18  # no network in tests
+        self.assertIsNone(c.check("combo"))
+        c.state = {"pause_all": False, "paused": ["combo"]}
+        self.assertIn("paused", c.check("combo"))
+        self.assertIsNone(c.check("five"))
+        c.state = {"pause_all": True, "paused": []}
+        self.assertIn("EMERGENCY", c.check("five"))
+
+
+class ContextTwins(unittest.TestCase):
+    def test_gate_rules(self):
+        base = {"ok": True, "trend": "Bullish", "choppy": False, "crosses30": 1}
+        self.assertIsNone(context.gate(base, "C"))
+        self.assertIn("against", context.gate(base, "P"))
+        self.assertIn("choppy", context.gate(dict(base, choppy=True), "C"))
+        self.assertIn("unavailable", context.gate({"ok": False, "why": "x"}, "C"))
+        self.assertIsNone(context.gate(dict(base, trend="Bearish"), -1))
+
+    def test_twin_blocked_when_context_says_no(self):
+        b = make_bot(ctx_gate=True)
+        orig = context.market
+        context.market = lambda bars, prev=None: {"ok": True, "trend": "Bearish", "choppy": False, "crosses30": 0}
+        try:
+            b.on_poll(T, rows(T, 662))
+        finally:
+            context.market = orig
+        self.assertIsNone(b.s["open"])
+        self.assertIn("blocked by context", b.s["decisions"][-1]["why"])
+
+    def test_original_ignores_context(self):
+        b = make_bot()
+        orig = context.market
+        context.market = lambda bars, prev=None: {"ok": True, "trend": "Bearish", "choppy": True, "crosses30": 9}
+        try:
+            b.on_poll(T, rows(T, 662))
+        finally:
+            context.market = orig
+        self.assertIsNotNone(b.s["open"])  # originals trade exactly as before
+
+    def test_every_bot_has_a_twin(self):
+        base = [k for k in qqqbot.EXTRA_BOTS if not k.endswith("_ctx")]
+        for k in base:
+            self.assertIn(k + "_ctx", qqqbot.EXTRA_BOTS)
+            self.assertTrue(qqqbot.EXTRA_BOTS[k + "_ctx"][2]["ctx_gate"])
+        self.assertIn("options_ctx", qqqbot.EXTRA_BOTS)
+
+    def test_context_calc_on_real_shaped_bars(self):
+        from test_fixes import bars_with_cross
+        day, prev = bars_with_cross()
+        c = context.market(day.iloc[:60], prev)
+        self.assertTrue(c["ok"])
+        self.assertIn(c["trend"], ("Bullish", "Bearish", "Sideways"))
+        self.assertFalse(context.market(day.iloc[:5], prev)["ok"])
+
+
+if __name__ == "__main__":
+    unittest.main()
