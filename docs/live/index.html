@@ -78,8 +78,11 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div id="banners"></div>
 
   <h2>Portfolio (all bots)</h2>
-  <div class="toolbar"><span class="label">Show first in:</span><div class="tabs" id="curTabs"></div><span class="alt" id="fx"></span></div>
+  <div class="toolbar"><span class="label">Bots shown:</span><div class="tabs" id="viewTabs"></div><span class="sep"></span><span class="label">Show first in:</span><div class="tabs" id="curTabs"></div><span class="alt" id="fx"></span></div>
   <div class="kpis" id="port"></div>
+
+  <h2>Safety: pause switch</h2>
+  <div class="card" id="safety"></div>
 
   <h2>Bot health</h2>
   <div class="toolbar"><span class="label">Warn when data is older than</span><input id="staleMin" type="number" min="1" max="120" style="width:60px"> <span class="label">minutes</span></div>
@@ -94,6 +97,13 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto"><table class="lb" id="lead"></table>
     <div class="sub" style="margin-top:6px">"Too few trades" = under 30 closed trades: results that small are mostly luck. Win rate alone is never used to rank. Options bots' open trades can't be valued live (we don't publish the option's live price yet), so their equity uses the last closed balance and is marked *.</div></div>
 
+  <h2>Decision log (what each bot saw, did and why)</h2>
+  <div class="toolbar"><select id="dlBot"></select><select id="dlOut"><option value="">all decisions</option><option value="sig">signals only (entered + rejected)</option>
+    <option value="entered">entered</option><option value="rejected">rejected</option><option value="exited">exited</option><option value="no signal">no signal</option><option value="holding">holding</option></select>
+    <input id="dlQ" placeholder="search (e.g. choppy, VWAP, paused)" style="min-width:200px"></div>
+  <div class="card" style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="lb" id="dlog"></table>
+    <div class="sub" style="margin-top:6px">Written by the bots at the moment of each decision from the inputs they actually used (no explanations added afterwards). The page shows each bot's last 60 records; the full log is saved in the repo every day. Indicator columns are the shared context (same numbers as "What the bots see").</div></div>
+
   <h2>Bot accounts (each started with $1,000)</h2>
   <div class="grid g3" id="accts"></div>
 
@@ -101,6 +111,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card">
     <div class="cond" id="cond"></div>
     <div class="headline" id="headline"></div>
+    <div class="sub" id="botsee" style="margin-top:6px"></div>
   </div>
 
   <h2>Performance</h2>
@@ -148,6 +159,11 @@ const BOTS = {options: "Options · stop after 2 losses",
   picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)",
   brakes: "Options · profit brake +$50 / loss brake −$100",
   five: "Options · 5-minute crosses", open30: "Options · opening move (10:00)", oneaday: "Options · one-a-day breakout", shares: "Shares · one a day"};
+const TWIN_OF = k => k.endsWith("_ctx") ? k.slice(0, -4) : null;
+const ORIG = Object.keys(BOTS);
+for (const k of ORIG) BOTS[k + "_ctx"] = BOTS[k] + " +context";
+let view;
+const visible = () => (view = view || store.get("view", "orig")) === "orig" ? ORIG : view === "twin" ? ORIG.map(k => k + "_ctx") : ORIG.flatMap(k => [k, k + "_ctx"]);
 const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 20", "--e20"], ["e50", "EMA 50", "--e50"],
              ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
 const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -196,14 +212,14 @@ function makeCharts() {
 // ---------- trades in one shape for every bot
 function tradesFor(k) {
   if (!D) return [];
-  if (k === "shares") { const s = D.shares; if (!s) return [];
+  if (k === "shares" || k === "shares_ctx") { const s = D[k]; if (!s) return [];
     return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} QQQ shares`, trigger: "one-a-day breakout",
       entry: s.entry, exit: s.exit, stop: s.entry - 10 * s.atr * s.side, target: "trail after " + (4 * s.atr).toFixed(2) + " in profit",
       why: s.why, pnl: s.pnl_usd, open: !s.exit, qqqIn: s.entry, unit: "QQQ"}]; }
   const b = D[k] || {}; const out = (b.trades || []).map(t => ({...t, open: false}));
   if (b.open) out.push({...b.open, open: true});
   return out.map(t => ({t: t.t, exit_t: t.exit_t, side: t.type === "C" ? "CALL" : "PUT", label: `QQQ ${t.strike} ${t.type === "C" ? "CALL" : "PUT"}`,
-    trigger: t.trigger, entry: t.entry, exit: t.exit, stop: t.stop_px || t.entry * 0.94, target: t.trail ? "from $" + (t.target_px || t.entry * 1.025).toFixed(2) + ", then sells " + (t.trail * 100).toFixed(1) + "% below its best" : (t.target_px || t.entry * 1.025), why: t.why, pnl: t.pnl, open: t.open, qqqIn: t.qqq, unit: "option"}));
+    trigger: t.trigger, mark: t.mark, mark_t: t.mark_t, ctx: t.ctx, entry: t.entry, exit: t.exit, stop: t.stop_px || t.entry * 0.94, target: t.trail ? "from $" + (t.target_px || t.entry * 1.025).toFixed(2) + ", then sells " + (t.trail * 100).toFixed(1) + "% below its best" : (t.target_px || t.entry * 1.025), why: t.why, pnl: t.pnl, open: t.open, qqqIn: t.qqq, unit: "option"}));
 }
 
 function stats(tr, week) {
@@ -220,7 +236,7 @@ function stats(tr, week) {
 }
 
 function renderPerf() {
-  $("perf").innerHTML = Object.entries(BOTS).map(([k, name]) => {
+  $("perf").innerHTML = visible().map(k => [k, BOTS[k]]).map(([k, name]) => {
     const tr = tradesFor(k), s = stats(tr, (D.week || {})[k]), f = (v, fn) => v === null || v === undefined ? "–" : fn(v);
     const open = tr.find(t => t.open);
     return `<div class="card"><div class="label">${name}</div>
@@ -334,8 +350,8 @@ function dayTotals(k) {
   return days;
 }
 function renderCalendar() {
-  if (!(calBot in BOTS) && calBot !== "all") calBot = "all";
-  $("calTabs").innerHTML = `<button class="chip ${calBot === "all" ? "on" : ""}" data-c="all">All bots</button>` + Object.entries(BOTS).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
+  if (!visible().includes(calBot) && calBot !== "all") calBot = "all";
+  $("calTabs").innerHTML = `<button class="chip ${calBot === "all" ? "on" : ""}" data-c="all">All bots</button>` + visible().map(k => [k, BOTS[k]]).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
   document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { calBot = b.dataset.c; store.set("calBot2", calBot); renderCalendar(); });
   if (calBot === "all") { renderAllDays(); return; }
   const days = dayTotals(calBot), keys = Object.keys(days).sort(), today = D.updated.slice(0, 10);
@@ -365,12 +381,12 @@ function renderCalendar() {
 
 const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", brakes: "Brakes", five: "5-minute", open30: "Opening move", oneaday: "One-a-day options", shares: "Shares"};
 function renderAllDays() {
-  const ks = Object.keys(BOTS), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
+  const ks = visible(), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
   const dates = [...new Set(ks.flatMap(k => Object.keys(per[k])))].sort().reverse();
   const cell = (v, k) => v === undefined ? `<td class="muted">–</td>` : `<td class="${v > 0 ? "up" : v < 0 ? "down" : "muted"}">${usd(v, k === "shares" ? 2 : 0)}</td>`;
   const tot = k => Object.values(per[k]).reduce((a, b) => a + b, 0);
   $("calSum").textContent = dates.length ? "Each bot's result on each day (newest first). – means the bot wasn't running that day." : "No days yet.";
-  $("cal").innerHTML = `<div style="overflow-x:auto"><table class="calt"><tr><th>Day</th>${ks.map(k => `<th>${SHORT[k] || BOTS[k]}</th>`).join("")}</tr>` +
+  $("cal").innerHTML = `<div style="overflow-x:auto"><table class="calt"><tr><th>Day</th>${ks.map(k => `<th>${sn(k)}</th>`).join("")}</tr>` +
     dates.map(d => `<tr><td>${new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", timeZone: "UTC"})}</td>${ks.map(k => cell(per[k][d], k)).join("")}</tr>`).join("") +
     `<tr class="tot"><td>Total</td>${ks.map(k => Object.keys(per[k]).length ? cell(tot(k), k) : cell(undefined, k)).join("")}</tr></table></div>`;
 }
@@ -382,7 +398,7 @@ function renderNews() {
 }
 
 function renderControls() {
-  $("botTabs").innerHTML = Object.entries(BOTS).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
+  $("botTabs").innerHTML = visible().map(k => [k, BOTS[k]]).map(([k, n]) => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}">${n}</button>`).join("");
   $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
   document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => { bot = b.dataset.b; store.set("bot", bot); selected = null; render(); });
   document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { on[b.dataset.k] = !on[b.dataset.k]; store.set("ind", on); render(); });
@@ -441,9 +457,10 @@ function account(k) {
   const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
   let unreal = null, exposure = 0, risk = 0, unknown = false;
   if (open) {
-    if (k === "shares") { const q = D.shares.qty || 0, sd = open.side === "SHORT" ? -1 : 1;
+    if (k.startsWith("shares")) { const q = D[k].qty || 0, sd = open.side === "SHORT" ? -1 : 1;
       unreal = last ? (last - open.entry) * sd * q : null; exposure = open.entry * q; risk = Math.abs(open.entry - open.stop) * q; }
-    else { exposure = open.entry * 100; risk = (open.entry - open.stop) * 100; unknown = true; }
+    else { exposure = open.entry * 100; risk = (open.entry - open.stop) * 100;
+      if (open.mark) unreal = (open.mark - open.entry) * 100 - FEE_OPT; else unknown = true; }
   }
   const equity = balance + (unreal || 0);
   let eq = START, peak = START, maxdd = 0; for (const t of closed) { eq += t.pnl; peak = Math.max(peak, eq); maxdd = Math.min(maxdd, eq - peak); }
@@ -456,7 +473,7 @@ function account(k) {
   const sd = closed.length > 1 ? Math.sqrt(closed.reduce((a, t) => a + (t.pnl - mean) ** 2, 0) / (closed.length - 1)) : null;
   return {k, balance, equity, realised, unreal, unknown, total: equity - START, todayPnl, todayPct: todayPnl / (equity - todayPnl) * 100,
     ret: (equity - START) / START * 100, peak, dd: equity - peak, maxdd, cash: balance - exposure, exposure, risk: Math.max(risk, 0), open,
-    n: closed.length, fees: k === "shares" ? 0 : (closed.length + (open ? 0.5 : 0)) * FEE_OPT, wr: closed.length ? w.length / closed.length : null,
+    n: closed.length, fees: k.startsWith("shares") ? 0 : (closed.length + (open ? 0.5 : 0)) * FEE_OPT, wr: closed.length ? w.length / closed.length : null,
     aw: w.length ? sw / w.length : null, al: l.length ? sl / l.length : null, pf: sl ? sw / -sl : (w.length ? Infinity : null), avg: mean,
     rr: w.length && l.length ? (sw / w.length) / -(sl / l.length) : null, run, cons: dv.length ? dv.filter(v => v > 0).length / dv.length : null,
     stab: sd && mean !== null ? sd : null, radj: maxdd ? (equity - START) / -maxdd : null, small: closed.length < 30, todayTrades: closedToday,
@@ -473,11 +490,13 @@ function botStatus(a, fr) {
 }
 
 function renderMoney() {
-  const fr = freshness(), A = Object.keys(BOTS).map(account);
+  const fr = freshness(), A = visible().map(account);
+  $("viewTabs").innerHTML = [["orig", "Original bots"], ["twin", "+context twins"], ["both", "Both, side by side"]].map(([v, n]) => `<button class="chip ${view === v ? "on" : ""}" data-view="${v}">${n}</button>`).join("");
+  document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; store.set("view", view); render(); });
   const sum = f => A.reduce((x, a) => x + (a[f] || 0), 0);
   const init = START * A.length, eq = sum("equity"), todayP = sum("todayPnl");
   // portfolio peak and drawdown from end-of-day totals across all bots
-  const allDays = {}; for (const k of Object.keys(BOTS)) for (const [d, v] of Object.entries(dayTotals(k))) allDays[d] = (allDays[d] || 0) + v;
+  const allDays = {}; for (const k of visible()) for (const [d, v] of Object.entries(dayTotals(k))) allDays[d] = (allDays[d] || 0) + v;
   let pe = init, pk = init, pdd = 0; for (const d of Object.keys(allDays).sort()) { pe += allDays[d]; pk = Math.max(pk, pe); pdd = Math.min(pdd, pe - pk); }
   const unk = A.some(a => a.unknown);
   $("curTabs").innerHTML = ["GBP", "USD"].map(c => `<button class="chip ${cur === c ? "on" : ""}" data-cur="${c}">${c === "GBP" ? "£ GBP" : "$ USD"}</button>`).join("");
@@ -485,10 +504,10 @@ function renderMoney() {
   $("fx").innerHTML = FX ? `$1 = £${FX.rate.toFixed(4)} · ECB rate for ${FX.date} (frankfurter.app)` + (fxStale() ? ` <span class="pill bad">STALE: last good rate kept</span>` : "") : `<span class="pill bad">£ rate unavailable: £ values not shown</span>`;
   const k = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="v ${c}">${v}</div>${sub ? `<div class="alt">${sub}</div>` : ""}</div>`;
   $("port").innerHTML = [
-    k("Started with", money(init, 0, false), "", `${A.length} bots × $1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
+    k("Started with", money(init, 0, false), "", `${A.length} ${view === "twin" ? "twins" : view === "both" ? "bots and twins" : "bots"} × $1,000`), k("Equity now" + (unk ? " *" : ""), money(eq, 2, false)),
     k("Balance (cash after closed trades)", money(sum("balance"), 2, false)), k("Net P&L", money(eq - init), cls(eq - init), pct((eq - init) / init * 100) + " overall"),
     k("Today", money(todayP), cls(todayP), pct(todayP / (eq - todayP) * 100) + " today"), k("Realised", money(sum("realised")), cls(sum("realised"))),
-    k("Unrealised", A.some(a => a.unreal !== null) ? money(sum("unreal")) : "–", cls(sum("unreal")), unk ? "* options trades open now: not valued live" : ""),
+    k("Unrealised", A.some(a => a.unreal !== null) ? money(sum("unreal")) : "–", cls(sum("unreal")), unk ? "* an open options trade has no live price yet" : "open options valued at the live bid"),
     k("Available cash", money(sum("cash"), 2, false)), k("In open trades", money(sum("exposure"), 2, false), "", `${A.filter(a => a.open).length} open`),
     k("At risk (to stops)", money(sum("risk"), 2, false), sum("risk") ? "down" : ""), k("Fees (in P&L)", money(-sum("fees"))),
     k("Peak (end of day)", money(pk, 2, false)), k("Drawdown now", money(pe - pk), cls(pe - pk)), k("Worst drawdown", money(pdd), cls(pdd))].join("");
@@ -496,14 +515,14 @@ function renderMoney() {
   const b = [];
   if (fr.stale && fr.open) b.push(`DATA IS STALE: last update ${ago(fr.hb)} (limit ${staleMin()} min). Numbers below are NOT live.`);
   if (fxStale()) b.push("The £ exchange rate is stale or unavailable; £ figures use the last good rate shown above.");
-  const losing = A.filter(a => a.todayPnl < -50); if (losing.length) b.push(`Losing over $50 today: ${losing.map(a => SHORT[a.k] || a.k).join(", ")}.`);
+  const losing = A.filter(a => a.todayPnl < -50); if (losing.length) b.push(`Losing over $50 today: ${losing.map(a => sn(a.k)).join(", ")}.`);
   $("banners").innerHTML = b.map(x => `<div class="banner">⚠️ ${x}</div>`).join("");
   // health
   $("staleMin").value = staleMin(); $("staleMin").onchange = e => { store.set("staleMin", Math.max(1, +e.target.value || 10)); render(); };
   const lastBar = nyDate(D.last_bar || (D.bars && D.bars.length ? D.bars[D.bars.length - 1][0] : null));
   $("health").innerHTML = `<tr><th>Bot</th><th>Status</th><th>Heartbeat</th><th>Last market data</th><th>Last trade closed</th><th>Open trade</th><th>Errors</th></tr>` +
     A.map(a => { const [st, c] = botStatus(a, fr);
-      return `<tr><td>${SHORT[a.k] || a.k}</td><td><span class="pill ${c}">${st}</span></td><td>${ago(fr.hb)}</td><td>${lastBar ? both(D.last_bar || D.bars[D.bars.length - 1][0]) + " · " + ago(lastBar) : "none"}</td>` +
+      return `<tr><td>${sn(a.k)}</td><td><span class="pill ${c}">${st}</span></td><td>${ago(fr.hb)}</td><td>${lastBar ? both(D.last_bar || D.bars[D.bars.length - 1][0]) + " · " + ago(lastBar) : "none"}</td>` +
         `<td>${a.lastTrade ? both(a.lastTrade) : "–"}</td><td>${a.open ? a.open.label + " since " + hm(a.open.t) : "–"}</td><td class="muted">not recorded yet</td></tr>`; }).join("") +
     `<tr><td colspan="7" class="alt" style="text-align:left">All bots run in one GitHub job, so they share one heartbeat and one market-data feed (Alpaca IEX). Error counts and the decision log arrive in stage 2.</td></tr>`;
   // leaderboard
@@ -530,13 +549,53 @@ function renderMoney() {
       ${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}${r("Fees (in P&L)", money(-a.fees))}</div></div>`; }).join("");
 }
 
+const sn = k => SHORT[k] || (TWIN_OF(k) ? (SHORT[TWIN_OF(k)] || TWIN_OF(k)) + " +ctx" : k);
+const WF = "https://github.com/whitecraig860-commits/trading-bot/actions/workflows/controls.yml";
+function renderSafety() {
+  const c = D.controls || {}, paused = c.paused || [];
+  const st = c.error && c.read_ago_s === null ? ["Pause switch not readable by the bots: they will NOT open trades (safe default)", "bad"]
+    : c.pause_all ? ["EMERGENCY PAUSE ON: no bot opens new trades", "bad"]
+    : paused.length ? [`Paused: ${paused.map(sn).join(", ")}`, "warn"] : ["All bots allowed to trade", "ok"];
+  $("safety").innerHTML = `<span class="pill ${st[1]}">${st[0]}</span>` +
+    `<div class="sub" style="margin-top:6px">As the bots read it${c.read_ago_s != null ? ` ${Math.round(c.read_ago_s / 60)} min before this update` : ""}${c.updated ? ` · last changed ${c.updated.replace("T", " ").slice(0, 16)} UTC (${c.note || ""})` : ""}${c.error ? ` · last read failed (${c.error}), last known state kept` : ""}.</div>` +
+    `<div class="sub" style="margin-top:6px">To pause or resume: open <a href="${WF}" target="_blank" rel="noopener" style="color:var(--accent)">Bot controls on GitHub ↗</a>, press <b>Run workflow</b>, pick the action (and a bot key such as <code>combo</code> or <code>combo_ctx</code> for one bot), then <b>Run workflow</b> again. Bots obey within about a minute. Paused bots still close open trades by their normal exits. Paper trading only.</div>`;
+}
+function renderDecisions() {
+  const dec = D.decisions || {}, keys = visible().filter(k => dec[k]);
+  const cur = store.get("dlBot", "all");
+  $("dlBot").innerHTML = `<option value="all">all bots</option>` + keys.map(k => `<option value="${k}" ${cur === k ? "selected" : ""}>${sn(k)}</option>`).join("");
+  $("dlOut").value = store.get("dlOut", "sig"); $("dlQ").value = store.get("dlQ", "");
+  $("dlBot").onchange = e => { store.set("dlBot", e.target.value); renderDecisions(); };
+  $("dlOut").onchange = e => { store.set("dlOut", e.target.value); renderDecisions(); };
+  $("dlQ").oninput = e => { store.set("dlQ", e.target.value); renderDecisions(); };
+  const out = store.get("dlOut", "sig"), q = store.get("dlQ", "").toLowerCase();
+  let rows = (cur === "all" ? keys : keys.filter(k => k === cur)).flatMap(k => dec[k].recent.map(r => ({...r, k})));
+  rows = rows.filter(r => !out || (out === "sig" ? !!r.sig || r.out === "exited" : r.out === out))
+    .filter(r => !q || JSON.stringify(r).toLowerCase().includes(q)).sort((a, b) => a.t < b.t ? 1 : -1).slice(0, 300);
+  const esc = x => String(x ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const oc = {entered: "ok", rejected: "warn", exited: "", "no signal": "", holding: ""};
+  $("dlog").innerHTML = `<tr><th>Time (NY · UK)</th><th>Bot</th><th>Decision</th><th style="text-align:left">Why</th><th>Signal</th><th>QQQ</th><th>VWAP</th><th>EMA 9/20/50</th><th>Trend</th><th>RSI</th></tr>` +
+    (rows.length ? rows.map(r => { const i = r.ind || {};
+      return `<tr><td>${both(r.t)}</td><td style="text-align:left">${sn(r.k)}</td><td><span class="pill ${oc[r.out] || ""}">${r.out}</span></td><td style="text-align:left;white-space:normal;min-width:260px">${esc(r.why)}</td>` +
+        `<td>${r.sig ? esc(r.sig.side + " " + r.sig.trigger) : "–"}</td><td>${i.price ?? "–"}</td><td>${i.vwap ?? "–"}</td><td>${i.ema9 != null ? `${i.ema9} / ${i.ema20} / ${i.ema50}` : "–"}</td>` +
+        `<td>${i.trend ? esc(i.trend) + (i.choppy ? " (choppy)" : "") : "–"}</td><td>${i.rsi ?? "–"}</td></tr>`; }).join("")
+      : `<tr><td colspan="10" class="muted" style="text-align:left">${Object.keys(dec).length ? "No decisions match these filters." : "No decision log in the data yet: it starts at the next market open after this update is merged."}</td></tr>`);
+}
+function renderBotSee() {
+  const c = D.ctx;
+  $("botsee").innerHTML = !c ? "What the bots see: not published yet (starts with the next market session after this update)."
+    : !c.ok ? `<span class="pill bad">What the bots see: context unavailable (${c.why}). The +context twins do not trade.</span>`
+    : `<b>What the bots see</b> (shared context, ${both(c.t)}): trend <b>${c.trend}</b>${c.choppy ? " · <b>choppy</b>" : ""} · QQQ ${c.price} · VWAP ${c.vwap} · EMA 9/20/50 ${c.ema9}/${c.ema20}/${c.ema50} · RSI ${c.rsi} · volatility ${c.volatility} · ${c.crosses30} EMA 20 crosses in 30 min. ` +
+      `The +context twins only buy calls when this says Bullish, puts when Bearish, and nothing when choppy.`;
+}
+
 function render() {
   renderControls();
   if (!D) return;
   const fr = freshness();
   $("status").innerHTML = `Data updated ${both(D.updated)} (${ago(fr.hb)}) · page checked ${zt(new Date(), "Europe/London", {second: "2-digit"})} UK · ` +
     (fr.stale ? `<span class="pill ${fr.open ? "bad" : "warn"}">not live${fr.open ? ": STALE" : " (market closed)"}</span>` : `<span class="pill ok">live</span>`);
-  renderMoney(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
+  renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades();
 }
 
 async function load() {
