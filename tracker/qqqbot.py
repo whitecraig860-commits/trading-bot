@@ -118,16 +118,44 @@ def send_telegram(text: str) -> bool:
     if not token or not chat:
         print("(no Telegram settings; message not sent)\n" + text)
         return False
-    try:
-        import requests
+    ok = True
+    for part in split_message(text):
+        try:
+            import requests
 
-        r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                          data={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": "true"},
-                          timeout=8)
-        return r.ok
-    except Exception as exc:
-        print(f"Telegram: {type(exc).__name__}")  # never print the exception text: it can contain the token
-        return False
+            r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                              data={"chat_id": chat, "text": part, "parse_mode": "HTML", "disable_web_page_preview": "true"},
+                              timeout=8)
+            if not r.ok:  # Telegram's own reason (never contains the token), e.g. "message is too long"
+                try:
+                    print(f"Telegram refused ({r.status_code}): {r.json().get('description', '')[:120]}")
+                except Exception:
+                    print(f"Telegram refused ({r.status_code})")
+            ok = ok and r.ok
+        except Exception as exc:
+            print(f"Telegram: {type(exc).__name__}")  # never print the exception text: it can contain the token
+            ok = False
+    return ok
+
+
+def split_message(text: str, limit: int = 3900) -> list[str]:
+    """Telegram refuses messages over 4,096 characters. Split at blank lines (then single lines) so every part stays
+    under the limit and no line, and so no HTML tag pair on it, is cut in two."""
+    if len(text) <= limit:
+        return [text]
+    parts, cur = [], ""
+    for block in text.split("\n\n"):
+        pieces = [block] if len(block) <= limit else block.split("\n")
+        for piece in pieces:
+            sep = "\n\n" if piece is block else "\n"
+            if cur and len(cur) + len(sep) + len(piece) > limit:
+                parts.append(cur)
+                cur = ""
+            cur = piece[:limit] if not cur else cur + sep + piece
+    if cur:
+        parts.append(cur)
+    n = len(parts)
+    return [f"{p}\n<i>({i + 1}/{n})</i>" if n > 1 else p for i, p in enumerate(parts)]
 
 
 class PaperBot:
