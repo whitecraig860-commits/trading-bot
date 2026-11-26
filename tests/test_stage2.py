@@ -122,5 +122,17 @@ class ContextTwins(unittest.TestCase):
         self.assertFalse(context.market(day.iloc[:5], prev)["ok"])
 
 
+class TelegramLength(unittest.TestCase):
+    def test_long_messages_are_split_under_the_limit(self):
+        text = "\n\n".join(f"<b>Bot {i}</b>\n" + "x" * 300 for i in range(40))
+        parts = qqqbot.split_message(text)
+        self.assertGreater(len(parts), 1)
+        self.assertTrue(all(len(p) < 4096 for p in parts))
+        self.assertTrue(all(p.count("<b>") == p.count("</b>") for p in parts))
+
+    def test_short_messages_unchanged(self):
+        self.assertEqual(qqqbot.split_message("hello"), ["hello"])
+
+
 if __name__ == "__main__":
     unittest.main()
