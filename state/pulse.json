@@ -140,7 +140,7 @@
      "sessions": 60
     }
    },
-   "record_at": "2026-11-26T16:30:40.000475+00:00",
+   "record_at": "2026-11-26T21:40:40.000283+00:00",
    "last_bar": "2026-11-25 15:55:00-05:00",
    "brief_day": "2026-11-25",
    "stance": "up|None",
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-25",
+ "summary_day": "2026-11-26",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -661,7 +661,10 @@
   "https://www.trumpstruth.org/statuses/43743",
   "https://www.trumpstruth.org/statuses/43744",
   "https://www.trumpstruth.org/statuses/43745",
-  "https://www.trumpstruth.org/statuses/43746"
+  "https://www.trumpstruth.org/statuses/43746",
+  "https://www.trumpstruth.org/statuses/43747",
+  "https://www.trumpstruth.org/statuses/43748",
+  "https://www.trumpstruth.org/statuses/43749"
  ],
  "trump_checks": [],
  "trump_seeded": true,
