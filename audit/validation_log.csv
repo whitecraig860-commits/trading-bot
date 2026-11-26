@@ -3,3 +3,5 @@ date,bot,status,exp_side,live_side,exp_entry_t,live_entry_t,exp_entry,live_entry
 2026-11-24,oneaday_options,not running,,,,,,,,,,,,,,,,no state file (bot not deployed or no trade)
 2026-11-25,shares_oneaday,match,0,0,,,,,,,,,,,,,,"no trade, as expected"
 2026-11-25,oneaday_options,not running,,,,,,,,,,,,,,,,no state file (bot not deployed or no trade)
+2026-11-26,shares_oneaday,match,0,0,,,,,,,,,,,,,,"no trade, as expected"
+2026-11-26,oneaday_options,not running,,,,,,,,,,,,,,,,no state file (bot not deployed or no trade)
