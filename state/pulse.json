@@ -105,42 +105,42 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 53,
-     "win_rate": 0.2830188679245283,
-     "avg_r": -0.08847853412508806,
-     "total_r": -4.689362308629668,
+     "trades": 55,
+     "win_rate": 0.2909090909090909,
+     "avg_r": -0.11369532263602113,
+     "total_r": -6.253242744981162,
      "sessions": 60
     },
     "orb": {
      "trades": 54,
      "win_rate": 0.3333333333333333,
-     "avg_r": -0.08516359160293528,
-     "total_r": -4.598833946558505,
+     "avg_r": -0.08927597253769655,
+     "total_r": -4.820902517035614,
      "sessions": 60
     },
     "fade": {
-     "trades": 2,
-     "win_rate": 0.5,
-     "avg_r": 0.27819012704108237,
-     "total_r": 0.5563802540821647,
+     "trades": 3,
+     "win_rate": 0.6666666666666666,
+     "avg_r": 0.20135717889284946,
+     "total_r": 0.6040715366785484,
      "sessions": 60
     },
     "vwap": {
-     "trades": 200,
-     "win_rate": 0.195,
-     "avg_r": -0.11443321237728474,
-     "total_r": -22.88664247545695,
+     "trades": 177,
+     "win_rate": 0.23163841807909605,
+     "avg_r": -0.06158309892416684,
+     "total_r": -10.900208509577531,
      "sessions": 60
     },
     "late": {
      "trades": 50,
      "win_rate": 0.32,
-     "avg_r": -0.25041673321709634,
-     "total_r": -12.520836660854817,
+     "avg_r": -0.23897117188057224,
+     "total_r": -11.948558594028611,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-26T06:05:40.000283+00:00",
+   "record_at": "2026-11-26T11:20:40.000393+00:00",
    "last_bar": "2026-11-25 15:55:00-05:00",
    "brief_day": "2026-11-25",
    "stance": "up|None",
@@ -657,23 +657,7 @@
   "https://www.trumpstruth.org/statuses/43738",
   "https://www.trumpstruth.org/statuses/43740"
  ],
- "trump_checks": [
-  {
-   "id": "https://www.trumpstruth.org/statuses/43740",
-   "text": "David E. Sanger, the mediocre reporter for the Failing New York Times, didn\u2019t me",
-   "at": "2026-11-26T05:50:40.349032+00:00",
-   "markets": [
-    {
-     "market": "QQQ",
-     "direction": -1,
-     "p0": 633.8099975585938,
-     "open": false,
-     "topic": "Iran / war / strikes"
-    }
-   ],
-   "done": []
-  }
- ],
+ "trump_checks": [],
  "trump_seeded": true,
  "briefing_day": "2026-11-05",
  "scalper": {
