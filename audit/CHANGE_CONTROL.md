@@ -174,3 +174,13 @@ Template:
     and they are marked "before fresh start".
   - Bot rules, sizing and logs are unchanged.
 - **Decision.** Owner request in chat; the owner merges.
+
+## CC-011: daily Telegram check failing, 26 Nov 2026
+- **Problem.** The "Daily check of the paper bots" job failed on 24 and 26 Nov, and the owner got failure emails.
+- **Evidence.** The report built fine, but it is now 6,500 characters (more bots, plus twins). Telegram refuses
+  messages over 4,096 characters, so the send step returned an error.
+- **Change.** `send_telegram` splits long messages at blank lines into parts under 3,900 characters, numbered
+  (1/2) and (2/2). It also prints Telegram's own refusal reason (never the token).
+- **Tests.** Two new tests (long messages split under the limit with HTML tags balanced; short messages unchanged).
+  All tests pass.
+- **Decision.** The owner asked for it to be fixed; the owner merges.
