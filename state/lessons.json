@@ -320,18 +320,6 @@
 ],
 "pending": [
 {
-"id": "QED.L|breakout|2026-11-09",
-"symbol": "QED.L",
-"exit_date": "2026-11-11",
-"entry": 2.1500000953674316,
-"stop": 1.603174482810065,
-"exit": 1.4500000476837158,
-"long": true,
-"reason": "stop (gapped through)",
-"r": -1.286699144424134,
-"setup": "breakout"
-},
-{
 "id": "0ILL.L|breakout|2026-11-06",
 "symbol": "0ILL.L",
 "exit_date": "2026-11-13",
