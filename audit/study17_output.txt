@@ -1,0 +1,27 @@
+GitHub Actions run 46035615259, job 140630136466, 27 Nov 2026 (read-only market data; no orders).
+Study 17 meme coins (long only, 0.6% round-trip cost, 15-minute bars 2023-01..2026-10)
+DOGE/USD: 134206 bars 2023-01-01 to 2026-11-01; buy-and-hold +8%
+  M1: trades 112 avg -0.86% win 30% t -2.68 | 2023:-1.60% 2024:-0.46% 2025:-0.25% 2026:-1.43% | beats placebo 0/20 -> fail
+  M2: trades 380 avg -0.80% win 31% t -3.31 | 2023:-0.87% 2024:-0.62% 2025:-0.62% 2026:-1.23% | beats placebo 0/20 -> fail
+  M3: trades 90 avg +1.23% win 67% t +2.71 | 2023:+2.84% 2024:+0.91% 2025:+0.72% 2026:+2.91% | beats placebo 20/20 -> fail
+  M4: trades 340 avg -0.68% win 32% t -2.64 | 2023:-0.85% 2024:-0.56% 2025:-0.43% 2026:-1.00% | beats placebo 7/20 -> fail
+SHIB/USD: 127275 bars 2023-03-14 to 2026-11-01; buy-and-hold -59%
+  M1: trades 47 avg -0.25% win 34% t -0.59 | 2023:+0.59% 2024:-0.35% 2025:-0.47% 2026:-3.32% | beats placebo 9/20 -> fail
+  M2: trades 213 avg +420.44% win 37% t +1.56 | 2023:+1623.20% 2024:+557.90% 2025:+13.88% 2026:+0.32% | beats placebo 0/20 -> fail
+  M3: trades 106 avg +0.72% win 60% t +1.13 | 2023:+2.66% 2024:+0.32% 2025:+0.12% 2026:+2.41% | beats placebo 20/20 -> fail
+  M4: trades 191 avg +197.05% win 37% t +1.14 | 2023:+113.74% 2024:+608.73% 2025:+15.48% 2026:+0.14% | beats placebo 0/20 -> fail
+PEPE/USD: 61353 bars 2025-01-29 to 2026-11-01; buy-and-hold -61%
+  M1: trades 23 avg +0.28% win 48% t +0.41 | 2025:+0.50% 2026:+0.19% | beats placebo 19/20 -> fail
+  M2: trades 119 avg +24.05% win 39% t +1.63 | 2025:+41.80% 2026:+2.67% | beats placebo 8/20 -> fail
+  M3: trades 39 avg +0.11% win 56% t +0.19 | 2025:+0.11% 2026:+0.09% | beats placebo 9/20 -> fail
+  M4: trades 108 avg +18.41% win 40% t +1.65 | 2025:+32.81% 2026:+2.90% | beats placebo 2/20 -> fail
+TRUMP/USD: 61971 bars 2025-01-22 to 2026-11-01; buy-and-hold -96%
+  M1: trades 44 avg -1.09% win 25% t -1.97 | 2025:-0.59% 2026:-1.88% | beats placebo 0/20 -> fail
+  M2: trades 135 avg +0.88% win 33% t +0.79 | 2025:+0.01% 2026:+2.08% | beats placebo 11/20 -> fail
+  M3: trades 99 avg -0.28% win 47% t -0.61 | 2025:-1.27% 2026:+0.52% | beats placebo 18/20 -> fail
+  M4: trades 115 avg +0.96% win 36% t +0.75 | 2025:-0.15% 2026:+2.50% | beats placebo 8/20 -> fail
+BTC/USD: 134228 bars 2023-01-01 to 2026-11-01; buy-and-hold +369%
+  M1: trades 16 avg -1.18% win 12% t -6.62 | 2023:-1.32% 2024:-0.35% 2025:-1.37% 2026:-0.79% | beats placebo 0/20 -> fail
+  M2: trades 387 avg -0.54% win 34% t -3.32 | 2023:-0.07% 2024:-0.53% 2025:-0.88% 2026:-0.65% | beats placebo 14/20 -> fail
+  M3: 6 trades (too few)
+  M4: trades 361 avg -0.54% win 35% t -3.15 | 2023:+0.07% 2024:-0.60% 2025:-0.86% 2026:-0.67% | beats placebo 14/20 -> fail

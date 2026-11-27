@@ -24,31 +24,32 @@ from pathlib import Path
 import pandas as pd
 
 ENABLED = True
+SPY_ENABLED = True  # Study 16 passed (27 Nov 2026): run the same rule on SPY as a separate paper bot (no Telegram)
 STATE = Path(__file__).resolve().parent.parent / "state" / "sharesbot"
 ACCOUNT_GBP, GBP_USD, SLIP = 1000.0, 1.0 / 0.76, 0.01
 
 
-def history_bars(stock_client, now: datetime) -> pd.DataFrame:
-    """The previous ~20 sessions of 1-minute QQQ bars (for the noise band)."""
+def history_bars(stock_client, now: datetime, symbol: str = "QQQ") -> pd.DataFrame:
+    """The previous ~20 sessions of 1-minute bars of `symbol` (QQQ unless told otherwise), for the noise band."""
     from alpaca.data.enums import DataFeed
     from alpaca.data.requests import StockBarsRequest
     from alpaca.data.timeframe import TimeFrame
 
     end = now.replace(hour=9, minute=0, second=0, microsecond=0)
-    df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols="QQQ", timeframe=TimeFrame.Minute,
+    df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols=symbol, timeframe=TimeFrame.Minute,
                                                       start=end - timedelta(days=35), end=end, feed=DataFeed.SIP)).df
-    d = df.xs("QQQ", level=0)[["open", "high", "low", "close", "volume"]].astype(float)
+    d = df.xs(symbol, level=0)[["open", "high", "low", "close", "volume"]].astype(float)
     d.index = pd.DatetimeIndex(d.index).tz_convert("America/New_York").tz_localize(None)
     return d.between_time("09:30", "15:59")
 
 
 class SharesBot:
     def __init__(self, bars_fn, hist_fn, now: datetime, say, state_dir: Path = STATE, ctx_gate: bool = False,
-                 key: str = "shares"):
+                 key: str = "shares", symbol: str = "QQQ"):
         # ctx_gate: the "+context" twin (research/CONTEXT_TWINS_PROTOCOL.md): also needs the shared dashboard trend on
         # its side and no chop (tracker/context.py). key: its name for the pause switch and the live page.
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
-        self.ctx_gate, self.key, self.controls = ctx_gate, key, None
+        self.ctx_gate, self.key, self.controls, self.sym = ctx_gate, key, None, symbol
         self.day = now.strftime("%Y-%m-%d")
         self.path = self.dir / f"{self.day}.json"
         self.s = {"trade": None, "done": False, "sent": [], "checked": [], "decisions": []}
@@ -136,7 +137,7 @@ class SharesBot:
                 side, why = 0, "blocked by context: " + g
         self.s.setdefault("decisions", []).append({"t": now.strftime("%Y-%m-%d %H:%M:%S"),
             "out": "entered" if side else ("rejected" if raw else "no signal"),
-            "why": (f"breakout {'up' if side > 0 else 'down'}: {'bought' if side > 0 else 'shorted'} QQQ at {c:.2f}" if side else why),
+            "why": (f"breakout {'up' if side > 0 else 'down'}: {'bought' if side > 0 else 'shorted'} {self.sym} at {c:.2f}" if side else why),
             "ind": ind, **({"sig": {"side": "L" if raw > 0 else "S", "trigger": "one-a-day breakout", "qqq": round(c, 2)}} if raw else {})})
         if side:
             px = c + SLIP * side
@@ -144,7 +145,7 @@ class SharesBot:
             self.s["trade"] = {"side": side, "t": now.strftime("%Y-%m-%d %H:%M:%S"), "entry": px, "qty": qty,
                                "atr": atr, "best": 0.0}
             self.s["done"] = True
-            self.say(f"🟢 <b>{'BOUGHT' if side > 0 else 'SOLD SHORT'}</b> {qty:g} QQQ shares @ {px:.2f}\n"
+            self.say(f"🟢 <b>{'BOUGHT' if side > 0 else 'SOLD SHORT'}</b> {qty:g} {self.sym} shares @ {px:.2f}\n"
                      f"{now:%a %m/%d · %I:%M %p} ET · one-a-day rule · paper (£1,000 account)")
         self.save()
 
@@ -160,7 +161,7 @@ class SharesBot:
             px = c - SLIP * t["side"]
             pnl = (px - t["entry"]) * t["side"] * t["qty"]
             t.update(exit=px, exit_t=now.strftime("%Y-%m-%d %H:%M:%S"), why=why, pnl_usd=round(pnl, 2))
-            self.say(f"🔴 <b>{'SOLD' if t['side'] > 0 else 'BOUGHT BACK'}</b> {t['qty']:g} QQQ shares @ {px:.2f}\n"
+            self.say(f"🔴 <b>{'SOLD' if t['side'] > 0 else 'BOUGHT BACK'}</b> {t['qty']:g} {self.sym} shares @ {px:.2f}\n"
                      f"<b>{'+' if pnl >= 0 else '−'}£{abs(pnl) / GBP_USD:,.2f}</b> ({fav / t['entry']:+.2%}) · "
                      f"{now:%I:%M %p} ET · {why} · paper")
         self.save()

@@ -103,6 +103,9 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto"><table class="lb" id="lead"></table>
     <div class="sub" style="margin-top:6px">"Too few trades" = under 30 closed trades: results that small are mostly luck. Win rate alone is never used to rank. Options bots' open trades can't be valued live (we don't publish the option's live price yet), so their equity uses the last closed balance and is marked *.</div></div>
 
+  <h2>Dogecoin dip-buy bot (crypto, 24/7, paper)</h2>
+  <div class="card" id="doge"><div class="sub">Loading…</div></div>
+
   <h2>Decision log (what each bot saw, did and why)</h2>
   <div class="toolbar"><select id="dlBot"></select><select id="dlOut"><option value="">all decisions</option><option value="sig">signals only (entered + rejected)</option>
     <option value="entered">entered</option><option value="rejected">rejected</option><option value="exited">exited</option><option value="no signal">no signal</option><option value="holding">holding</option></select>
@@ -110,8 +113,9 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="lb" id="dlog"></table>
     <div class="sub" style="margin-top:6px">Written by the bots at the moment of each decision from the inputs they actually used (no explanations added afterwards). The page shows each bot's last 60 records; the full log is saved in the repo every day. Indicator columns are the shared context (same numbers as "What the bots see").</div></div>
 
-  <h2>Bot accounts (£1,000 each; every bot restarted on 27 Nov 2026 except the shares one-a-day bot)</h2>
-  <div class="grid g3" id="accts"></div>
+  <h2>Bots (£1,000 each; every bot restarted on 27 Nov 2026 except the shares one-a-day bot)</h2>
+  <div class="sub" style="margin-bottom:6px">Click a bot to see its versions (original, +context twin, and daily targets £30–£60), then click a version for all its figures.</div>
+  <div id="fams"></div>
 
   <h2>Market conditions</h2>
   <div class="card">
@@ -127,7 +131,10 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" id="news"><div class="sub">Headlines appear while the market is open.</div></div>
 
   <h2>Shipping (live map, for interest only)</h2>
-  <div class="card" style="padding:0;overflow:hidden">
+  <div class="card" style="overflow:hidden">
+    <div id="shipmap" style="min-height:40px"><script>var mst_width="100%";var mst_height="350px";var mst_border="0";var mst_map_style="simple";var mst_mmsi="";var mst_show_track="";var mst_show_info="";var mst_fleet="";var mst_lat="30";var mst_lng="-40";var mst_zoom="3";var mst_show_names="0";var mst_scroll_wheel="true";var mst_show_menu="true";</script>
+    <script src="https://www.myshiptracking.com/js/widgetApi.js"></script></div>
+    <div class="sub" style="margin:6px 0">Free map from MyShipTracking. If it stays blank, the site is blocking it inside other pages; use the button.</div>
     <a href="https://www.vesselfinder.com/?zoom=3&lat=30&lon=-40" target="_blank" rel="noopener" style="display:inline-block;padding:10px 16px;border:1px solid var(--line);border-radius:8px;color:var(--text);text-decoration:none">Open live ship map ↗</a>
   </div>
 
@@ -199,12 +206,42 @@ const BOTS = {options: "Options · stop after 2 losses",
   skipweak: "Options · stop after 2 + skip weak crosses", combo: "Options · stop after 2 + skip weak + 9:31 + in the money",
   picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)",
   brakes: "Options · profit brake +$50 / loss brake −$100",
-  five: "Options · 5-minute crosses", open30: "Options · opening move (10:00)", oneaday: "Options · one-a-day breakout", shares: "Shares · one a day"};
+  five: "Options · 5-minute crosses", open30: "Options · opening move (10:00)", oneaday: "Options · one-a-day breakout", shares: "Shares · one a day",
+  news: "Options · news bot (free word scorer + chart trend)", shares_spy: "Shares · one a day on SPY"};
 const TWIN_OF = k => k.endsWith("_ctx") ? k.slice(0, -4) : null;
-const ORIG = Object.keys(BOTS);
-for (const k of ORIG) BOTS[k + "_ctx"] = BOTS[k] + " +context";
+const ORIG = Object.keys(BOTS), NO_TWIN = ["news", "shares_spy"];
+for (const k of ORIG) if (!NO_TWIN.includes(k)) BOTS[k + "_ctx"] = BOTS[k] + " +context";
+// Daily-target versions (owner, 27 Nov 2026): the same bot, stopping for the day once its closed trades reach +£N.
+// Worked out exactly from the real bot's trades (it trades identically until the target is hit, then stops): no extra bot runs.
+// One-trade-a-day bots (open30, oneaday, shares) are left out: a daily target cannot change them. The news bot has its own £50.
+const TGTS = [30, 40, 50, 60], TGT_BASE = ["options", "skipweak", "combo", "picks", "clone", "brakes", "five"];
+const baseOf = k => k.split("~")[0], tgtOf = k => k.includes("~") ? +k.split("~")[1] : null, famOf = k => baseOf(k).replace(/_ctx$/, "");
+for (const b of TGT_BASE) for (const x of [b, b + "_ctx"]) for (const n of TGTS) BOTS[`${x}~${n}`] = `${BOTS[x]} · stops at +£${n} a day`;
+const members = f => [f, ...(BOTS[f + "_ctx"] ? [f + "_ctx"] : []), ...(TGT_BASE.includes(f) ? TGTS.map(n => `${f}~${n}`).concat(TGTS.map(n => `${f}_ctx~${n}`)) : [])];
 let view;
-const visible = () => (view = view || store.get("view", "orig")) === "orig" ? ORIG : view === "twin" ? ORIG.map(k => k + "_ctx") : ORIG.flatMap(k => [k, k + "_ctx"]);
+const visible = () => { view = view || store.get("view", "orig");
+  return view === "orig" ? ORIG : view === "twin" ? ORIG.filter(k => BOTS[k + "_ctx"]).map(k => k + "_ctx")
+    : view === "targets" ? ORIG.flatMap(k => [k, ...(TGT_BASE.includes(k) ? TGTS.map(n => `${k}~${n}`) : [])])
+    : view === "all" ? ORIG.flatMap(members) : ORIG.flatMap(k => [k, ...(BOTS[k + "_ctx"] ? [k + "_ctx"] : [])]); };
+function addVirtual() {
+  // Build each target version's trades from its real bot: per day, keep trades while the day's closed total is below +£N.
+  if (!D) return;
+  const rate = FX && FX.rate ? FX.rate : 0.76;
+  D.hist = D.hist || {}; D.days = D.days || {};
+  for (const k of Object.keys(BOTS).filter(k => k.includes("~"))) {
+    const b = baseOf(k), tgt = tgtOf(k) / rate, byDay = {};
+    for (const r of (D.hist[b] || [])) (byDay[r[0].slice(0, 10)] = byDay[r[0].slice(0, 10)] || []).push(r);
+    const rows = [], days = {};
+    for (const d of Object.keys(byDay).sort()) { let cum = 0;
+      for (const r of byDay[d].sort((x, y) => x[0] < y[0] ? -1 : 1)) { if (cum >= tgt) break; rows.push(r); cum += r[5]; }
+      days[d] = Math.round(cum * 100) / 100; }
+    D.hist[k] = rows; D.days[k] = days;
+    const src = D[b];
+    if (src) { let cum = 0; const tr = [];
+      for (const t of src.trades || []) { if (cum >= tgt) break; tr.push(t); cum += t.pnl; }
+      D[k] = {trades: tr, open: cum >= tgt ? null : src.open, reached: cum >= tgt}; }
+  }
+}
 const IND = [["vwap", "VWAP", "--vwap"], ["e9", "EMA 9", "--e9"], ["e20", "EMA 20", "--e20"], ["e50", "EMA 50", "--e50"],
              ["vol", "Volume", "--vol"], ["rsi", "RSI", "--accent"], ["macd", "MACD", "--accent"]];
 const store = {get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -254,8 +291,8 @@ function makeCharts() {
 function tradesFor(k) {
   if (!D) return [];
   if (k === "all") return visible().flatMap(x => tradesFor(x).map(t => ({...t, k: x}))).sort((a, b) => a.t < b.t ? -1 : 1);
-  if (k === "shares" || k === "shares_ctx") { const s = D[k]; if (!s) return [];
-    return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} QQQ shares`, trigger: "one-a-day breakout",
+  if (k.startsWith("shares")) { const s = D[k]; if (!s) return [];
+    return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} ${k === "shares_spy" ? "SPY" : "QQQ"} shares`, trigger: "one-a-day breakout",
       entry: s.entry, exit: s.exit, stop: s.entry - 10 * s.atr * s.side, target: "trail after " + (4 * s.atr).toFixed(2) + " in profit",
       why: s.why, pnl: s.pnl_usd, open: !s.exit, qqqIn: s.entry, unit: "QQQ"}]; }
   const b = D[k] || {}; const out = (b.trades || []).map(t => ({...t, open: false}));
@@ -397,8 +434,9 @@ function dayTotals(k) {
 }
 function renderCalendar() {
   if (!visible().includes(calBot) && calBot !== "all") calBot = "all";
-  $("calTabs").innerHTML = `<button class="chip ${calBot === "all" ? "on" : ""}" data-c="all">All bots</button>` + visible().map(k => [k, BOTS[k]]).map(([k, n]) => `<button class="chip ${calBot === k ? "on" : ""}" data-c="${k}">${n}</button>`).join("");
-  document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { calBot = b.dataset.c; store.set("calBot2", calBot); renderCalendar(); });
+  $("calTabs").innerHTML = `<select id="calSel"><option value="all" ${calBot === "all" ? "selected" : ""}>All shown bots (table)</option>` +
+    ORIG.map(f => { const m = visible().filter(k => famOf(k) === f); return m.length ? `<optgroup label="${sn(f)}">${m.map(k => `<option value="${k}" ${calBot === k ? "selected" : ""}>${sn(k)}</option>`).join("")}</optgroup>` : ""; }).join("") + `</select>`;
+  $("calSel").onchange = e => { calBot = e.target.value; store.set("calBot2", calBot); renderCalendar(); };
   if (calBot === "all") { renderAllDays(); return; }
   const days = dayTotals(calBot), keys = Object.keys(days).sort(), today = D.updated.slice(0, 10);
   const dp = calBot === "shares" ? 2 : 0, vals = keys.map(d => days[d]), tot = vals.reduce((a, b) => a + b, 0);
@@ -425,7 +463,7 @@ function renderCalendar() {
   }).join("");
 }
 
-const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", brakes: "Brakes", five: "5-minute", open30: "Opening move", oneaday: "One-a-day options", shares: "Shares"};
+const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", brakes: "Brakes", five: "5-minute", open30: "Opening move", oneaday: "One-a-day options", shares: "Shares", news: "News bot", shares_spy: "SPY shares"};
 function renderAllDays() {
   const ks = visible(), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
   const dates = [...new Set(ks.flatMap(k => Object.keys(per[k])))].sort().reverse();
@@ -440,12 +478,16 @@ function renderAllDays() {
 function renderNews() {
   const n = D.news || []; if (!n.length) return;
   const esc = x => String(x).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-  $("news").innerHTML = n.map(i => `<div class="row" style="padding:4px 0;border-bottom:1px dashed var(--line)"><span class="muted" style="font-size:12px">${esc(i.t.slice(5))} · ${esc((i.sym || []).join(" "))}</span><br><a href="${esc(i.url)}" target="_blank" rel="noopener" style="color:var(--text)">${esc(i.h)}</a> <span class="muted" style="font-size:12px">${esc(i.src)}</span></div>`).join("");
+  $("news").innerHTML = n.map(i => `<div class="row" style="padding:4px 0;border-bottom:1px dashed var(--line)"><span class="muted" style="font-size:12px">${esc(i.t.slice(5))} · ${esc((i.sym || []).join(" "))}</span><br><a href="${esc(i.url)}" target="_blank" rel="noopener" style="color:var(--text)">${esc(i.h)}</a> <span class="muted" style="font-size:12px">${esc(i.src)}</span>` +
+    (i.score !== undefined ? ` <span class="pill ${i.score > 0 ? "ok" : i.score < 0 ? "bad" : ""}">${i.score > 0 ? "good" : i.score < 0 ? "bad" : "neutral"} ${i.score > 0 ? "+" : ""}${i.score} × importance ${i.imp}</span>${i.words && i.words.length ? ` <span class="alt">(${esc(i.words.join(", "))})</span>` : ""}` : "") + `</div>`).join("") +
+    `<div class="sub" style="margin-top:6px">Scores come from the free finance word list the news bot uses (headline only, not the article). A score is a word count, not a trade signal by itself.</div>`;
 }
 
 function renderControls() {
   if (bot !== "all" && !visible().includes(bot)) bot = "all";
-  $("botTabs").innerHTML = `<button class="chip ${bot === "all" ? "on" : ""}" data-b="all">ALL BOTS</button>` + visible().map(k => `<button class="chip ${bot === k ? "on" : ""}" data-b="${k}"><span class="dot" style="background:${botColor(k)}"></span>${sn(k)}</button>`).join("");
+  $("botTabs").innerHTML = `<select id="botSel"><option value="all" ${bot === "all" ? "selected" : ""}>ALL BOTS shown</option>` +
+    ORIG.map(f => { const m = visible().filter(k => famOf(k) === f); return m.length ? `<optgroup label="${sn(f)}">${m.map(k => `<option value="${k}" ${bot === k ? "selected" : ""}>${sn(k)}</option>`).join("")}</optgroup>` : ""; }).join("") + `</select>`;
+  $("botSel").onchange = e => { bot = e.target.value; store.set("bot", bot); selected = null; render(); };
   $("ranges").innerHTML = [[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [0, "whole day"]].map(([m, n]) => `<button class="chip" data-r="${m}">${n}</button>`).join("");
   document.querySelectorAll("[data-r]").forEach(b => b.onclick = () => zoom(+b.dataset.r));
   $("toggles").innerHTML = IND.map(([k, n, c]) => `<button class="chip ${on[k] ? "on" : ""}" data-k="${k}"><span class="dot" style="background:${css(c)}"></span>${n}</button>`).join("");
@@ -522,7 +564,7 @@ function account(k) {
   const hist = ((D.hist || {})[k] || []).filter(r => counts(k, r[0])).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
   const closed = hist.concat(closedToday.map(t => ({t: t.t, exit_t: t.exit_t, pnl: t.pnl})));
   const S0 = startOf(k), realised = closed.reduce((a, t) => a + t.pnl, 0), balance = S0 + realised;
-  const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
+  const last = k === "shares_spy" ? D.spy_px : D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
   let unreal = null, exposure = 0, risk = 0, unknown = false;
   if (open) {
     if (k.startsWith("shares")) { const q = D[k].qty || 0, sd = open.side === "SHORT" ? -1 : 1;
@@ -552,6 +594,7 @@ function botStatus(a, fr) {
   if (fr.stale && fr.open) return ["Stale data", "bad"];
   if (!fr.open) return ["Market closed", "warn"];
   let r = 0; for (let i = a.todayTrades.length - 1; i >= 0 && a.todayTrades[i].pnl <= 0; i--) r++;
+  if (D[a.k] && D[a.k].reached) return [`Target +£${tgtOf(a.k)} reached: stopped for today`, "ok"];
   if (r >= 2 && !a.open) return ["2 losses in a row today", "warn"];
   if (a.open) return ["In a trade", "ok"];
   return ["Watching", "ok"];
@@ -559,7 +602,7 @@ function botStatus(a, fr) {
 
 function renderMoney() {
   const fr = freshness(), A = visible().map(account);
-  $("viewTabs").innerHTML = [["orig", "Original bots"], ["twin", "+context twins"], ["both", "Both, side by side"]].map(([v, n]) => `<button class="chip ${view === v ? "on" : ""}" data-view="${v}">${n}</button>`).join("");
+  $("viewTabs").innerHTML = [["orig", "Original bots"], ["twin", "+context twins"], ["both", "Originals + twins"], ["targets", "Originals + daily targets"], ["all", "Everything"]].map(([v, n]) => `<button class="chip ${view === v ? "on" : ""}" data-view="${v}">${n}</button>`).join("");
   document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; store.set("view", view); render(); });
   const sum = f => A.reduce((x, a) => x + (a[f] || 0), 0);
   const init = A.reduce((x, a) => x + a.S0, 0), eq = sum("equity"), todayP = sum("todayPnl");
@@ -608,16 +651,11 @@ function renderMoney() {
       `<td>${f2(a.pf, v => v === Infinity ? "∞" : v.toFixed(2))}</td><td class="${cls(a.avg)}">${f2(a.avg, v => usd(v, 2))}</td><td>${f2(a.rr, v => v.toFixed(2))}</td><td class="down">${usd(a.maxdd, 0)}</td>` +
       `<td>${a.run}</td><td>${f2(a.cons, v => (v * 100).toFixed(0) + "% of " + a.ndays)}</td><td>${f2(a.stab, v => "±$" + v.toFixed(0) + " a trade")}</td></tr>`; }).join("");
   // account cards
-  $("accts").innerHTML = A.map(a => { const [st, c] = botStatus(a, fr), r = (l, v, cl = "") => `<div><span>${l}</span><span class="${cl}">${v}</span></div>`;
-    return `<div class="card"><div class="label">${BOTS[a.k]} <span class="pill ${c}">${st}</span></div>
-      <div class="big ${cls(a.total)}">${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</div><div class="alt">equity · ${pct(a.ret)} since start</div>
-      <div class="stats">${r("Started with", money(a.S0, 0, false) + (KEEP.includes(a.k) ? " (not reset: full record)" : " on " + RESET))}${r("Balance", money(a.balance, 2, false))}${r("Realised", money(a.realised), cls(a.realised))}
-      ${r("Unrealised", a.unknown ? "not valued *" : money(a.unreal || 0), cls(a.unreal))}${r("Total P&L", money(a.total), cls(a.total))}${r("Today", money(a.todayPnl), cls(a.todayPnl))}
-      ${r("Today %", pct(a.todayPct), cls(a.todayPct))}${r("Peak", money(a.peak, 2, false))}${r("Below peak", money(a.dd), cls(a.dd))}${r("Available cash", money(a.cash, 2, false), a.cash < 0 ? "down" : "")}
-      ${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}${r("Fees (in P&L)", money(-a.fees))}</div></div>`; }).join("");
+  renderFamilies(fr);
 }
 
-const sn = k => SHORT[k] || (TWIN_OF(k) ? (SHORT[TWIN_OF(k)] || TWIN_OF(k)) + " +ctx" : k);
+const sn0 = k => SHORT[k] || (TWIN_OF(k) ? (SHORT[TWIN_OF(k)] || TWIN_OF(k)) + " +ctx" : k);
+const sn = k => tgtOf(k) ? `${sn0(baseOf(k))} · £${tgtOf(k)} target` : sn0(k);
 const WF = "https://github.com/whitecraig860-commits/trading-bot/actions/workflows/controls.yml";
 function renderSafety() {
   const c = D.controls || {}, paused = c.paused || [];
@@ -657,9 +695,40 @@ function renderBotSee() {
       `The +context twins only buy calls when this says Bullish, puts when Bearish, and nothing when choppy.`;
 }
 
+// ---------- bot families (collapsed): one row per bot, its versions inside, full card on click
+let famOpen = store.get("famOpen", {}), famSel = store.get("famSel", {});
+function acctCard(a, fr) {
+  const [st, c] = botStatus(a, fr), r = (l, v, cl = "") => `<div><span>${l}</span><span class="${cl}">${v}</span></div>`;
+  return `<div class="card" style="margin-top:8px"><div class="label">${BOTS[a.k]} <span class="pill ${c}">${st}</span>${a.k === "news" ? ` <span class="pill warn">${NEWS_TEST}</span>` : ""}</div>
+    <div class="big ${cls(a.total)}">${money(a.equity, 2, false)}${a.unknown ? " *" : ""}</div><div class="alt">equity · ${pct(a.ret)} since start</div>
+    <div class="stats">${r("Started with", money(a.S0, 0, false) + (KEEP.includes(a.k) ? " (not reset: full record)" : " on " + RESET))}${r("Balance", money(a.balance, 2, false))}
+    ${r("Realised", money(a.realised), cls(a.realised))}${r("Unrealised", a.unknown ? "not valued *" : money(a.unreal || 0), cls(a.unreal))}${r("Total P&L", money(a.total), cls(a.total))}
+    ${r("Today", money(a.todayPnl), cls(a.todayPnl))}${r("Today %", pct(a.todayPct), cls(a.todayPct))}${r("Peak", money(a.peak, 2, false))}${r("Below peak", money(a.dd), cls(a.dd))}
+    ${r("Available cash", money(a.cash, 2, false), a.cash < 0 ? "down" : "")}${r("In open trade", money(a.exposure, 2, false))}${r("Trades", a.n)}
+    ${r("Win rate", a.wr == null ? "–" : (a.wr * 100).toFixed(0) + "%")}${r("Profit factor", a.pf == null ? "–" : a.pf === Infinity ? "∞" : a.pf.toFixed(2))}${r("Max drawdown", usd(a.maxdd, 0), "down")}${r("Fees (in P&L)", money(-a.fees))}</div></div>`;
+}
+function renderFamilies(fr) {
+  $("fams").innerHTML = ORIG.map(f => {
+    const M = members(f).map(account), o = M[0], best = M.slice().sort((x, y) => y.total - x.total)[0], [st, c] = botStatus(o, fr);
+    const sel = famSel[f] || f, isOpen = !!famOpen[f];
+    return `<div class="card" style="margin-bottom:6px;padding:8px 12px"><div class="fam" data-fam="${f}" style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;cursor:pointer">
+        <span style="font-weight:650;min-width:180px"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${botColor(f)}"></span> ${isOpen ? "▾" : "▸"} ${sn(f)}</span>
+        <span>${money(o.equity, 2, false)}</span><span class="${cls(o.todayPnl)}">today ${money(o.todayPnl)}</span><span class="${cls(o.total)}">${pct(o.ret)}</span>
+        <span class="pill ${c}">${st}</span>${f === "news" ? `<span class="pill warn">${NEWS_TEST}</span>` : ""}
+        ${M.length > 1 ? `<span class="alt">${M.length} versions · best: ${sn(best.k)} ${money(best.total)}</span>` : ""}</div>
+      ${isOpen ? `<div style="overflow-x:auto;margin-top:6px"><table class="lb"><tr><th>Version</th><th>Balance</th><th>Today</th><th>Total</th><th>Return</th><th>Trades</th><th>Win rate</th><th>Status</th><th></th></tr>` +
+        M.map(a => `<tr${a.k === sel ? ` style="outline:1px solid var(--accent)"` : ""}><td style="text-align:left">${sn(a.k)}</td><td>${money(a.balance, 2, false)}</td><td class="${cls(a.todayPnl)}">${money(a.todayPnl)}</td>` +
+          `<td class="${cls(a.total)}">${money(a.total)}</td><td class="${cls(a.ret)}">${pct(a.ret)}</td><td>${a.n}</td><td>${a.wr == null ? "–" : (a.wr * 100).toFixed(0) + "%"}</td>` +
+          `<td><span class="pill ${botStatus(a, fr)[1]}">${botStatus(a, fr)[0]}</span></td><td><button class="chip" data-mem="${a.k}">${a.k === sel ? "shown" : "details"}</button></td></tr>`).join("") +
+        `</table></div>${acctCard(M.find(a => a.k === sel) || o, fr)}` : ""}</div>`; }).join("");
+  document.querySelectorAll("[data-fam]").forEach(el => el.onclick = () => { const f = el.dataset.fam; famOpen[f] = !famOpen[f]; store.set("famOpen", famOpen); renderFamilies(freshness()); });
+  document.querySelectorAll("[data-mem]").forEach(el => el.onclick = () => { famSel[famOf(el.dataset.mem)] = el.dataset.mem; store.set("famSel", famSel); renderFamilies(freshness()); });
+}
+const NEWS_TEST = "history test: too little data (7 trades since Apr 2026)";
+
 // ---------- stage 3: chart helpers, analytics, trade history
 const PAL = ["#58a6ff", "#f0883e", "#3fb950", "#bc8cff", "#ff7b72", "#e3b341", "#39c5cf", "#db61a2", "#a5d6ff", "#7ee787"];
-const botColor = k => PAL[Math.max(0, ORIG.indexOf(TWIN_OF(k) || k)) % PAL.length];
+const botColor = k => PAL[Math.max(0, ORIG.indexOf(famOf(k))) % PAL.length];
 function zoom(m) {
   if (!chart || !D || !(D.bars || []).length) return;
   const last = ts(D.bars[D.bars.length - 1][0]);
@@ -902,12 +971,29 @@ function renderReports() {
 }
 
 function render() {
+  if (D) addVirtual();
   renderControls();
   if (!D) return;
   const fr = freshness();
   $("status").innerHTML = `Data updated ${both(D.updated)} (${ago(fr.hb)}) · page checked ${zt(new Date(), "Europe/London", {second: "2-digit"})} UK · ` +
     (fr.stale ? `<span class="pill ${fr.open ? "bad" : "warn"}">not live${fr.open ? ": STALE" : " (market closed)"}</span>` : `<span class="pill ok">live</span>`);
   renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades(); hookClick(); renderAnalytics(); renderHistory(); renderAlerts(); renderReports();
+}
+
+async function loadDoge() {
+  let g;
+  try { const r = await fetch(URL_.replace("live.json", "doge.json") + "&t=" + Date.now(), {headers: {Accept: "application/vnd.github.raw+json"}});
+    if (!r.ok) throw 0; g = await r.json(); } catch (e) { $("doge").innerHTML = `<div class="sub">No Dogecoin data yet: the bot's first check runs within 15 minutes of this update being merged.</div>`; return; }
+  const o = g.open, px = g.px, mark = o && px ? o.qty * px * (1 - 0.0025 - 0.0005) : 0, eq = g.cash + mark, tr = g.trades || [];
+  const w = tr.filter(t => t.pnl > 0).length, pnl = eq - g.start_usd, age = g.checked ? (Date.now() - Date.parse(g.checked)) / 60000 : Infinity;
+  const r = (l, v, c = "") => `<div><span>${l}</span><span class="${c}">${v}</span></div>`;
+  $("doge").innerHTML = `<div class="label">Buys Dogecoin after a fall of more than 8% in 4 hours; sells at +5%, −5% or after 12 hours. Fees 0.25% + 0.05% slippage each way.
+      <span class="pill warn">history test: promising, not proven (t 2.7 vs 3.0 needed)</span> ${age > 45 ? `<span class="pill bad">STALE: last check ${ago(Date.parse(g.checked))}</span>` : `<span class="pill ok">checked ${ago(Date.parse(g.checked))}</span>`}</div>
+    <div class="big ${cls(pnl)}">${money(eq, 2, false)}</div><div class="alt">equity · ${pct(pnl / g.start_usd * 100)} since start (£1,000 on ${String(g.started || "").slice(0, 10)})</div>
+    <div class="stats">${r("Profit/loss", money(pnl), cls(pnl))}${r("Cash", money(g.cash, 2, false))}${r("DOGE price", px ? "$" + px.toFixed(5) : "–")}
+      ${r("Open trade", o ? `bought ${new Date(o.t).toLocaleString("en-GB", {timeZone: "Europe/London", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"})} UK at $${o.entry.toFixed(5)} (target $${o.target.toFixed(5)}, stop $${o.stop.toFixed(5)})` : "none")}
+      ${r("Open trade value", o ? money(mark - o.cost) : "–", cls(mark - (o ? o.cost : 0)))}${r("Trades", `${tr.length} (${w} won)`)}</div>` +
+    (tr.length ? `<details><summary>Trades</summary><table class="lb">${tr.slice().reverse().map(t => `<tr><td>${t.t.slice(0, 16).replace("T", " ")} UTC</td><td>$${t.entry.toFixed(5)} → $${t.exit.toFixed(5)}</td><td>${t.why}</td><td class="${cls(t.pnl)}">${usd(t.pnl, 2)}</td></tr>`).join("")}</table></details>` : "");
 }
 
 async function load() {
@@ -924,7 +1010,7 @@ async function load() {
   D = data; render();
 }
 const ok = makeCharts();
-load().then(loadFx).then(() => D && render()); setInterval(load, 60000); setInterval(loadFx, 3600e3);
+load().then(loadFx).then(() => D && render()); loadDoge(); setInterval(loadDoge, 300000); setInterval(load, 60000); setInterval(loadFx, 3600e3);
 </script>
 </body>
 </html>

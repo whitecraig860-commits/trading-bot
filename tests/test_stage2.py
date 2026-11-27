@@ -107,7 +107,7 @@ class ContextTwins(unittest.TestCase):
         self.assertIsNotNone(b.s["open"])  # originals trade exactly as before
 
     def test_every_bot_has_a_twin(self):
-        base = [k for k in qqqbot.EXTRA_BOTS if not k.endswith("_ctx")]
+        base = [k for k in qqqbot.EXTRA_BOTS if not k.endswith("_ctx") and k != "news"]  # the news bot already uses the context
         for k in base:
             self.assertIn(k + "_ctx", qqqbot.EXTRA_BOTS)
             self.assertTrue(qqqbot.EXTRA_BOTS[k + "_ctx"][2]["ctx_gate"])
@@ -120,6 +120,76 @@ class ContextTwins(unittest.TestCase):
         self.assertTrue(c["ok"])
         self.assertIn(c["trend"], ("Bullish", "Bearish", "Sideways"))
         self.assertFalse(context.market(day.iloc[:5], prev)["ok"])
+
+
+class NewsBot(unittest.TestCase):
+    def news(self, t, text):
+        return lambda: [{"id": 1, "t": t, "h": text, "sym": ["NVDA"]}, {"id": 2, "t": t, "h": text + " again", "sym": ["NVDA"]}]
+
+    def test_scorer(self):
+        import newsscore
+        self.assertGreater(newsscore.score("Nvidia beats estimates, shares surge")["score"], 0)
+        self.assertLess(newsscore.score("Apple misses estimates as tariffs hit; stock plunges")["score"], 0)
+        self.assertEqual(newsscore.score("Fed signals rate cut", [])["importance"], 3)
+        self.assertLess(newsscore.score("Company does not expect strong growth")["score"], 1)
+
+    def test_good_news_with_bullish_chart_buys_a_call(self):
+        b = make_bot(mode="news", key="news", target=0.10, stop=0.10, hold_min=30)
+        t = DAY.replace(hour=10, minute=13, second=5)
+        b.news_fn = self.news(t.replace(tzinfo=None) - timedelta(minutes=2), "Nvidia beats estimates, record revenue, shares surge")
+        b.on_poll(t, rows(t, 662))
+        self.assertIsNotNone(b.s["open"])
+        self.assertEqual(b.s["open"]["type"], "C")
+        self.assertIn("news pressure", b.s["decisions"][-1]["why"])
+
+    def test_bad_news_against_bullish_chart_does_not_trade(self):
+        b = make_bot(mode="news", key="news")
+        t = DAY.replace(hour=10, minute=13, second=5)
+        b.news_fn = self.news(t.replace(tzinfo=None) - timedelta(minutes=2), "Nvidia misses estimates, shares plunge on tariffs")
+        b.on_poll(t, rows(t, 662))
+        self.assertIsNone(b.s["open"])
+        self.assertIn("chart disagrees", b.s["decisions"][-1]["why"])
+
+    def test_no_headlines_no_trade(self):
+        b = make_bot(mode="news", key="news")
+        b.news_fn = lambda: []
+        t = DAY.replace(hour=10, minute=13, second=5)
+        b.on_poll(t, rows(t, 662))
+        self.assertIsNone(b.s["open"])
+
+
+class DogeBot(unittest.TestCase):
+    def frame(self, closes):
+        import pandas as pd
+        idx = pd.date_range("2026-11-27 00:00", periods=len(closes), freq="15min", tz="UTC")
+        c = pd.Series(closes, index=idx, dtype=float)
+        return pd.DataFrame({"open": c, "high": c * 1.001, "low": c * 0.999, "close": c})
+
+    def start(self):
+        return {"start_usd": 1315.79, "cash": 1315.79, "open": None, "trades": [], "last": None}
+
+    def test_buys_after_8pct_drop_and_sells_at_target(self):
+        import dogebot
+        closes = [0.40] * 17 + [0.36] + [0.36] * 3 + [0.38]
+        s = dogebot.step(self.start(), self.frame(closes), say=lambda m: None)
+        self.assertEqual(len(s["trades"]), 1)
+        self.assertIn("target", s["trades"][0]["why"])
+        self.assertGreater(s["trades"][0]["pnl"], 0)
+
+    def test_no_drop_no_trade_and_no_double_processing(self):
+        import dogebot
+        b = self.frame([0.40] * 30)
+        s = dogebot.step(self.start(), b, say=lambda m: None)
+        s2 = dogebot.step(dict(s), b, say=lambda m: None)
+        self.assertEqual(len(s2["trades"]), 0)
+        self.assertIsNone(s2["open"])
+
+    def test_stop_loss(self):
+        import dogebot
+        closes = [0.40] * 17 + [0.36] + [0.34]
+        s = dogebot.step(self.start(), self.frame(closes), say=lambda m: None)
+        self.assertIn("stop", s["trades"][0]["why"])
+        self.assertLess(s["trades"][0]["pnl"], 0)
 
 
 class TelegramLength(unittest.TestCase):

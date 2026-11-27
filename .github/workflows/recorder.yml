@@ -42,6 +42,7 @@ jobs:
           git add audit/flagged_trades.json audit/flagged_trades.md audit/unverified_trades.json || true
           git add state/quotes state/qqqbot state/qqqbot_original state/sharesbot
           if [ -d state/sharesbot_ctx ]; then git add state/sharesbot_ctx; fi
+          if [ -d state/sharesbot_spy ]; then git add state/sharesbot_spy; fi
           for d in state/qqqbot_*; do if [ -d "$d" ]; then git add "$d"; fi; done
           if ! git diff --cached --quiet; then
             git commit -m "Option quotes $(date -u +%F)"
