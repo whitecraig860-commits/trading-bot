@@ -158,6 +158,40 @@ class NewsBot(unittest.TestCase):
         self.assertIsNone(b.s["open"])
 
 
+class DogeBot(unittest.TestCase):
+    def frame(self, closes):
+        import pandas as pd
+        idx = pd.date_range("2026-11-27 00:00", periods=len(closes), freq="15min", tz="UTC")
+        c = pd.Series(closes, index=idx, dtype=float)
+        return pd.DataFrame({"open": c, "high": c * 1.001, "low": c * 0.999, "close": c})
+
+    def start(self):
+        return {"start_usd": 1315.79, "cash": 1315.79, "open": None, "trades": [], "last": None}
+
+    def test_buys_after_8pct_drop_and_sells_at_target(self):
+        import dogebot
+        closes = [0.40] * 17 + [0.36] + [0.36] * 3 + [0.38]
+        s = dogebot.step(self.start(), self.frame(closes), say=lambda m: None)
+        self.assertEqual(len(s["trades"]), 1)
+        self.assertIn("target", s["trades"][0]["why"])
+        self.assertGreater(s["trades"][0]["pnl"], 0)
+
+    def test_no_drop_no_trade_and_no_double_processing(self):
+        import dogebot
+        b = self.frame([0.40] * 30)
+        s = dogebot.step(self.start(), b, say=lambda m: None)
+        s2 = dogebot.step(dict(s), b, say=lambda m: None)
+        self.assertEqual(len(s2["trades"]), 0)
+        self.assertIsNone(s2["open"])
+
+    def test_stop_loss(self):
+        import dogebot
+        closes = [0.40] * 17 + [0.36] + [0.34]
+        s = dogebot.step(self.start(), self.frame(closes), say=lambda m: None)
+        self.assertIn("stop", s["trades"][0]["why"])
+        self.assertLess(s["trades"][0]["pnl"], 0)
+
+
 class TelegramLength(unittest.TestCase):
     def test_long_messages_are_split_under_the_limit(self):
         text = "\n\n".join(f"<b>Bot {i}</b>\n" + "x" * 300 for i in range(40))

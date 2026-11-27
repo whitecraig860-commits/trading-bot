@@ -201,6 +201,16 @@ def main() -> int:
                 b.controls = controls.check
     except Exception as exc:
         print(f"Shares twin not started: {type(exc).__name__}: {str(exc)[:120]}")
+    shares_spy = None
+    try:  # Study 16 (research/SPY_ONEADAY_PROTOCOL.md, passed 27 Nov 2026): the same one-a-day rule on SPY, paper only
+        if shares and getattr(sharesbot, "SPY_ENABLED", False):
+            shares_spy = sharesbot.SharesBot(qqqbot.alpaca_bars(feed.stk, "SPY"),
+                                             lambda n: sharesbot.history_bars(feed.stk, n, "SPY"), begin, lambda m: None,
+                                             state_dir=sharesbot.STATE.parent / "sharesbot_spy", key="shares_spy", symbol="SPY")
+            if controls is not None:
+                shares_spy.controls = controls.check
+    except Exception as exc:
+        print(f"SPY shares bot not started: {type(exc).__name__}: {str(exc)[:120]}")
     with gzip.open(path, "wt", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
@@ -235,7 +245,7 @@ def main() -> int:
                         xb.on_poll(t, r)
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} comparison bot {key}: {type(exc).__name__}: {str(exc)[:120]}")
-                for sb, nm in ((shares, "shares bot"), (shares_ctx, "shares twin")):
+                for sb, nm in ((shares, "shares bot"), (shares_ctx, "shares twin"), (shares_spy, "SPY shares bot")):
                     if sb and seen_today:
                         try:
                             sb.on_poll(t)
@@ -255,7 +265,7 @@ def main() -> int:
                 if live and seen_today and live.due():
                     try:
                         live.publish(livepage.payload(t, bot, shares, original, extras, shares_ctx=shares_ctx,
-                                                      controls=controls, poll_errors=errors))
+                                                      controls=controls, poll_errors=errors, shares_spy=shares_spy))
                     except Exception as exc:
                         print(f"{t:%H:%M:%S} live page: {type(exc).__name__}")
             except Exception as exc:

@@ -211,3 +211,15 @@ Template:
   - The page was rendered with simulated 27 Nov data: no errors, no sideways scroll on a phone.
 - **Decision.** Owner's request; the owner merges. The live bots running today are not touched (code changes only take
   effect at the next recorder start after the merge).
+
+## CC-013: SPY one-a-day paper bot, Dogecoin dip-buy paper bot (27 Nov 2026)
+- **Evidence.** audit/STUDIES_15_17_REPORT.md: Study 16 passed; DOGE M3 "promising, not proven".
+- **Request.** The owner asked to try the SPY one-a-day bot ("number one… try that") and the DOGE dip-buy on paper
+  ("Yeah, I try the Dogecoin on paper"). No other coins.
+- **Change.**
+  - **`shares_spy`:** the existing SharesBot class with symbol "SPY", its own state folder and no Telegram. The bar
+    fetchers gained a symbol argument whose default is QQQ, so existing callers are unchanged.
+  - **`tracker/dogebot.py` + `.github/workflows/doge.yml`:** every 15 minutes, the ledger in doge.json on the
+    live-data branch (not on main), Telegram messages on buy and sell.
+- **Tests.** 3 DOGE ledger tests (target, stop, no double-processing); all 38 bot tests pass.
+- **Original bots.** Unchanged.
