@@ -1,6 +1,6 @@
 # Trades checked against recorded quotes
 
-637 stored options trades checked; 11 flagged (entry or exit not matched to a fresh recorded quote). Flagged trades are excluded from the live page's totals and shown with a warning. Bot state files are unchanged.
+639 stored options trades checked; 11 flagged (entry or exit not matched to a fresh recorded quote). Flagged trades are excluded from the live page's totals and shown with a warning. Bot state files are unchanged.
 
 0 trades could not be checked because that day's recorded quotes were not saved (none); they are kept and marked unverified.
 

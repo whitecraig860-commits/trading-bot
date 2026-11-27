@@ -3259,6 +3259,3423 @@
     "rsi": 50.3
    },
    "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:50:58",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 646.01,
+    "vwap": 643.06,
+    "ema9": 646.26,
+    "ema20": 646.4,
+    "ema50": 646.44,
+    "trend": "Bearish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 44.3
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:51:09",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 646.05,
+    "vwap": 643.14,
+    "ema9": 646.22,
+    "ema20": 646.36,
+    "ema50": 646.42,
+    "trend": "Bearish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 44.9
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:52:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 646.0,
+    "vwap": 643.16,
+    "ema9": 646.17,
+    "ema20": 646.33,
+    "ema50": 646.4,
+    "trend": "Bearish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 44.2
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:53:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 646.29,
+    "vwap": 643.18,
+    "ema9": 646.2,
+    "ema20": 646.33,
+    "ema50": 646.4,
+    "trend": "Bearish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 48.7
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:54:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 646.76,
+    "vwap": 643.22,
+    "ema9": 646.31,
+    "ema20": 646.37,
+    "ema50": 646.41,
+    "trend": "Bearish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 54.9
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:55:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 647.28,
+    "vwap": 643.32,
+    "ema9": 646.5,
+    "ema20": 646.45,
+    "ema50": 646.45,
+    "trend": "Sideways",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 60.5
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:56:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 647.54,
+    "vwap": 643.46,
+    "ema9": 646.71,
+    "ema20": 646.56,
+    "ema50": 646.49,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 63.0
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:57:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 648.09,
+    "vwap": 643.55,
+    "ema9": 646.99,
+    "ema20": 646.7,
+    "ema50": 646.55,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 67.7
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:58:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 648.68,
+    "vwap": 643.66,
+    "ema9": 647.33,
+    "ema20": 646.89,
+    "ema50": 646.64,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 71.8
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 12:59:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 648.79,
+    "vwap": 643.75,
+    "ema9": 647.62,
+    "ema20": 647.07,
+    "ema50": 646.72,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 72.5
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:00:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:01:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:02:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:03:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:04:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:05:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:06:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:07:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:08:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:09:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:10:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:11:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:12:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:13:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:14:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:15:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:16:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:17:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:18:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:19:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:20:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:21:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:22:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:23:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:24:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:25:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:26:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:27:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:28:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:29:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:30:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:31:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:32:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:33:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:34:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:35:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:36:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:37:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:38:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:39:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:40:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:41:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:42:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:43:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:44:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:45:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:46:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:47:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:48:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:49:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:50:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:51:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:52:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:53:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:54:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:55:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:56:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:57:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:58:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 13:59:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:00:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:01:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:02:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:03:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:04:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:05:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:06:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:07:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:08:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:09:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:10:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:11:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:12:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:13:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:14:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:15:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:16:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:17:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:18:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:19:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:20:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:21:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:22:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:23:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:24:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:25:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:26:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:27:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:28:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:29:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:30:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:31:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:32:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:33:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:34:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:35:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:36:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:37:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:38:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:39:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:40:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:41:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:42:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:43:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:44:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:45:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:46:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:47:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:48:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:49:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:50:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:51:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:52:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:53:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:54:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:55:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:56:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:57:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:58:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 14:59:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:00:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:01:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:02:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:03:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:04:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:05:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:06:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:07:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:08:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:09:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:10:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:11:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:12:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:13:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:14:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:15:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:16:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:17:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:18:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:19:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:20:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:21:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:22:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:23:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:24:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:25:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:26:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:27:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:28:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:29:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:30:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:31:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:32:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:33:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:34:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:35:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:36:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:37:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:38:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:39:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:40:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:41:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:42:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:43:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:44:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:45:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:46:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:47:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:48:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:49:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:50:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:51:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:52:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:53:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:54:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:55:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:56:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:57:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:58:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 15:59:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:00:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:01:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:02:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:03:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:04:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:05:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:06:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:07:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:08:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:09:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
+  },
+  {
+   "t": "2026-11-27 16:10:04",
+   "out": "no signal",
+   "why": "no trigger on the candle that just closed",
+   "ind": {
+    "price": 650.8,
+    "vwap": 644.29,
+    "ema9": 648.26,
+    "ema20": 647.43,
+    "ema50": 646.88,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 81.6
+   },
+   "ctx_rule": "twin: needs the shared trend on its side and no chop"
   }
  ]
 }
