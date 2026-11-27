@@ -223,3 +223,13 @@ Template:
     live-data branch (not on main), Telegram messages on buy and sell.
 - **Tests.** 3 DOGE ledger tests (target, stop, no double-processing); all 38 bot tests pass.
 - **Original bots.** Unchanged.
+
+## CC-014: extra Telegram notifications (27 Nov 2026)
+- **Request.** The owner asked for these on Telegram: news bot trades, SPY bot trades, "target reached", critical alerts.
+- **Change (messages only; no trading rule changes).**
+  - The news bot's buys and sells are tagged "📰 News bot", and each buy includes the headlines behind it.
+  - The SPY bot's buys and sells are sent.
+  - `tracker/notify_extra.py` sends, once a day each:
+    - when an original options bot's day first reaches +£30/£40/£50/£60;
+    - critical alerts: a bot down $100 today, the emergency pause on, the pause switch unreadable, 20+ failed polls.
+- **Tests.** A notifier test (sent once; the right targets; loss alert). All tests pass.

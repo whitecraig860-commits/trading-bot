@@ -412,7 +412,8 @@ class PaperBot:
                         self.s["open"]["ctx"] = {k: self.ctx.get(k) for k in ("trend", "volatility", "vwap", "ema20", "rsi", "choppy")}
                     print(f"{now:%H:%M:%S} BOUGHT 1x QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f} ({trig})")
                     self._tell(f"🟢 <b>BOUGHT</b> 1× QQQ {int(k)} {'CALL' if side == 'C' else 'PUT'} @ {ask:.2f}\n"
-                               f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper")
+                               f"{now:%a %m/%d · %I:%M:%S %p} ET · {trig} · paper"
+                               + (f"\n📰 {self.news_note}" if trig == "NEWS" and self.news_note else ""))
                     self.save()
             self._log(now, raw, entered, reason)
             self._summaries(now)
@@ -570,7 +571,8 @@ class PaperBot:
     def _tell(self, text: str):
         if self.trade_messages:
             try:
-                self.say(text)
+                tag = getattr(self, "tag", None)  # e.g. "📰 News bot", so its messages aren't confused with the main bot's
+                self.say((f"<b>{tag}</b> · " if tag else "") + text)
             except Exception:
                 pass  # a failed message must never stop the bot
 

@@ -162,6 +162,7 @@ def main() -> int:
             import newsfeed
 
             nb.news_fn = newsfeed.Feed().get
+            nb.trade_messages, nb.tag = True, "📰 News bot"  # owner asked for its trades on Telegram
         except Exception as exc:
             print(f"News feed not started: {type(exc).__name__}")
     controls = None
@@ -174,6 +175,13 @@ def main() -> int:
                 b.controls = controls.check
     except Exception as exc:
         print(f"Pause switch not available: {type(exc).__name__}")
+    notifier = None
+    try:  # target-reached and critical-alert messages (tracker/notify_extra.py); messages only
+        import notify_extra
+
+        notifier = notify_extra.Notifier(begin.strftime("%Y-%m-%d"), qqqbot.send_telegram)
+    except Exception as exc:
+        print(f"Notifier not started: {type(exc).__name__}")
     live = None
     try:  # the live web page; never affects recording or the bots
         import livepage
@@ -205,7 +213,7 @@ def main() -> int:
     try:  # Study 16 (research/SPY_ONEADAY_PROTOCOL.md, passed 27 Nov 2026): the same one-a-day rule on SPY, paper only
         if shares and getattr(sharesbot, "SPY_ENABLED", False):
             shares_spy = sharesbot.SharesBot(qqqbot.alpaca_bars(feed.stk, "SPY"),
-                                             lambda n: sharesbot.history_bars(feed.stk, n, "SPY"), begin, lambda m: None,
+                                             lambda n: sharesbot.history_bars(feed.stk, n, "SPY"), begin, qqqbot.send_telegram,
                                              state_dir=sharesbot.STATE.parent / "sharesbot_spy", key="shares_spy", symbol="SPY")
             if controls is not None:
                 shares_spy.controls = controls.check
@@ -262,6 +270,8 @@ def main() -> int:
                                 fb.follow_exit = True
                         except Exception as exc:
                             print(f"{t:%H:%M:%S} one-a-day options bot {fk}: {type(exc).__name__}: {str(exc)[:120]}")
+                if notifier and seen_today and polls % 6 == 0:  # about every 30 seconds
+                    notifier.check({"options": bot, **extras}, controls, errors)
                 if live and seen_today and live.due():
                     try:
                         live.publish(livepage.payload(t, bot, shares, original, extras, shares_ctx=shares_ctx,
