@@ -1,0 +1,17 @@
+GitHub Actions run 46035615259, job 140630136964, 27 Nov 2026 (read-only market data; no orders).
+Study 16 SPY one-a-day (100 shares, $2 a round trip): 2706 days, 2088 trades
+  2016: -2.82/day  t -0.50  trades 182
+  2017: -4.21/day  t -1.09  trades 199
+  2018: -11.74/day  t -0.88  trades 201
+  2019: -0.63/day  t -0.11  trades 180
+  2020: +1.82/day  t +0.10  trades 195
+  2021: -1.64/day  t -0.15  trades 189
+  2022: +27.52/day  t +1.19  trades 205
+  2023: +35.81/day  t +3.08  trades 190
+  2024: +1.62/day  t +0.13  trades 199
+  2025: +57.83/day  t +1.80  trades 188
+  2026: +26.89/day  t +1.27  trades 160
+2022-2026: +29.99/day t +3.09; positive years 5/5; 2026 +26.89
+2016-2021 (reported): -3.20/day t -0.72
+Placebo random side (2022-2026): rule +29.99 vs median -2.66, best +21.66; beats 20/20
+VERDICT: PASS

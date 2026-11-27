@@ -1,0 +1,9 @@
+GitHub Actions run 46035615259, job 140630137003, 27 Nov 2026 (read-only market data; no orders).
+news requests: 63
+news: 3108 headlines 2026-04-29 03:02:28 to 2026-10-31 09:01:46
+Study 15 news bot: 7 signals (4 calls, 3 puts) over 670 days; threshold 4.0, exits +10%/-10%/30 min
+1 cent(s): trades 6 per day -0.02 t -0.13 2026 -0.06 | 2024:+0.00 2025:+0.00 2026:-0.06
+5 cent(s): trades 6 per day -0.09 t -0.61 2026 -0.29 | 2024:+0.00 2025:+0.00 2026:-0.29
+Placebo (a) random minutes on the trend's side: news -0.02 vs median -0.06, best +0.25; beats 13/20
+Placebo (b) trend alone at the same minutes: identical by construction (news only picks the minutes); so (a) is the test of whether news-picked minutes beat random trend minutes.
+VERDICT: FAIL (5 cents -0.09/day t -0.61; every year positive False)

@@ -102,19 +102,20 @@ MORNING_AT, DAY_AT = "12:00", "16:00"
 GBP = 0.76
 
 
-def alpaca_bars(stock_client):
-    """Returns a function giving (yesterday's and) today's one-minute QQQ bars, New York time, oldest first."""
+def alpaca_bars(stock_client, symbol: str = "QQQ"):
+    """Returns a function giving (yesterday's and) today's one-minute bars of `symbol` (QQQ unless told otherwise),
+    New York time, oldest first."""
     from alpaca.data.enums import DataFeed
     from alpaca.data.requests import StockBarsRequest
     from alpaca.data.timeframe import TimeFrame
 
     def fetch(now: datetime, days_back: int = 0) -> pd.DataFrame:
         start = (now - timedelta(days=days_back)).replace(hour=9, minute=30, second=0, microsecond=0)
-        df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols="QQQ", timeframe=TimeFrame.Minute,
+        df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols=symbol, timeframe=TimeFrame.Minute,
                                                           start=start, feed=DataFeed.IEX)).df
         if df is None or df.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"], index=pd.DatetimeIndex([]))
-        d = df.xs("QQQ", level=0)[["open", "high", "low", "close", "volume"]].astype(float)
+        d = df.xs(symbol, level=0)[["open", "high", "low", "close", "volume"]].astype(float)
         d.index = pd.DatetimeIndex(d.index).tz_convert("America/New_York").tz_localize(None)
         return d.between_time("09:30", "15:59")
 

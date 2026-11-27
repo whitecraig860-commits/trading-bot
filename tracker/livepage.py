@@ -118,7 +118,7 @@ def week_history(today: str) -> dict:
 
     root = Path(__file__).resolve().parent.parent / "state"
     d0 = date.fromisoformat(today)
-    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx")]  # "original" retired (CC-006)
+    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx"), ("shares_spy", "sharesbot_spy")]  # "original" retired (CC-006)
     try:
         import qqqbot
 
@@ -157,7 +157,7 @@ def trade_history(today: str) -> dict:
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent / "state"
-    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx")]
+    folders = [("options", "qqqbot"), ("shares", "sharesbot"), ("shares_ctx", "sharesbot_ctx"), ("shares_spy", "sharesbot_spy")]
     try:
         import qqqbot
 
@@ -194,7 +194,7 @@ def _ohlcv(df) -> list:
              round(float(r.close), 2), int(r.volume)] for t, r in df.iterrows()]
 
 
-def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, controls=None, poll_errors=0) -> dict:
+def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, controls=None, poll_errors=0, shares_spy=None) -> dict:
     """What the live page shows. Built from data the bots already hold: no extra market-data requests."""
     bars, prev = [], []
     if bot is not None and getattr(bot, "bars", None) is not None and len(bot.bars):
@@ -226,8 +226,13 @@ def payload(now, bot, shares, original=None, extras=None, shares_ctx=None, contr
     # switch as the bots see it, and health counters. All read from the running bots; nothing computed for display only.
     out["ctx"] = getattr(bot, "ctx", None)
     out["shares_ctx"] = shares_ctx.s.get("trade") if shares_ctx is not None else None
+    out["shares_spy"] = shares_spy.s.get("trade") if shares_spy is not None else None
+    try:  # SPY's latest price, to value an open SPY trade on the page
+        out["spy_px"] = float(shares_spy.bars_fn(now).close.iloc[-1]) if shares_spy is not None else None
+    except Exception:
+        out["spy_px"] = None
     dec = {}
-    for k, b in [("options", bot), ("shares", shares), ("shares_ctx", shares_ctx), *((extras or {}).items())]:
+    for k, b in [("options", bot), ("shares", shares), ("shares_ctx", shares_ctx), ("shares_spy", shares_spy), *((extras or {}).items())]:
         if b is not None:
             dd = b.s.get("decisions", [])
             dec[k] = {"n": len(dd), "signals": sum(1 for x in dd if x.get("sig")), "recent": dd[-60:]}

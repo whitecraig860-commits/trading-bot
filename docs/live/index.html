@@ -103,6 +103,9 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:6px
   <div class="card" style="overflow-x:auto"><table class="lb" id="lead"></table>
     <div class="sub" style="margin-top:6px">"Too few trades" = under 30 closed trades: results that small are mostly luck. Win rate alone is never used to rank. Options bots' open trades can't be valued live (we don't publish the option's live price yet), so their equity uses the last closed balance and is marked *.</div></div>
 
+  <h2>Dogecoin dip-buy bot (crypto, 24/7, paper)</h2>
+  <div class="card" id="doge"><div class="sub">Loading…</div></div>
+
   <h2>Decision log (what each bot saw, did and why)</h2>
   <div class="toolbar"><select id="dlBot"></select><select id="dlOut"><option value="">all decisions</option><option value="sig">signals only (entered + rejected)</option>
     <option value="entered">entered</option><option value="rejected">rejected</option><option value="exited">exited</option><option value="no signal">no signal</option><option value="holding">holding</option></select>
@@ -204,9 +207,9 @@ const BOTS = {options: "Options · stop after 2 losses",
   picks: "Options · picks like him", clone: "Options · his clone (his picks + his exits)",
   brakes: "Options · profit brake +$50 / loss brake −$100",
   five: "Options · 5-minute crosses", open30: "Options · opening move (10:00)", oneaday: "Options · one-a-day breakout", shares: "Shares · one a day",
-  news: "Options · news bot (free word scorer + chart trend)"};
+  news: "Options · news bot (free word scorer + chart trend)", shares_spy: "Shares · one a day on SPY"};
 const TWIN_OF = k => k.endsWith("_ctx") ? k.slice(0, -4) : null;
-const ORIG = Object.keys(BOTS), NO_TWIN = ["news"];
+const ORIG = Object.keys(BOTS), NO_TWIN = ["news", "shares_spy"];
 for (const k of ORIG) if (!NO_TWIN.includes(k)) BOTS[k + "_ctx"] = BOTS[k] + " +context";
 // Daily-target versions (owner, 27 Nov 2026): the same bot, stopping for the day once its closed trades reach +£N.
 // Worked out exactly from the real bot's trades (it trades identically until the target is hit, then stops): no extra bot runs.
@@ -288,8 +291,8 @@ function makeCharts() {
 function tradesFor(k) {
   if (!D) return [];
   if (k === "all") return visible().flatMap(x => tradesFor(x).map(t => ({...t, k: x}))).sort((a, b) => a.t < b.t ? -1 : 1);
-  if (k === "shares" || k === "shares_ctx") { const s = D[k]; if (!s) return [];
-    return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} QQQ shares`, trigger: "one-a-day breakout",
+  if (k.startsWith("shares")) { const s = D[k]; if (!s) return [];
+    return [{t: s.t, exit_t: s.exit_t, side: s.side > 0 ? "LONG" : "SHORT", label: `${s.qty} ${k === "shares_spy" ? "SPY" : "QQQ"} shares`, trigger: "one-a-day breakout",
       entry: s.entry, exit: s.exit, stop: s.entry - 10 * s.atr * s.side, target: "trail after " + (4 * s.atr).toFixed(2) + " in profit",
       why: s.why, pnl: s.pnl_usd, open: !s.exit, qqqIn: s.entry, unit: "QQQ"}]; }
   const b = D[k] || {}; const out = (b.trades || []).map(t => ({...t, open: false}));
@@ -460,7 +463,7 @@ function renderCalendar() {
   }).join("");
 }
 
-const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", brakes: "Brakes", five: "5-minute", open30: "Opening move", oneaday: "One-a-day options", shares: "Shares", news: "News bot"};
+const SHORT = {options: "Stop after 2", original: "Original", trail: "Trail", trailtrend: "Trail + trend", his: "His style", skipweak: "Skip weak", combo: "Skip weak + early + ITM", picks: "Picks like him", clone: "His clone", brakes: "Brakes", five: "5-minute", open30: "Opening move", oneaday: "One-a-day options", shares: "Shares", news: "News bot", shares_spy: "SPY shares"};
 function renderAllDays() {
   const ks = visible(), per = Object.fromEntries(ks.map(k => [k, dayTotals(k)]));
   const dates = [...new Set(ks.flatMap(k => Object.keys(per[k])))].sort().reverse();
@@ -561,7 +564,7 @@ function account(k) {
   const hist = ((D.hist || {})[k] || []).filter(r => counts(k, r[0])).map(r => ({t: r[0], exit_t: r[1], pnl: r[5]}));
   const closed = hist.concat(closedToday.map(t => ({t: t.t, exit_t: t.exit_t, pnl: t.pnl})));
   const S0 = startOf(k), realised = closed.reduce((a, t) => a + t.pnl, 0), balance = S0 + realised;
-  const last = D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
+  const last = k === "shares_spy" ? D.spy_px : D.bars && D.bars.length ? D.bars[D.bars.length - 1][4] : null;
   let unreal = null, exposure = 0, risk = 0, unknown = false;
   if (open) {
     if (k.startsWith("shares")) { const q = D[k].qty || 0, sd = open.side === "SHORT" ? -1 : 1;
@@ -721,7 +724,7 @@ function renderFamilies(fr) {
   document.querySelectorAll("[data-fam]").forEach(el => el.onclick = () => { const f = el.dataset.fam; famOpen[f] = !famOpen[f]; store.set("famOpen", famOpen); renderFamilies(freshness()); });
   document.querySelectorAll("[data-mem]").forEach(el => el.onclick = () => { famSel[famOf(el.dataset.mem)] = el.dataset.mem; store.set("famSel", famSel); renderFamilies(freshness()); });
 }
-const NEWS_TEST = "history test: running";
+const NEWS_TEST = "history test: too little data (7 trades since Apr 2026)";
 
 // ---------- stage 3: chart helpers, analytics, trade history
 const PAL = ["#58a6ff", "#f0883e", "#3fb950", "#bc8cff", "#ff7b72", "#e3b341", "#39c5cf", "#db61a2", "#a5d6ff", "#7ee787"];
@@ -977,6 +980,22 @@ function render() {
   renderMoney(); renderSafety(); renderDecisions(); renderBotSee(); renderPerf(); renderNews(); renderCalendar(); renderChart(); renderTrades(); hookClick(); renderAnalytics(); renderHistory(); renderAlerts(); renderReports();
 }
 
+async function loadDoge() {
+  let g;
+  try { const r = await fetch(URL_.replace("live.json", "doge.json") + "&t=" + Date.now(), {headers: {Accept: "application/vnd.github.raw+json"}});
+    if (!r.ok) throw 0; g = await r.json(); } catch (e) { $("doge").innerHTML = `<div class="sub">No Dogecoin data yet: the bot's first check runs within 15 minutes of this update being merged.</div>`; return; }
+  const o = g.open, px = g.px, mark = o && px ? o.qty * px * (1 - 0.0025 - 0.0005) : 0, eq = g.cash + mark, tr = g.trades || [];
+  const w = tr.filter(t => t.pnl > 0).length, pnl = eq - g.start_usd, age = g.checked ? (Date.now() - Date.parse(g.checked)) / 60000 : Infinity;
+  const r = (l, v, c = "") => `<div><span>${l}</span><span class="${c}">${v}</span></div>`;
+  $("doge").innerHTML = `<div class="label">Buys Dogecoin after a fall of more than 8% in 4 hours; sells at +5%, −5% or after 12 hours. Fees 0.25% + 0.05% slippage each way.
+      <span class="pill warn">history test: promising, not proven (t 2.7 vs 3.0 needed)</span> ${age > 45 ? `<span class="pill bad">STALE: last check ${ago(Date.parse(g.checked))}</span>` : `<span class="pill ok">checked ${ago(Date.parse(g.checked))}</span>`}</div>
+    <div class="big ${cls(pnl)}">${money(eq, 2, false)}</div><div class="alt">equity · ${pct(pnl / g.start_usd * 100)} since start (£1,000 on ${String(g.started || "").slice(0, 10)})</div>
+    <div class="stats">${r("Profit/loss", money(pnl), cls(pnl))}${r("Cash", money(g.cash, 2, false))}${r("DOGE price", px ? "$" + px.toFixed(5) : "–")}
+      ${r("Open trade", o ? `bought ${new Date(o.t).toLocaleString("en-GB", {timeZone: "Europe/London", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"})} UK at $${o.entry.toFixed(5)} (target $${o.target.toFixed(5)}, stop $${o.stop.toFixed(5)})` : "none")}
+      ${r("Open trade value", o ? money(mark - o.cost) : "–", cls(mark - (o ? o.cost : 0)))}${r("Trades", `${tr.length} (${w} won)`)}</div>` +
+    (tr.length ? `<details><summary>Trades</summary><table class="lb">${tr.slice().reverse().map(t => `<tr><td>${t.t.slice(0, 16).replace("T", " ")} UTC</td><td>$${t.entry.toFixed(5)} → $${t.exit.toFixed(5)}</td><td>${t.why}</td><td class="${cls(t.pnl)}">${usd(t.pnl, 2)}</td></tr>`).join("")}</table></details>` : "");
+}
+
 async function load() {
   let data;
   try {
@@ -991,7 +1010,7 @@ async function load() {
   D = data; render();
 }
 const ok = makeCharts();
-load().then(loadFx).then(() => D && render()); setInterval(load, 60000); setInterval(loadFx, 3600e3);
+load().then(loadFx).then(() => D && render()); loadDoge(); setInterval(loadDoge, 300000); setInterval(load, 60000); setInterval(loadFx, 3600e3);
 </script>
 </body>
 </html>
