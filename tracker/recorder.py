@@ -156,6 +156,14 @@ def main() -> int:
             print(f"Comparison bot {key} not started: {type(exc).__name__}: {str(exc)[:120]}")
     if bot and extras:
         bot.compare = lambda upto: [b.total_line(upto) for k, b in extras.items() if not k.endswith("_ctx")]  # twins: page only
+    nb = extras.get("news")
+    if nb is not None:
+        try:  # free headlines for the news bot (tracker/newsfeed.py); a failure only means no new headlines
+            import newsfeed
+
+            nb.news_fn = newsfeed.Feed().get
+        except Exception as exc:
+            print(f"News feed not started: {type(exc).__name__}")
     controls = None
     try:  # the owner's pause switch (tracker/controls.py); every bot checks it before opening a trade
         import controls as controls_mod
