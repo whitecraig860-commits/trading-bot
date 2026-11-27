@@ -475,7 +475,9 @@ function renderAllDays() {
 function renderNews() {
   const n = D.news || []; if (!n.length) return;
   const esc = x => String(x).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-  $("news").innerHTML = n.map(i => `<div class="row" style="padding:4px 0;border-bottom:1px dashed var(--line)"><span class="muted" style="font-size:12px">${esc(i.t.slice(5))} · ${esc((i.sym || []).join(" "))}</span><br><a href="${esc(i.url)}" target="_blank" rel="noopener" style="color:var(--text)">${esc(i.h)}</a> <span class="muted" style="font-size:12px">${esc(i.src)}</span></div>`).join("");
+  $("news").innerHTML = n.map(i => `<div class="row" style="padding:4px 0;border-bottom:1px dashed var(--line)"><span class="muted" style="font-size:12px">${esc(i.t.slice(5))} · ${esc((i.sym || []).join(" "))}</span><br><a href="${esc(i.url)}" target="_blank" rel="noopener" style="color:var(--text)">${esc(i.h)}</a> <span class="muted" style="font-size:12px">${esc(i.src)}</span>` +
+    (i.score !== undefined ? ` <span class="pill ${i.score > 0 ? "ok" : i.score < 0 ? "bad" : ""}">${i.score > 0 ? "good" : i.score < 0 ? "bad" : "neutral"} ${i.score > 0 ? "+" : ""}${i.score} × importance ${i.imp}</span>${i.words && i.words.length ? ` <span class="alt">(${esc(i.words.join(", "))})</span>` : ""}` : "") + `</div>`).join("") +
+    `<div class="sub" style="margin-top:6px">Scores come from the free finance word list the news bot uses (headline only, not the article). A score is a word count, not a trade signal by itself.</div>`;
 }
 
 function renderControls() {

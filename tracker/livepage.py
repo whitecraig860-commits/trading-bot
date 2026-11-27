@@ -264,8 +264,18 @@ def news(now) -> list:
         cli = NewsClient(os.environ["ALPACA_KEY"], os.environ["ALPACA_SECRET"])
         res = cli.get_news(NewsRequest(symbols="QQQ,AAPL,MSFT,NVDA,AMZN,META,GOOGL,TSLA,AVGO", limit=15))
         rows = res.data.get("news", []) if hasattr(res, "data") else []
-        _NEWS["items"] = [{"t": str(n.created_at)[:16], "h": n.headline, "src": n.source, "url": n.url,
-                           "sym": list(n.symbols)[:4]} for n in rows]
+        try:
+            import newsscore
+        except Exception:
+            newsscore = None
+        items = []
+        for n in rows:
+            it = {"t": str(n.created_at)[:16], "h": n.headline, "src": n.source, "url": n.url, "sym": list(n.symbols)[:4]}
+            if newsscore is not None:  # the same free word scorer the news bot uses (tracker/newsscore.py)
+                sc = newsscore.score(n.headline, list(n.symbols))
+                it.update(score=sc["score"], imp=sc["importance"], words=(sc["good"] + sc["bad"])[:6])
+            items.append(it)
+        _NEWS["items"] = items
     except Exception as exc:
         print(f"News: {type(exc).__name__}")
     return _NEWS["items"]
