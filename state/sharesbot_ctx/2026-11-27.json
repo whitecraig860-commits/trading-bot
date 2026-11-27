@@ -1,0 +1,315 @@
+{
+ "trade": null,
+ "done": false,
+ "sent": [],
+ "checked": [
+  "10:00",
+  "10:10",
+  "10:20",
+  "10:30",
+  "10:40",
+  "10:50",
+  "11:00",
+  "11:10",
+  "11:20",
+  "11:30",
+  "11:40",
+  "11:50",
+  "12:00",
+  "12:10",
+  "12:20",
+  "12:30",
+  "12:40"
+ ],
+ "decisions": [
+  {
+   "t": "2026-11-27 10:00:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 637.9,
+    "vwap": 639.86,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.637,
+    "noise_band_pct": 0.582,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 47.1
+   }
+  },
+  {
+   "t": "2026-11-27 10:10:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 638.64,
+    "vwap": 639.61,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.723,
+    "noise_band_pct": 0.594,
+    "trend": "Sideways",
+    "choppy": true,
+    "volatility": "Normal",
+    "rsi": 51.6
+   }
+  },
+  {
+   "t": "2026-11-27 10:20:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 641.28,
+    "vwap": 639.71,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.9,
+    "noise_band_pct": 0.788,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 62.0
+   }
+  },
+  {
+   "t": "2026-11-27 10:30:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 641.19,
+    "vwap": 639.83,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.929,
+    "noise_band_pct": 0.807,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 54.8
+   }
+  },
+  {
+   "t": "2026-11-27 10:40:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 645.43,
+    "vwap": 640.09,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.835,
+    "noise_band_pct": 0.945,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 74.2
+   }
+  },
+  {
+   "t": "2026-11-27 10:50:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 644.81,
+    "vwap": 640.54,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 2.185,
+    "noise_band_pct": 1.079,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Normal",
+    "rsi": 57.0
+   }
+  },
+  {
+   "t": "2026-11-27 11:00:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 644.92,
+    "vwap": 640.89,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.992,
+    "noise_band_pct": 1.061,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 55.1
+   }
+  },
+  {
+   "t": "2026-11-27 11:10:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 645.07,
+    "vwap": 641.13,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.749,
+    "noise_band_pct": 1.077,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 54.6
+   }
+  },
+  {
+   "t": "2026-11-27 11:20:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 644.49,
+    "vwap": 641.26,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.639,
+    "noise_band_pct": 1.151,
+    "trend": "Sideways",
+    "choppy": true,
+    "volatility": "Low",
+    "rsi": 48.9
+   }
+  },
+  {
+   "t": "2026-11-27 11:30:05",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 645.29,
+    "vwap": 641.43,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.364,
+    "noise_band_pct": 1.075,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 57.4
+   }
+  },
+  {
+   "t": "2026-11-27 11:40:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 645.46,
+    "vwap": 641.73,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.264,
+    "noise_band_pct": 1.187,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 49.9
+   }
+  },
+  {
+   "t": "2026-11-27 11:50:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 647.22,
+    "vwap": 641.93,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.274,
+    "noise_band_pct": 1.208,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 64.9
+   }
+  },
+  {
+   "t": "2026-11-27 12:00:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 646.34,
+    "vwap": 642.17,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.062,
+    "noise_band_pct": 1.219,
+    "trend": "Bullish",
+    "choppy": false,
+    "volatility": "Low",
+    "rsi": 45.7
+   }
+  },
+  {
+   "t": "2026-11-27 12:10:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 646.39,
+    "vwap": 642.36,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.115,
+    "noise_band_pct": 1.166,
+    "trend": "Sideways",
+    "choppy": true,
+    "volatility": "Low",
+    "rsi": 50.1
+   }
+  },
+  {
+   "t": "2026-11-27 12:20:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 646.87,
+    "vwap": 642.57,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.096,
+    "noise_band_pct": 1.213,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Low",
+    "rsi": 55.7
+   }
+  },
+  {
+   "t": "2026-11-27 12:30:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 646.99,
+    "vwap": 642.78,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.103,
+    "noise_band_pct": 1.085,
+    "trend": "Bullish",
+    "choppy": true,
+    "volatility": "Low",
+    "rsi": 54.1
+   }
+  },
+  {
+   "t": "2026-11-27 12:40:04",
+   "out": "no signal",
+   "why": "no breakout: needs a close beyond the opening range by 0.3 ATR, beyond VWAP and beyond the noise band",
+   "ind": {
+    "price": 646.14,
+    "vwap": 642.95,
+    "range_high": 645.74,
+    "range_low": 638.14,
+    "atr5m": 1.113,
+    "noise_band_pct": 1.228,
+    "trend": "Sideways",
+    "choppy": true,
+    "volatility": "Low",
+    "rsi": 41.4
+   }
+  }
+ ]
+}
