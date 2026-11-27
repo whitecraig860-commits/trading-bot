@@ -28,23 +28,30 @@ def load_news(syn: bool) -> pd.DataFrame:
         words = ["Nvidia beats estimates, shares surge", "Fed signals rate cut", "Apple misses estimates",
                  "Tariffs on China raised, stocks plunge", "Microsoft announces partnership", "Market quiet"]
         return pd.DataFrame({"t": ts, "h": rng.choice(words, len(ts)), "sym": [["NVDA"]] * len(ts)})
-    from alpaca.data.historical.news import NewsClient
-    from alpaca.data.requests import NewsRequest
+    import requests
 
-    cli = NewsClient(os.environ["ALPACA_KEY"], os.environ["ALPACA_SECRET"])
-    rows = []
-    for a, b in zip(pd.date_range(s5.START, s5.END, freq="MS"), pd.date_range(s5.START, s5.END, freq="MS")[1:]):
-        tok = None
-        while True:
-            req = NewsRequest(symbols=",".join(SYMS), start=a.to_pydatetime(), end=b.to_pydatetime(), limit=50,
-                              include_content=False, page_token=tok)
-            res = cli.get_news(req)
-            data = res.data.get("news", []) if hasattr(res, "data") else []
-            rows += [{"t": pd.Timestamp(n.created_at).tz_convert(s5.NY).tz_localize(None), "h": n.headline,
-                      "sym": list(n.symbols)} for n in data]
-            tok = getattr(res, "next_page_token", None)
-            if not tok:
-                break
+    # Alpaca news REST API with explicit paging (the SDK call returned only one page a month: first run, 27 Nov)
+    h = {"APCA-API-KEY-ID": os.environ["ALPACA_KEY"], "APCA-API-SECRET-KEY": os.environ["ALPACA_SECRET"]}
+    rows, tok, n_req = [], None, 0
+    while True:
+        params = {"symbols": ",".join(SYMS), "start": f"{s5.START}T00:00:00Z", "end": f"{s5.END}T00:00:00Z", "limit": 50,
+                  "sort": "asc", "include_content": "false"}
+        if tok:
+            params["page_token"] = tok
+        r = requests.get("https://data.alpaca.markets/v1beta1/news", params=params, headers=h, timeout=30)
+        if r.status_code == 429:
+            import time
+            time.sleep(5)
+            continue
+        r.raise_for_status()
+        j = r.json()
+        n_req += 1
+        rows += [{"t": pd.Timestamp(n["created_at"]).tz_convert(s5.NY).tz_localize(None), "h": n["headline"],
+                  "sym": n.get("symbols", [])} for n in j.get("news", [])]
+        tok = j.get("next_page_token")
+        if not tok:
+            break
+    s5.say(f"news requests: {n_req}")
     df = pd.DataFrame(rows).drop_duplicates(subset=["t", "h"]).sort_values("t")
     s5.say(f"news: {len(df)} headlines {df.t.min()} to {df.t.max()}")
     return df
