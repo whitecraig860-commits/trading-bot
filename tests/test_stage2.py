@@ -192,6 +192,28 @@ class DogeBot(unittest.TestCase):
         self.assertLess(s["trades"][0]["pnl"], 0)
 
 
+class ExtraNotifications(unittest.TestCase):
+    def test_target_and_loss_messages_once(self):
+        import tempfile
+        import notify_extra
+        notify_extra.DIR = Path(tempfile.mkdtemp())
+        sent = []
+        n = notify_extra.Notifier("2026-11-30", sent.append)
+
+        class B:
+            name = "stop after 2 losses"
+            s = {"trades": [{"pnl": 45.0}, {"pnl": 10.0}]}
+        n.check({"options": B()})
+        self.assertEqual(len(sent), 1)
+        self.assertIn("+£40", sent[0])
+        self.assertNotIn("+£50", sent[0])
+        n.check({"options": B()})
+        self.assertEqual(len(sent), 1)  # not repeated
+        B.s = {"trades": [{"pnl": -120.0}]}
+        n.check({"options": B()})
+        self.assertIn("Critical", sent[-1])
+
+
 class TelegramLength(unittest.TestCase):
     def test_long_messages_are_split_under_the_limit(self):
         text = "\n\n".join(f"<b>Bot {i}</b>\n" + "x" * 300 for i in range(40))
