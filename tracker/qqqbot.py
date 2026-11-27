@@ -88,25 +88,34 @@ if CONTEXT_TWINS:
     for _k, (_f, _n, _st) in list(EXTRA_BOTS.items()):
         EXTRA_BOTS[_k + "_ctx"] = (_f + "_ctx", _n + " +context", {**_st, "ctx_gate": True})
     EXTRA_BOTS["options_ctx"] = ("qqqbot_ctx", "stop after 2 losses +context", {"ctx_gate": True})
+# Study 15 (research/NEWS_BOT_PROTOCOL.md), owner's request 27 Nov 2026: the news bot. Reads free headlines every minute,
+# scores them with the finance word list (tracker/newsscore.py) and trades only when news pressure reaches +/-4 AND the
+# shared chart trend agrees. Exits +10% / -10% / 30 minutes; stops for the day at +£50 ($66) or -$100, or 2 losses in a row.
+# No twin (it already uses the chart context). It runs on paper whatever the history test says, labelled with its result.
+NEWS_BOT = True
+if NEWS_BOT:
+    EXTRA_BOTS["news"] = ("qqqbot_news", "news bot: free word scorer + chart trend",
+                          {"mode": "news", "target": 0.10, "stop": 0.10, "hold_min": 30, "profit_brake": 66, "loss_brake": 100})
 MAX_LOSSES_IN_A_ROW = 2  # stop for the day after this many losses in a row (Study 7, research/LOSS_PAUSE_REPORT.md); 0 = off   # a short BOUGHT / SOLD line on Telegram for every trade; False = the two summaries only
 FIRST, LAST, FLAT = "09:45", "15:30", "15:55"
 MORNING_AT, DAY_AT = "12:00", "16:00"
 GBP = 0.76
 
 
-def alpaca_bars(stock_client):
-    """Returns a function giving (yesterday's and) today's one-minute QQQ bars, New York time, oldest first."""
+def alpaca_bars(stock_client, symbol: str = "QQQ"):
+    """Returns a function giving (yesterday's and) today's one-minute bars of `symbol` (QQQ unless told otherwise),
+    New York time, oldest first."""
     from alpaca.data.enums import DataFeed
     from alpaca.data.requests import StockBarsRequest
     from alpaca.data.timeframe import TimeFrame
 
     def fetch(now: datetime, days_back: int = 0) -> pd.DataFrame:
         start = (now - timedelta(days=days_back)).replace(hour=9, minute=30, second=0, microsecond=0)
-        df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols="QQQ", timeframe=TimeFrame.Minute,
+        df = stock_client.get_stock_bars(StockBarsRequest(symbol_or_symbols=symbol, timeframe=TimeFrame.Minute,
                                                           start=start, feed=DataFeed.IEX)).df
         if df is None or df.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"], index=pd.DatetimeIndex([]))
-        d = df.xs("QQQ", level=0)[["open", "high", "low", "close", "volume"]].astype(float)
+        d = df.xs(symbol, level=0)[["open", "high", "low", "close", "volume"]].astype(float)
         d.index = pd.DatetimeIndex(d.index).tz_convert("America/New_York").tz_localize(None)
         return d.between_time("09:30", "15:59")
 
@@ -192,6 +201,8 @@ class PaperBot:
         self.ctx_gate, self.key = ctx_gate, key
         self.controls = None  # set by the recorder: a function giving the pause switch state (tracker/controls.py)
         self.ctx = None       # the shared market context at the last decision
+        self.news_fn = None   # news mode: a function giving recent headlines (tracker/newsfeed.py), set by the recorder
+        self.news_note = None
         self.pending, self.follow_exit, self.prev_all = None, False, None
         self.compare = None  # optional: a function giving the other bots' lines for this bot's summaries
         self.bars_fn, self.say, self.dir = bars_fn, say, state_dir
@@ -236,6 +247,8 @@ class PaperBot:
             return None
         if self.mode == "follow":
             return None
+        if self.mode == "news":
+            return self._signal_news(b, want)
         if self.mode == "open30":
             if (want + timedelta(minutes=1)).strftime("%H:%M") != "10:00" or "open30" in self.s["range_done"]:
                 return None
@@ -409,9 +422,11 @@ class PaperBot:
         c = self.ctx or {}
         ind = {k: c.get(k) for k in ("price", "vwap", "ema9", "ema20", "ema50", "trend", "choppy", "volatility", "rsi")} if c.get("ok") else None
         if raw is None:
-            out, why = ("holding", "managing the open trade") if self.s["open"] else ("no signal", "no trigger on the candle that just closed")
+            out, why = ("holding", "managing the open trade") if self.s["open"] else \
+                ("no signal", self.news_note or "no trigger on the candle that just closed")
         elif entered:
-            out, why = "entered", f"{raw[1]} {'up' if raw[0] == 'C' else 'down'} cross at {raw[2]:.2f}: bought the {'CALL' if raw[0] == 'C' else 'PUT'}"
+            out, why = "entered", (f"{self.news_note}: bought the {'CALL' if raw[0] == 'C' else 'PUT'}" if raw[1] == "NEWS" else
+                                   f"{raw[1]} {'up' if raw[0] == 'C' else 'down'} cross at {raw[2]:.2f}: bought the {'CALL' if raw[0] == 'C' else 'PUT'}")
         else:
             out, why = "rejected", reason or "not entered"
         rec = {"t": now.strftime("%Y-%m-%d %H:%M:%S"), "out": out, "why": why, "ind": ind}
@@ -422,6 +437,41 @@ class PaperBot:
         self.s.setdefault("decisions", []).append(rec)
         if raw is not None or len(self.s["decisions"]) % 15 == 0:
             self.save()
+
+    def _signal_news(self, b, want):
+        """News pressure from the last 30 minutes of headlines; fires at +/-4 if the shared chart trend agrees."""
+        import context
+        import newsscore
+
+        t = want + timedelta(minutes=1)
+        tod = t.strftime("%H:%M")
+        self.news_note = None
+        if not (self.first <= tod <= LAST) or not self.news_fn:
+            return None
+        items = []
+        for it in self.news_fn() or []:
+            sc = newsscore.score(it["h"], it.get("sym"))
+            if sc["score"]:
+                items.append({**it, **sc})
+        p = newsscore.pressure(items, t)
+        recent = sorted((x for x in items if 0 <= (t - x["t"]).total_seconds() / 60 <= 30), key=lambda x: -abs(x["score"] * x["importance"]))
+        top = "; ".join(f"'{x['h'][:70]}' ({x['score']:+.1f}x{x['importance']}: {', '.join(x['good'] + x['bad'])})" for x in recent[:3])
+        if abs(p) < 4:
+            self.news_note = f"news pressure {p:+.1f} (needs +/-4)" + (f" from {top}" if top else ": no scored headlines")
+            return None
+        side = "C" if p > 0 else "P"
+        last = self.s.setdefault("news_last", {})
+        if side in last and (t - pd.Timestamp(last[side])).total_seconds() < 1800:
+            self.news_note = f"news pressure {p:+.1f}, but a {side} news signal fired in the last 30 minutes"
+            return None
+        ctx = context.market(b, self.prev)
+        g = context.gate(ctx, side)
+        if g:
+            self.news_note = f"news pressure {p:+.1f} from {top}; chart disagrees: {g}"
+            return None
+        last[side] = t.strftime("%Y-%m-%d %H:%M:%S")
+        self.news_note = f"news pressure {p:+.1f} from {top}; chart trend {ctx['trend']} agrees"
+        return side, "NEWS", float(b.close.iloc[-1]), abs(p)
 
     def _signal_five(self, b, want):
         """VWAP / 50 EMA crosses on 5-minute candles, judged when a 5-minute candle has just closed."""

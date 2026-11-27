@@ -184,3 +184,42 @@ Template:
 - **Tests.** Two new tests (long messages split under the limit with HTML tags balanced; short messages unchanged).
   All tests pass.
 - **Decision.** The owner asked for it to be fixed; the owner merges.
+
+## CC-012: news bot, daily-target versions, bot families on the page, ship map widget (27 Nov 2026)
+- **Request (owner, 27 Nov).**
+  - A news bot using a free word scorer.
+  - £30/£40/£50/£60 daily-target copies of every bot and twin.
+  - A neater page that collapses each bot with its versions inside.
+  - Try another ship map.
+  - Studies 16 (SPY) and 17 (meme coins).
+- **Change.**
+  - **News bot:** a NEW paper bot (`news`, `tracker/newsscore.py`, `tracker/newsfeed.py`, `PaperBot` mode
+    "news"); rules pre-registered in `research/NEWS_BOT_PROTOCOL.md`. No other bot's rules change: the new mode only
+    runs for this bot, and the existing tests still pass.
+  - **Daily targets:** 56 versions (7 options bots and their twins × 4 targets), worked out on the page from the real
+    bots' trades (exact, because a target version trades identically until it stops). No extra bots run. The
+    one-trade-a-day bots are excluded (a target cannot change them).
+  - **Page:**
+    - one collapsed row per bot, with its versions and full details on click;
+    - the chart and calendar pickers become grouped drop-downs;
+    - views Originals / twins / targets / everything.
+  - **Ship map:** MyShipTracking's free widget, with the VesselFinder button kept.
+- **Tests.**
+  - 4 new news-bot tests: the scorer; good news plus a bullish chart buys a call; bad news against the chart does not
+    trade; no headlines means no trade.
+  - All 35 bot tests and 19 copytrader tests pass.
+  - The page was rendered with simulated 27 Nov data: no errors, no sideways scroll on a phone.
+- **Decision.** Owner's request; the owner merges. The live bots running today are not touched (code changes only take
+  effect at the next recorder start after the merge).
+
+## CC-013: SPY one-a-day paper bot, Dogecoin dip-buy paper bot (27 Nov 2026)
+- **Evidence.** audit/STUDIES_15_17_REPORT.md: Study 16 passed; DOGE M3 "promising, not proven".
+- **Request.** The owner asked to try the SPY one-a-day bot ("number one… try that") and the DOGE dip-buy on paper
+  ("Yeah, I try the Dogecoin on paper"). No other coins.
+- **Change.**
+  - **`shares_spy`:** the existing SharesBot class with symbol "SPY", its own state folder and no Telegram. The bar
+    fetchers gained a symbol argument whose default is QQQ, so existing callers are unchanged.
+  - **`tracker/dogebot.py` + `.github/workflows/doge.yml`:** every 15 minutes, the ledger in doge.json on the
+    live-data branch (not on main), Telegram messages on buy and sell.
+- **Tests.** 3 DOGE ledger tests (target, stop, no double-processing); all 38 bot tests pass.
+- **Original bots.** Unchanged.
