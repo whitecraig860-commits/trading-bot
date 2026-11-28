@@ -318,20 +318,7 @@
 ]
 }
 ],
-"pending": [
-{
-"id": "0ILL.L|breakout|2026-11-06",
-"symbol": "0ILL.L",
-"exit_date": "2026-11-13",
-"entry": 68.30000305175781,
-"stop": 65.04829691104564,
-"exit": 65.04829691104564,
-"long": true,
-"reason": "stop",
-"r": -1.0410087179444778,
-"setup": "breakout"
-}
-],
+"pending": [],
 "paper_tables": {
 "daily|breakout": {
 "all": {
