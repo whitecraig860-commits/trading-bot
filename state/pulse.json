@@ -105,42 +105,42 @@
   "QQQ": {
    "record": {
     "trend": {
-     "trades": 50,
-     "win_rate": 0.32,
-     "avg_r": 0.009499040796684462,
-     "total_r": 0.47495203983422307,
+     "trades": 52,
+     "win_rate": 0.3269230769230769,
+     "avg_r": -0.03780938887369288,
+     "total_r": -1.9660882214320299,
      "sessions": 60
     },
     "orb": {
      "trades": 55,
      "win_rate": 0.34545454545454546,
-     "avg_r": -0.0727389424087559,
-     "total_r": -4.000641832481575,
+     "avg_r": -0.07661442260635662,
+     "total_r": -4.213793243349614,
      "sessions": 60
     },
     "fade": {
-     "trades": 2,
-     "win_rate": 0.5,
-     "avg_r": 0.27819012704108237,
-     "total_r": 0.5563802540821647,
+     "trades": 3,
+     "win_rate": 0.6666666666666666,
+     "avg_r": 0.20135717889284946,
+     "total_r": 0.6040715366785484,
      "sessions": 60
     },
     "vwap": {
-     "trades": 193,
-     "win_rate": 0.21243523316062177,
-     "avg_r": -0.07062013627303325,
-     "total_r": -13.629686300695418,
+     "trades": 169,
+     "win_rate": 0.2485207100591716,
+     "avg_r": -0.02091228681685119,
+     "total_r": -3.534176472047851,
      "sessions": 60
     },
     "late": {
      "trades": 49,
      "win_rate": 0.32653061224489793,
-     "avg_r": -0.2508296412931075,
-     "total_r": -12.290652423362266,
+     "avg_r": -0.23915049707216443,
+     "total_r": -11.718374356536057,
      "sessions": 60
     }
    },
-   "record_at": "2026-11-27T19:30:40.000377+00:00",
+   "record_at": "2026-11-27T23:45:40.000166+00:00",
    "last_bar": "2026-11-27 12:55:00-05:00",
    "brief_day": "2026-11-27",
    "stance": "up|None",
@@ -310,7 +310,7 @@
  "trades": [],
  "closed": [],
  "insiders_day": "2026-11-05",
- "summary_day": "2026-11-26",
+ "summary_day": "2026-11-27",
  "scalper_day": "2026-11-05",
  "trump_seen": [
   "https://www.trumpstruth.org/statuses/43372",
@@ -675,7 +675,9 @@
   "https://www.trumpstruth.org/statuses/43760",
   "https://www.trumpstruth.org/statuses/43759",
   "https://www.trumpstruth.org/statuses/43758",
-  "https://www.trumpstruth.org/statuses/43757"
+  "https://www.trumpstruth.org/statuses/43757",
+  "https://www.trumpstruth.org/statuses/43762",
+  "https://www.trumpstruth.org/statuses/43761"
  ],
  "trump_checks": [],
  "trump_seeded": true,
